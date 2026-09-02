@@ -5,9 +5,9 @@ import {MaterialIcons} from '@expo/vector-icons';
 import {useM3Colors} from '../theme/M3PaletteContext';
 
 const ProviderDrawer = ({onClose}: {onClose: () => void}) => {
-  const {provider, setProvider, installedProviders} = useContentStore(
-    state => state,
-  );
+  const provider = useContentStore(state => state.provider);
+  const setProvider = useContentStore(state => state.setProvider);
+  const installedProviders = useContentStore(state => state.installedProviders);
   const primary = useM3Colors().primary;
 
   return (

@@ -45,7 +45,7 @@ export const useHomePageData = ({
       return allData;
     },
     enabled: enabled && !!provider?.value,
-    staleTime: 0,
+    staleTime: 60 * 1000,
     gcTime: 60 * 60 * 1000,
     retry: (failureCount, error) => {
       if (error.name === 'AbortError') {
@@ -161,7 +161,7 @@ export const useHeroMetadata = (heroLink: string, providerValue: string) => {
       return info;
     },
     enabled: !!heroLink && !!providerValue,
-    staleTime: 0,
+    staleTime: 60 * 1000,
     gcTime: 60 * 60 * 1000,
     retry: 2,
     initialData: () => {

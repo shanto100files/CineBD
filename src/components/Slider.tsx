@@ -147,7 +147,6 @@ const Slider = ({
         <FlatList
           showsHorizontalScrollIndicator={false}
           data={posts}
-          extraData={isSelected}
           horizontal
           contentContainerStyle={{
             paddingBottom: 4,

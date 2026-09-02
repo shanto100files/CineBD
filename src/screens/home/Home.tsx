@@ -62,6 +62,10 @@ const Home = ({}: Props) => {
     setStatusBarScrimVisible(event.nativeEvent.contentOffset.y > 12);
   }, []);
 
+  const handleOpenDrawer = useCallback(() => setIsDrawerOpen(true), []);
+  const handleCloseDrawer = useCallback(() => setIsDrawerOpen(false), []);
+  const handleDrawerClose = useCallback(() => setIsDrawerOpen(false), []);
+
   // Stable hero post calculation - uses provider value for caching
   const heroPost = useMemo(() => {
     if (!homeData || homeData.length === 0) {
@@ -203,8 +207,8 @@ const Home = ({}: Props) => {
         <SafeAreaView className="flex-1 bg-m3-background">
           <Drawer
             open={isDrawerOpen}
-            onOpen={() => setIsDrawerOpen(true)}
-            onClose={() => setIsDrawerOpen(false)}
+            onOpen={handleOpenDrawer}
+            onClose={handleCloseDrawer}
             drawerPosition="left"
             drawerType="front"
             drawerStyle={{width: 200, backgroundColor: 'transparent'}}
@@ -212,7 +216,7 @@ const Home = ({}: Props) => {
             swipeEnabled={!disableDrawer}
             renderDrawerContent={() =>
               !disableDrawer ? (
-                <ProviderDrawer onClose={() => setIsDrawerOpen(false)} />
+                <ProviderDrawer onClose={handleDrawerClose} />
               ) : null
             }>
             <StatusBar style="light" />
@@ -233,7 +237,7 @@ const Home = ({}: Props) => {
               }>
               <HeroOptimized
                 isDrawerOpen={isDrawerOpen}
-                onOpenDrawer={() => setIsDrawerOpen(true)}
+                onOpenDrawer={handleOpenDrawer}
               />
 
               <ContinueWatching />

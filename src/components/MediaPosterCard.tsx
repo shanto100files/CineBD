@@ -161,4 +161,4 @@ const MediaPosterCard = ({
   );
 };
 
-export default MediaPosterCard;
+export default React.memo(MediaPosterCard);
