@@ -58,6 +58,8 @@ jobs:
         run: chmod +x android/gradlew
 
       - name: Build APK
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
         run: |
           cd android
           if [ -f app/release.keystore ] && [ -s app/release.keystore ]; then
@@ -68,10 +70,15 @@ jobs:
               -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
               -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
               -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}" \
-              --stacktrace
+              -Pandroid.abiFilters=arm64-v8a \
+              -Dorg.gradle.jvmargs="-Xmx4g -XX:+UseParallelGC" \
+              --no-daemon --stacktrace
           else
             echo "No valid keystore found, building debug APK..."
-            ./gradlew assembleDebug --stacktrace
+            ./gradlew assembleDebug \
+              -Pandroid.abiFilters=arm64-v8a \
+              -Dorg.gradle.jvmargs="-Xmx4g -XX:+UseParallelGC" \
+              --no-daemon --stacktrace
           fi
 
       - name: Identify APKs
@@ -90,28 +97,28 @@ jobs:
           APK_PATHS=""
 
           if [ -f "$UNIVERSAL_APK" ]; then
-            UNIVERSAL_APK_NAME="Vega-custom-v${VERSION}-universal-${BUILD_DATE}.apk"
+            UNIVERSAL_APK_NAME="CineBD-v${VERSION}-universal-${BUILD_DATE}.apk"
             cp "$UNIVERSAL_APK" "apks/${UNIVERSAL_APK_NAME}"
             echo "UNIVERSAL_APK_NAME=${UNIVERSAL_APK_NAME}" >> $GITHUB_ENV
             APK_PATHS="${APK_PATHS}apks/${UNIVERSAL_APK_NAME},"
           fi
 
           if [ -f "$ARMV7_APK" ]; then
-            ARMV7_APK_NAME="Vega-custom-v${VERSION}-armv7-${BUILD_DATE}.apk"
+            ARMV7_APK_NAME="CineBD-v${VERSION}-armv7-${BUILD_DATE}.apk"
             cp "$ARMV7_APK" "apks/${ARMV7_APK_NAME}"
             echo "ARMV7_APK_NAME=${ARMV7_APK_NAME}" >> $GITHUB_ENV
             APK_PATHS="${APK_PATHS}apks/${ARMV7_APK_NAME},"
           fi
 
           if [ -f "$ARMV8_APK" ]; then
-            ARMV8_APK_NAME="Vega-custom-v${VERSION}-armv8-${BUILD_DATE}.apk"
+            ARMV8_APK_NAME="CineBD-v${VERSION}-armv8-${BUILD_DATE}.apk"
             cp "$ARMV8_APK" "apks/${ARMV8_APK_NAME}"
             echo "ARMV8_APK_NAME=${ARMV8_APK_NAME}" >> $GITHUB_ENV
             APK_PATHS="${APK_PATHS}apks/${ARMV8_APK_NAME},"
           fi
 
           if [ -f "$DEBUG_APK" ]; then
-            DEBUG_APK_NAME="Vega-custom-v${VERSION}-debug-${BUILD_DATE}.apk"
+            DEBUG_APK_NAME="CineBD-v${VERSION}-debug-${BUILD_DATE}.apk"
             cp "$DEBUG_APK" "apks/${DEBUG_APK_NAME}"
             echo "DEBUG_APK_NAME=${DEBUG_APK_NAME}" >> $GITHUB_ENV
             APK_PATHS="${APK_PATHS}apks/${DEBUG_APK_NAME},"
@@ -146,6 +153,6 @@ jobs:
       - name: Upload APKs as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Vega-Custom-v${{ env.APP_VERSION }}-${{ env.BUILD_DATE }}
+          name: CineBD-v${{ env.APP_VERSION }}-${{ env.BUILD_DATE }}
           path: apks/*.apk
           if-no-files-found: warn
