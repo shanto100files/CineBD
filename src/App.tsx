@@ -27,7 +27,7 @@ import {enableFreeze, enableScreens} from 'react-native-screens';
 import Preferences from './screens/settings/Preference';
 import Appearance from './screens/settings/Appearance';
 import {M3ThemeProvider} from './theme/M3ThemeProvider';
-import {AppState, LogBox, useWindowDimensions, View} from 'react-native';
+import {AppState, LogBox, useWindowDimensions, View, ActivityIndicator} from 'react-native';
 import {EpisodeLink} from './lib/providers/types';
 import {
   SafeAreaProvider,
@@ -66,6 +66,8 @@ import {
   getCrashlytics,
   isFirebaseNativeReady,
 } from './lib/utils/firebaseSafe';
+import {useAuthStore} from './lib/zustand/authStore';
+import LoginScreen from './screens/LoginScreen';
 
 enableScreens(true);
 enableFreeze(true);
@@ -176,6 +178,8 @@ export const openDownloadsScreen = (): void => {
 const App = () => {
   const {width: windowWidth, height: windowHeight} = useWindowDimensions();
   const isLargeScreen = Math.min(windowWidth, windowHeight) >= 600;
+  const {isLoading, isLoggedIn} = useAuthStore();
+  const loadToken = useAuthStore(s => s.loadToken);
   LogBox.ignoreLogs([
     'You have passed a style to FlashList',
     'new NativeEventEmitter()',
@@ -324,6 +328,31 @@ const App = () => {
       console.warn('[DoH] Failed to sync settings:', e),
     );
   }, []);
+
+  useEffect(() => {
+    loadToken();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000'}}>
+        <ActivityIndicator size="large" color="#8b5cf6" />
+      </View>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <SafeAreaProvider>
+        <SystemBars style="light" />
+        <M3ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <LoginScreen />
+          </QueryClientProvider>
+        </M3ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
 
   // Initialize shared folder sync
   useEffect(() => {

@@ -1,10 +1,11 @@
-import {useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {getHomePageData, HomePageData} from '../getHomepagedata';
 import {Content} from '../zustand/contentStore';
 import {cacheStorage} from '../storage';
 import useContentStore from '../zustand/contentStore';
 import axios from 'axios';
+import {useAuthStore} from '../zustand/authStore';
 
 async function syncToServer(providerValue: string, sections: HomePageData[]) {
   try {
@@ -28,18 +29,42 @@ interface UseHomePageDataOptions {
   enabled?: boolean;
 }
 
+async function fetchMyProviders(token: string): Promise<string[] | null> {
+  try {
+    const res = await axios.get('https://cinepix.top/api/app/myproviders', {
+      headers: {Authorization: `Bearer ${token}`},
+      timeout: 8000,
+    });
+    if (res.data.all) return null;
+    return (res.data.providers || []).map((p: any) => p.value);
+  } catch {
+    return null;
+  }
+}
+
 export const useHomePageData = ({
   provider,
   enabled = true,
 }: UseHomePageDataOptions) => {
   const installedProviders = useContentStore(state => state.installedProviders);
+  const token = useAuthStore(s => s.token);
+  const [allowedProviders, setAllowedProviders] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (!token) { setAllowedProviders(null); return; }
+    fetchMyProviders(token).then(setAllowedProviders);
+  }, [token]);
+
+  const providersToFetch = React.useMemo(() => {
+    if (!installedProviders || installedProviders.length === 0) return [provider];
+    if (allowedProviders === null) return installedProviders;
+    return installedProviders.filter(p => allowedProviders.includes(p.value));
+  }, [installedProviders, allowedProviders, provider]);
 
   const query = useQuery<HomePageData[], Error>({
-    queryKey: ['homePageData', 'aggregate', installedProviders.map(p => p.value).sort().join(',')],
+    queryKey: ['homePageData', 'aggregate', providersToFetch.map(p => p.value).sort().join(','), token || 'anon'],
     queryFn: async ({signal}) => {
       const allData: HomePageData[] = [];
-
-      const providersToFetch = installedProviders.length > 0 ? installedProviders : [provider];
 
       const fetches = providersToFetch.map(async prov => {
         try {
