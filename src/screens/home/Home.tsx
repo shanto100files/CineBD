@@ -52,10 +52,9 @@ const Home = ({}: Props) => {
     error,
     refetch,
     isRefetching,
-    // isStale,
   } = useHomePageData({
     provider,
-    enabled: !!(installedProviders?.length && provider?.value),
+    enabled: !!provider?.value,
   });
 
   // Memoized scroll handler
@@ -184,6 +183,7 @@ const Home = ({}: Props) => {
   }, [error, isLoading, homeData.length]);
 
   // Early return for no providers
+  // Early return for no providers
   if (
     !installedProviders ||
     installedProviders.length === 0 ||
@@ -191,7 +191,7 @@ const Home = ({}: Props) => {
   ) {
     return (
       <SafeAreaView style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center'}}>
-        <AppText style={{color: '#fff', fontSize: 16}}>Setting up providers...</AppText>
+        <AppText style={{color: '#888', fontSize: 14}}>Loading content...</AppText>
       </SafeAreaView>
     );
   }

@@ -404,12 +404,8 @@ export class ExtensionManager {
 
       const source = this.getActiveSource();
       const installed = extensionStorage.getInstalledProviders();
-      const available = source
-        ? extensionStorage.getAvailableProviders(source.author)
-        : [];
 
       console.log(`Loaded ${installed.length} installed providers`);
-      console.log(`Loaded ${available.length} available providers`);
 
       if (!source) {
         console.log('No provider source configured yet');
@@ -424,16 +420,24 @@ export class ExtensionManager {
         }
       }
 
-      const freshAvailable = source
-        ? extensionStorage.getAvailableProviders(source.author)
-        : [];
+      this.autoInstallNewProviders();
+    } catch (error) {
+      console.error('Failed to initialize extension system:', error);
+    }
+  }
+
+  private async autoInstallNewProviders(): Promise<void> {
+    try {
+      const source = this.getActiveSource();
+      if (!source) return;
+
+      const installed = extensionStorage.getInstalledProviders();
+      const available = extensionStorage.getAvailableProviders(source.author);
       const installedValues = new Set(installed.map(p => p.value));
-      const notInstalled = freshAvailable.filter(
-        p => !installedValues.has(p.value),
-      );
+      const notInstalled = available.filter(p => !installedValues.has(p.value));
 
       if (notInstalled.length > 0) {
-        console.log(`Auto-installing ${notInstalled.length} new providers...`);
+        console.log(`Background auto-installing ${notInstalled.length} providers...`);
         for (const provider of notInstalled) {
           try {
             await this.installProvider(provider);
@@ -444,7 +448,7 @@ export class ExtensionManager {
         }
       }
     } catch (error) {
-      console.error('Failed to initialize extension system:', error);
+      console.warn('Auto-install failed:', error);
     }
   }
 

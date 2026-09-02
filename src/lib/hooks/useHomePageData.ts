@@ -3,6 +3,7 @@ import {useQuery} from '@tanstack/react-query';
 import {getHomePageData, HomePageData} from '../getHomepagedata';
 import {Content} from '../zustand/contentStore';
 import {cacheStorage} from '../storage';
+import useContentStore from '../zustand/contentStore';
 
 interface UseHomePageDataOptions {
   provider: Content['provider'];
@@ -13,27 +14,48 @@ export const useHomePageData = ({
   provider,
   enabled = true,
 }: UseHomePageDataOptions) => {
-  const cacheKey = 'homeData' + (provider?.value || '');
+  const installedProviders = useContentStore(state => state.installedProviders);
+
   const query = useQuery<HomePageData[], Error>({
-    queryKey: ['homePageData', provider.value],
+    queryKey: ['homePageData', 'aggregate', installedProviders.map(p => p.value).sort().join(',')],
     queryFn: async ({signal}) => {
-      // Fetch fresh data from provider
-      const data = await getHomePageData(provider, signal);
-      return data;
+      const allData: HomePageData[] = [];
+
+      const providersToFetch = installedProviders.length > 0 ? installedProviders : [provider];
+
+      const fetches = providersToFetch.map(async prov => {
+        try {
+          const data = await getHomePageData(prov, signal);
+          return data.map(section => ({
+            ...section,
+            title: `${prov.display_name} — ${section.title}`,
+          }));
+        } catch {
+          return [];
+        }
+      });
+
+      const results = await Promise.allSettled(fetches);
+      results.forEach(result => {
+        if (result.status === 'fulfilled' && result.value.length > 0) {
+          allData.push(...result.value);
+        }
+      });
+
+      return allData;
     },
     enabled: enabled && !!provider?.value,
-    staleTime: 0, // Mark stale immediately so it revalidates in the background
-    gcTime: 60 * 60 * 1000, // 1 hour
+    staleTime: 0,
+    gcTime: 60 * 60 * 1000,
     retry: (failureCount, error) => {
       if (error.name === 'AbortError') {
         return false;
       }
-      return failureCount < 3;
+      return failureCount < 2;
     },
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
-    // Add initial data from cache for instant loading without loading screen
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 15000),
     initialData: () => {
-      const cache = cacheStorage.getString(cacheKey);
+      const cache = cacheStorage.getString('homeDataAggregate');
       if (cache) {
         try {
           return JSON.parse(cache);
@@ -50,21 +72,19 @@ export const useHomePageData = ({
   });
 
   useEffect(() => {
-    if (query.data && query.data.length > 0 && provider?.value) {
-      cacheStorage.setString(cacheKey, JSON.stringify(query.data));
+    if (query.data && query.data.length > 0) {
+      cacheStorage.setString('homeDataAggregate', JSON.stringify(query.data));
     }
-  }, [cacheKey, provider?.value, query.data]);
+  }, [query.data]);
 
   return query;
 };
 
-// Store hero selection per provider to prevent re-randomization on tab switch
 const heroSelectionCache = new Map<
   string,
   {postIndex: number; categoryIndex: number}
 >();
 
-// Memoized hero selection with stable reference - uses cached index to prevent re-randomization
 export const getRandomHeroPost = (
   homeData: HomePageData[],
   providerValue?: string,
@@ -83,7 +103,6 @@ export const getRandomHeroPost = (
   const cacheKey = providerValue || 'default';
   const cached = heroSelectionCache.get(cacheKey);
 
-  // If we have a cached index and it's still valid for this data, use it
   const cachedCategory = cached ? homeData[cached.categoryIndex] : undefined;
   if (
     cached &&
@@ -93,7 +112,6 @@ export const getRandomHeroPost = (
     return cachedCategory.Posts[cached.postIndex];
   }
 
-  // Otherwise, choose a random populated catalog and a random post within it.
   const randomCategory =
     populatedCategories[Math.floor(Math.random() * populatedCategories.length)];
   const randomPostIndex = Math.floor(
@@ -107,7 +125,6 @@ export const getRandomHeroPost = (
   return randomCategory.category.Posts[randomPostIndex];
 };
 
-// Function to clear hero cache when explicitly refreshing
 export const clearHeroCache = (providerValue?: string) => {
   if (providerValue) {
     heroSelectionCache.delete(providerValue);
@@ -116,7 +133,6 @@ export const clearHeroCache = (providerValue?: string) => {
   }
 };
 
-// Hook for hero metadata with React Query, instant cache load & background revalidation
 export const useHeroMetadata = (heroLink: string, providerValue: string) => {
   const cacheKey = `heroMeta:${providerValue}:${heroLink}`;
   const query = useQuery({
@@ -130,7 +146,6 @@ export const useHeroMetadata = (heroLink: string, providerValue: string) => {
         provider: providerValue,
       });
 
-      // Only enrich providers that explicitly opt in to Cinemeta metadata.
       if (info.populateMeta === true && info.imdbId && info.type) {
         try {
           const response = await axios.get(
@@ -139,17 +154,16 @@ export const useHeroMetadata = (heroLink: string, providerValue: string) => {
           );
           return response.data?.meta || info;
         } catch {
-          return info; // Fallback to original info if Stremio fails
+          return info;
         }
       }
 
       return info;
     },
     enabled: !!heroLink && !!providerValue,
-    staleTime: 0, // Instantly revalidate in background
-    gcTime: 60 * 60 * 1000, // 1 hour
+    staleTime: 0,
+    gcTime: 60 * 60 * 1000,
     retry: 2,
-    // Use cached data as initial data
     initialData: () => {
       const cached =
         cacheStorage.getString(cacheKey) || cacheStorage.getString(heroLink);
