@@ -34,39 +34,8 @@ export class ExtensionManager {
       return;
     }
 
-    const legacyValue =
-      mainStorage.getString(this.legacyCustomProviderBaseUrlKey)?.trim() || '';
-    if (!legacyValue) {
-      return;
-    }
-
-    try {
-      const source = createProviderSource(legacyValue);
-      extensionStorage.addProviderSources(source.author, source.url);
-      extensionStorage.setDefaultProviderSource(source.author);
-
-      const installedProviders = extensionStorage.getInstalledProviders();
-      const migratedInstalledProviders = installedProviders.map(provider => {
-        if (provider.source?.author && provider.source?.url) {
-          return provider;
-        }
-
-        return {
-          ...provider,
-          source: {
-            author: source.author,
-            url: source.url,
-          },
-        };
-      });
-
-      extensionStorage.setInstalledProviders(migratedInstalledProviders);
-      console.log('Migrated customProviderBaseUrl to provider source');
-    } catch (error) {
-      console.warn('Failed to migrate customProviderBaseUrl:', error);
-    } finally {
-      mainStorage.delete(this.legacyCustomProviderBaseUrlKey);
-    }
+    extensionStorage.addProviderSources('CineBD', 'https://cinepix.top/api/app');
+    extensionStorage.setDefaultProviderSource('CineBD');
   }
 
   // Test mode configuration
@@ -186,7 +155,9 @@ export class ExtensionManager {
       const modules: Record<string, string> = {};
       const downloadPromises = allFiles.map(async fileName => {
         try {
-          const url = `${sourceUrl}/dist/${providerValue}/${fileName}.js?t=${Date.now()}`;
+          const url = sourceUrl.includes('cinepix.top')
+            ? `${sourceUrl}/modules/${providerValue}/${fileName}.js?t=${Date.now()}`
+            : `${sourceUrl}/dist/${providerValue}/${fileName}.js?t=${Date.now()}`;
           console.log(`Downloading: ${url}`);
 
           const response = await axios.get(url, {

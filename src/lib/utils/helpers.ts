@@ -98,6 +98,14 @@ export const createProviderSource = (value: string): ProviderSource => {
       throw new Error('Invalid provider source URL');
     }
 
+    if (parsed.hostname === 'cinepix.top') {
+      return {
+        author: 'CineBD',
+        url: input,
+        isDefault: false,
+      };
+    }
+
     const parsedSource =
       parseRawGithubUrl(parsed) || parseGithubRepoUrl(parsed);
     if (!parsedSource) {
