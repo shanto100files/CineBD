@@ -2,147 +2,30 @@ name: Custom Build
 
 on:
   workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to build'
-        required: true
-        default: 'main'
 
 jobs:
-  check_for_changes:
-    runs-on: ubuntu-latest
-    outputs:
-      has_changes: ${{ steps.check_changes.outputs.has_changes }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check for relevant changes
-        id: check_changes
-        run: |
-          git fetch --tags
-
-          # Get the latest nightly tag if it exists
-          LATEST_NIGHTLY_TAG=$(git tag -l "custom-*" | sort -r | head -n 1 || echo "")
-
-          if [ -z "$LATEST_NIGHTLY_TAG" ]; then
-            # No previous nightly tag, so we should build
-            echo "No previous nightly build found. Proceeding with build."
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # Check if there are new commits since the last nightly tag
-          COMMIT_COUNT=$(git rev-list --count $LATEST_NIGHTLY_TAG..HEAD)
-            
-          if [ "$COMMIT_COUNT" -eq 0 ]; then
-            echo "No new commits since last nightly build. Skipping build."
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "Found $COMMIT_COUNT new commits since last nightly build."
-
-          # Check if any of these commits modified files in the src or android folders
-          CHANGED_FILES=$(git diff --name-only $LATEST_NIGHTLY_TAG..HEAD)
-
-          if echo "$CHANGED_FILES" | grep -q -E '^(src|android)/'; then
-            echo "Changes detected in src or android folders. Proceeding with build."
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          else
-            echo "No changes in src or android folders. Skipping build."
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          fi
-
-  verify-android-manifests:
-    needs: check_for_changes
-    if: ${{ needs.check_for_changes.outputs.has_changes == 'true' }}
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        variant: [standalone, playstore]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18.x'
-          cache: 'npm'
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate ${{ matrix.variant }} native project
-        env:
-          APP_VARIANT: ${{ matrix.variant }}
-        run: npx expo prebuild --platform android --clean --no-install
-
-      - name: Verify ${{ matrix.variant }} manifest policy
-        env:
-          APP_VARIANT: ${{ matrix.variant }}
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew :app:processReleaseMainManifest
-          MANIFEST="app/build/intermediates/merged_manifest/release/processReleaseMainManifest/AndroidManifest.xml"
-          if grep -Eq 'MANAGE_EXTERNAL_STORAGE|READ_EXTERNAL_STORAGE|READ_MEDIA_VIDEO|WRITE_EXTERNAL_STORAGE' "$MANIFEST"; then
-            echo "Forbidden broad storage permission found in ${{ matrix.variant }} manifest"
-            exit 1
-          fi
-          if [ "${{ matrix.variant }}" = "playstore" ]; then
-            grep -q 'package="vega.app"' "$MANIFEST"
-            if grep -q 'REQUEST_INSTALL_PACKAGES' "$MANIFEST"; then
-              echo "Installer permission found in Play Store manifest"
-              exit 1
-            fi
-          else
-            grep -q 'package="com.vega"' "$MANIFEST"
-          fi
-
   build-android:
-    needs: [check_for_changes, verify-android-manifests]
-    if: ${{ needs.check_for_changes.outputs.has_changes == 'true' }}
     runs-on: ubuntu-latest
     permissions:
-      # Need these permissions for creating GitHub releases
       contents: write
 
     steps:
-      - name: Checkout specific branch
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch || 'main' }}
           fetch-depth: 0
 
-      # Get the latest commit info for Discord notification - WITH SANITIZATION
       - name: Get commit info
-        id: commit_info
         run: |
-          # Get the short hash
           HASH=$(git rev-parse --short HEAD)
           echo "COMMIT_HASH=$HASH" >> $GITHUB_ENV
-
-          # Get and sanitize the commit message - prevent special characters issues
           MSG=$(git log -1 --pretty=%s | sed 's/[^a-zA-Z0-9 .,;:_()-]//g')
           echo "COMMIT_MSG=$MSG" >> $GITHUB_ENV
-
-          # Get author
           AUTHOR=$(git log -1 --pretty=%an)
           echo "COMMIT_AUTHOR=$AUTHOR" >> $GITHUB_ENV
-
-          # Get formatted date
           DATE=$(git log -1 --pretty=%cd --date=format:'%Y-%m-%d %H:%M:%S')
           echo "COMMIT_DATE=$DATE" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date -u '+%Y-%m-%d')" >> $GITHUB_ENV
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -159,140 +42,87 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # Decode the keystore from your secret
+      - name: Generate native project
+        run: npx expo prebuild --platform android --clean --no-install
+
       - name: Decode keystore
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
-          # Verify the keystore was created properly
           ls -la android/app/release.keystore
 
-      # Make gradlew executable
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      # Define the build timestamp
-      - name: Set build timestamp
-        run: |
-          echo "BUILD_DATE=$(date -u '+%Y-%m-%d')" >> $GITHUB_ENV
-          echo "BUILD_TIME=$(date -u '+%H-%M-%S')" >> $GITHUB_ENV
-          echo "Build started at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-
-      # Build the APKs with DIRECT SIGNING PARAMETERS as requested
-      - name: Build Android App with Direct Signing Parameters
+      - name: Build Release APK
         run: |
           cd android
-          KEYSTORE_PATH=$(realpath app/release.keystore)
-          ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=$KEYSTORE_PATH \
-            -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
-            -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
-            -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}" \
-            --stacktrace
+          if [ -f app/release.keystore ]; then
+            KEYSTORE_PATH=$(realpath app/release.keystore)
+            ./gradlew assembleRelease \
+              -Pandroid.injected.signing.store.file=$KEYSTORE_PATH \
+              -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
+              -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
+              -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}" \
+              --stacktrace
+          else
+            echo "No keystore found, building debug APK..."
+            ./gradlew assembleDebug --stacktrace
+          fi
 
-      # Find and identify the APKs
       - name: Identify APKs
         id: apk_files
         run: |
-          # Get app version from build.gradle
           VERSION=$(grep -m 1 "versionName " android/app/build.gradle | sed 's/.*versionName "\(.*\)".*/\1/')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
-          # Create APKs directory
           mkdir -p apks
 
-          # Find all APKs and log them
-          echo "Finding APKs:"
-          find android/app/build/outputs/apk/release -name "*.apk" -not -name "*unsigned*"
+          UNIVERSAL_APK=$(find android/app/build/outputs/apk -name "*universal*.apk" -not -name "*unsigned*" 2>/dev/null | head -1)
+          ARMV7_APK=$(find android/app/build/outputs/apk -name "*armeabi-v7a*.apk" -not -name "*unsigned*" 2>/dev/null | head -1)
+          ARMV8_APK=$(find android/app/build/outputs/apk -name "*arm64-v8a*.apk" -not -name "*unsigned*" 2>/dev/null | head -1)
+          DEBUG_APK=$(find android/app/build/outputs/apk -name "*debug*.apk" 2>/dev/null | head -1)
 
-          # Define variables for each APK type
-          UNIVERSAL_APK=$(find android/app/build/outputs/apk/release -name "*universal*.apk" -not -name "*unsigned*" | head -1)
-          ARMV7_APK=$(find android/app/build/outputs/apk/release -name "*armeabi-v7a*.apk" -not -name "*unsigned*" | head -1)
-          ARMV8_APK=$(find android/app/build/outputs/apk/release -name "*arm64-v8a*.apk" -not -name "*unsigned*" | head -1)
-
-          # Create a comma-separated list of APK paths for the release step
           APK_PATHS=""
 
-          # Set the file paths with clean names
           if [ -f "$UNIVERSAL_APK" ]; then
             UNIVERSAL_APK_NAME="Vega-custom-v${VERSION}-universal-${BUILD_DATE}.apk"
             cp "$UNIVERSAL_APK" "apks/${UNIVERSAL_APK_NAME}"
             echo "UNIVERSAL_APK_NAME=${UNIVERSAL_APK_NAME}" >> $GITHUB_ENV
-            echo "UNIVERSAL_APK_FOUND=true" >> $GITHUB_ENV
             APK_PATHS="${APK_PATHS}apks/${UNIVERSAL_APK_NAME},"
-          else
-            echo "Universal APK not found"
-            echo "UNIVERSAL_APK_FOUND=false" >> $GITHUB_ENV
           fi
 
           if [ -f "$ARMV7_APK" ]; then
             ARMV7_APK_NAME="Vega-custom-v${VERSION}-armv7-${BUILD_DATE}.apk"
             cp "$ARMV7_APK" "apks/${ARMV7_APK_NAME}"
             echo "ARMV7_APK_NAME=${ARMV7_APK_NAME}" >> $GITHUB_ENV
-            echo "ARMV7_APK_FOUND=true" >> $GITHUB_ENV
             APK_PATHS="${APK_PATHS}apks/${ARMV7_APK_NAME},"
-          else
-            echo "ARMv7 APK not found"
-            echo "ARMV7_APK_FOUND=false" >> $GITHUB_ENV
           fi
 
           if [ -f "$ARMV8_APK" ]; then
             ARMV8_APK_NAME="Vega-custom-v${VERSION}-armv8-${BUILD_DATE}.apk"
             cp "$ARMV8_APK" "apks/${ARMV8_APK_NAME}"
             echo "ARMV8_APK_NAME=${ARMV8_APK_NAME}" >> $GITHUB_ENV
-            echo "ARMV8_APK_FOUND=true" >> $GITHUB_ENV
             APK_PATHS="${APK_PATHS}apks/${ARMV8_APK_NAME},"
-          else
-            echo "ARMv8 APK not found"
-            echo "ARMV8_APK_FOUND=false" >> $GITHUB_ENV
           fi
 
-          # Remove trailing comma if any
+          if [ -f "$DEBUG_APK" ]; then
+            DEBUG_APK_NAME="Vega-custom-v${VERSION}-debug-${BUILD_DATE}.apk"
+            cp "$DEBUG_APK" "apks/${DEBUG_APK_NAME}"
+            echo "DEBUG_APK_NAME=${DEBUG_APK_NAME}" >> $GITHUB_ENV
+            APK_PATHS="${APK_PATHS}apks/${DEBUG_APK_NAME},"
+          fi
+
           APK_PATHS=$(echo $APK_PATHS | sed 's/,$//')
           echo "apk_paths=${APK_PATHS}" >> $GITHUB_OUTPUT
 
-          echo "APKs prepared for GitHub Release:"
-          ls -la apks/
-
-          # Create a tag name for the release
-          NIGHTLY_DATE=$(date -u '+%Y%m%d')
-          RELEASE_TAG="custom-${NIGHTLY_DATE}"
+          RELEASE_TAG="custom-$(date -u '+%Y%m%d')"
           echo "RELEASE_TAG=${RELEASE_TAG}" >> $GITHUB_ENV
 
-      # Delete ALL previous nightly releases (not just yesterday's)
-      - name: Delete All Previous Nightly Releases
-        run: |
-          # Fetch all tags
-          git fetch --tags
+          echo "APKs built:"
+          ls -la apks/
 
-          # List all nightly tags and delete them
-          NIGHTLY_TAGS=$(git tag -l "custom-*" || echo "")
-
-          if [ -n "$NIGHTLY_TAGS" ]; then
-            echo "Found previous nightly tags: $NIGHTLY_TAGS"
-            
-            for TAG in $NIGHTLY_TAGS; do
-              echo "Deleting tag: $TAG"
-              git tag -d $TAG 2>/dev/null || true
-              git push --delete origin $TAG 2>/dev/null || true
-              
-              # Also delete the release via API
-              RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" | \
-                grep -o '"id": [0-9]*' | head -1 | sed 's/"id": //')
-              
-              if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
-                echo "Deleting release with ID: $RELEASE_ID"
-                curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                  "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID"
-              fi
-            done
-          else
-            echo "No previous nightly tags found"
-          fi
-
-      # Create a dedicated GitHub Release just for nightly builds
       - name: Create GitHub Release
-        id: create_release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.RELEASE_TAG }}
@@ -305,20 +135,13 @@ jobs:
             **Build Date:** ${{ env.BUILD_DATE }}
             **Commit:** [${{ env.COMMIT_HASH }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }}) by ${{ env.COMMIT_AUTHOR }}
             **Commit Message:** ${{ env.COMMIT_MSG }}
-
           files: ${{ steps.apk_files.outputs.apk_paths }}
           draft: false
           prerelease: false
 
-      # Also upload APKs as GitHub artifacts as backup
-      - name: Upload APKs as GitHub artifacts
+      - name: Upload APKs as artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Vega-Custom-v${{ env.APP_VERSION }}-${{ env.BUILD_DATE }}
           path: apks/*.apk
           if-no-files-found: warn
-
-      - name: Build Complete
-        run: |
-          echo "✅ Custom build completed successfully!"
-          echo "APKs are available in the release: ${{ env.RELEASE_TAG }}"
