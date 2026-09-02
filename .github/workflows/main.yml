@@ -46,10 +46,9 @@ jobs:
         run: npx expo prebuild --platform android --clean --no-install
 
       - name: Decode keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
-          ls -la android/app/release.keystore
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore 2>/dev/null || true
+          ls -la android/app/release.keystore 2>/dev/null || echo "No keystore to decode"
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
@@ -58,6 +57,7 @@ jobs:
         run: |
           cd android
           if [ -f app/release.keystore ]; then
+            echo "Building signed release APK..."
             KEYSTORE_PATH=$(realpath app/release.keystore)
             ./gradlew assembleRelease \
               -Pandroid.injected.signing.store.file=$KEYSTORE_PATH \
