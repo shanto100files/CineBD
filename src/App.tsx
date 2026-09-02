@@ -37,6 +37,7 @@ import Downloads from './screens/downloads/Downloads';
 import DownloadedDetails from './screens/downloads/DownloadedDetails';
 import SubtitlePreference from './screens/settings/SubtitleSettings';
 import Extensions from './screens/settings/Extensions';
+import ProviderSelect from './screens/settings/ProviderSelect';
 import Constants from 'expo-constants';
 import {settingsStorage} from './lib/storage';
 import {updateProvidersService} from './lib/services/UpdateProviders';
@@ -141,6 +142,7 @@ export type SettingsStackParamList = {
   SubTitlesPreferences: undefined;
   Extensions: undefined;
   DownloadsStack: undefined;
+  ProviderSelect: undefined;
 };
 
 export type DownloadsStackParamList = {
@@ -483,6 +485,11 @@ const App = () => {
         <SettingsStack.Screen
           name="SubTitlesPreferences"
           component={SubtitlePreference}
+          options={subpageOptions}
+        />
+        <SettingsStack.Screen
+          name="ProviderSelect"
+          component={ProviderSelect}
           options={subpageOptions}
         />
       </SettingsStack.Navigator>

@@ -234,6 +234,12 @@ const Settings = ({navigation}: Props) => {
           </View>
           <SettingsSection title="Provider tools">
             <SettingsRow
+              title="Select Home Providers"
+              description="Choose which providers appear on your home page"
+              icon="view-grid-outline"
+              onPress={() => navigation.navigate('ProviderSelect')}
+            />
+            <SettingsRow
               title="Provider Manager"
               description="Install, update, and test provider extensions"
               icon="puzzle-outline"
