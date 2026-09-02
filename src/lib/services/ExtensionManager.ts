@@ -402,7 +402,6 @@ export class ExtensionManager {
     try {
       this.migrateLegacyCustomProviderSource();
 
-      // Load providers from cache
       const source = this.getActiveSource();
       const installed = extensionStorage.getInstalledProviders();
       const available = source
@@ -417,12 +416,31 @@ export class ExtensionManager {
         return;
       }
 
-      // Try to fetch latest manifest if cache is expired
       if (extensionStorage.isManifestCacheExpired(source.author)) {
         try {
           await this.fetchManifest(source, false);
         } catch (error) {
           console.warn('Failed to refresh manifest on startup:', error);
+        }
+      }
+
+      const freshAvailable = source
+        ? extensionStorage.getAvailableProviders(source.author)
+        : [];
+      const installedValues = new Set(installed.map(p => p.value));
+      const notInstalled = freshAvailable.filter(
+        p => !installedValues.has(p.value),
+      );
+
+      if (notInstalled.length > 0) {
+        console.log(`Auto-installing ${notInstalled.length} new providers...`);
+        for (const provider of notInstalled) {
+          try {
+            await this.installProvider(provider);
+            console.log(`Auto-installed: ${provider.display_name}`);
+          } catch (error) {
+            console.warn(`Failed to auto-install ${provider.value}:`, error);
+          }
         }
       }
     } catch (error) {

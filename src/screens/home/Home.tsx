@@ -189,7 +189,11 @@ const Home = ({}: Props) => {
     installedProviders.length === 0 ||
     !provider?.value
   ) {
-    return <Tutorial />;
+    return (
+      <SafeAreaView style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center'}}>
+        <AppText style={{color: '#fff', fontSize: 16}}>Setting up providers...</AppText>
+      </SafeAreaView>
+    );
   }
 
   return (
