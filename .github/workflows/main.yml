@@ -47,16 +47,20 @@ jobs:
 
       - name: Decode keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore 2>/dev/null || true
-          ls -la android/app/release.keystore 2>/dev/null || echo "No keystore to decode"
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
+            echo "Keystore decoded successfully"
+          else
+            echo "No KEYSTORE_BASE64 secret found, will build debug APK"
+          fi
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      - name: Build Release APK
+      - name: Build APK
         run: |
           cd android
-          if [ -f app/release.keystore ]; then
+          if [ -f app/release.keystore ] && [ -s app/release.keystore ]; then
             echo "Building signed release APK..."
             KEYSTORE_PATH=$(realpath app/release.keystore)
             ./gradlew assembleRelease \
@@ -66,7 +70,7 @@ jobs:
               -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}" \
               --stacktrace
           else
-            echo "No keystore found, building debug APK..."
+            echo "No valid keystore found, building debug APK..."
             ./gradlew assembleDebug --stacktrace
           fi
 
