@@ -956,18 +956,52 @@ const SeasonList: React.FC<SeasonListProps> = ({
 
   return (
     <View>
-      {/* Season Selector */}
-      <DropdownField
-        options={LinkList}
-        value={activeSeason}
-        getKey={item =>
-          item.episodesLink || item.directLinks?.[0]?.link || item.title
-        }
-        getLabel={item => item.title || 'Unknown'}
-        onChange={handleSeasonChange}
-        showFullOptionLabels
-        style={{marginBottom: 8}}
-      />
+      {/* Season Tabs */}
+      {LinkList.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{gap: 8, paddingHorizontal: 4, marginBottom: 12}}>
+          {LinkList.map((item, index) => {
+            const key = item.episodesLink || item.directLinks?.[0]?.link || item.title;
+            const isActive = activeSeason?.title === item.title;
+            return (
+              <TouchableOpacity
+                key={key || index}
+                onPress={() => handleSeasonChange(item)}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  backgroundColor: isActive ? colors.primary : colors.surfaceContainerHigh,
+                  borderWidth: 1,
+                  borderColor: isActive ? colors.primary : colors.outlineVariant,
+                }}>
+                <Text
+                  style={{
+                    color: isActive ? colors.onPrimary : colors.onSurface,
+                    fontSize: 13,
+                    fontWeight: isActive ? '700' : '500',
+                  }}>
+                  {item.title || `Season ${index + 1}`}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      ) : (
+        <DropdownField
+          options={LinkList}
+          value={activeSeason}
+          getKey={item =>
+            item.episodesLink || item.directLinks?.[0]?.link || item.title
+          }
+          getLabel={item => item.title || 'Unknown'}
+          onChange={handleSeasonChange}
+          showFullOptionLabels
+          style={{marginBottom: 8}}
+        />
+      )}
 
       {/* Search and Sort Controls */}
       {(episodeList.length > 2 ||

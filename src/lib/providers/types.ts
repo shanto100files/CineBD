@@ -15,6 +15,11 @@ export interface Post {
   link: string;
   image: string;
   provider?: string;
+  type?: string;
+  seasonCount?: number;
+  episodeCount?: number;
+  totalSeasons?: number;
+  quality?: string;
 }
 
 export declare enum TextTrackType {

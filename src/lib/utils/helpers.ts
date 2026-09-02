@@ -1,4 +1,5 @@
 import {ProviderSource} from '../storage/extensionStorage';
+import {Post} from '../providers/types';
 
 export const formatName = (name: string): string => {
   // Replace special characters with an underscore
@@ -136,3 +137,49 @@ export const createProviderSource = (value: string): ProviderSource => {
     isDefault: false,
   };
 };
+
+export function getPostBadge(post: Post): string | undefined {
+  if (post.totalSeasons && post.totalSeasons > 1) {
+    return `S01-S${String(post.totalSeasons).padStart(2, '0')}`;
+  }
+  if (post.totalSeasons === 1) {
+    return 'S01';
+  }
+  if (post.seasonCount && post.seasonCount > 1) {
+    return `S01-S${String(post.seasonCount).padStart(2, '0')}`;
+  }
+  if (post.seasonCount === 1) {
+    return 'S01';
+  }
+  if (post.episodeCount) {
+    return `Ep ${post.episodeCount}`;
+  }
+  if (post.quality) {
+    return post.quality;
+  }
+
+  const title = post.title || '';
+  const link = post.link || '';
+
+  const seasonMatch = title.match(/season\s*(\d+)/i) || title.match(/s(\d{1,2})/i);
+  if (seasonMatch) {
+    const num = parseInt(seasonMatch[1]);
+    if (num > 0) return `S${String(num).padStart(2, '0')}`;
+  }
+
+  const epMatch = title.match(/episode\s*(\d+)/i) || title.match(/ep\.?\s*(\d+)/i);
+  if (epMatch) {
+    return `Ep ${epMatch[1]}`;
+  }
+
+  if (/series|tv|season|episode/i.test(link) || /series|tv|season|episode/i.test(title)) {
+    return 'Series';
+  }
+
+  if (/\b(4k|2160p|1080p|720p|hdcam|hd)\b/i.test(title)) {
+    const q = title.match(/\b(4k|2160p|1080p|720p|hdcam|hd)\b/i);
+    return q ? q[1].toUpperCase() : undefined;
+  }
+
+  return undefined;
+}
