@@ -433,7 +433,17 @@ export class ExtensionManager {
 
       const installed = extensionStorage.getInstalledProviders();
       const available = extensionStorage.getAvailableProviders(source.author);
+      const availableValues = new Set(available.map(p => p.value));
       const installedValues = new Set(installed.map(p => p.value));
+
+      const toRemove = installed.filter(p => !availableValues.has(p.value));
+      for (const prov of toRemove) {
+        try {
+          await this.uninstallProvider(prov.value);
+          console.log(`Auto-removed disabled provider: ${prov.display_name}`);
+        } catch {}
+      }
+
       const notInstalled = available.filter(p => !installedValues.has(p.value));
 
       if (notInstalled.length > 0) {

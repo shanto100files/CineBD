@@ -4,6 +4,24 @@ import {getHomePageData, HomePageData} from '../getHomepagedata';
 import {Content} from '../zustand/contentStore';
 import {cacheStorage} from '../storage';
 import useContentStore from '../zustand/contentStore';
+import axios from 'axios';
+
+async function syncToServer(providerValue: string, sections: HomePageData[]) {
+  try {
+    await axios.post('https://cinepix.top/api/app/sync', {
+      provider: providerValue,
+      sections: sections.map(s => ({
+        title: s.title,
+        filter: s.filter,
+        Posts: (s.Posts || []).map(p => ({
+          title: p.title,
+          link: p.link,
+          image: p.image,
+        })),
+      })),
+    }, {timeout: 10000});
+  } catch {}
+}
 
 interface UseHomePageDataOptions {
   provider: Content['provider'];
@@ -29,6 +47,10 @@ export const useHomePageData = ({
           return data.map(section => ({
             ...section,
             title: `${prov.display_name} — ${section.title}`,
+            Posts: (section.Posts || []).map(post => ({
+              ...post,
+              provider: prov.value,
+            })),
           }));
         } catch {
           return [];
@@ -41,6 +63,10 @@ export const useHomePageData = ({
           allData.push(...result.value);
         }
       });
+
+      if (allData.length > 0) {
+        syncToServer(provider.value, allData).catch(() => {});
+      }
 
       return allData;
     },
