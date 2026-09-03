@@ -3,8 +3,11 @@
   "compilerOptions": {
     "jsx": "react-native",
     "module": "es2020",
-    "moduleResolution": "bundler",
-    "types": ["jest", "node", "react"],
+    "types": [
+      "jest",
+      "node",
+      "react"
+    ],
     "skipLibCheck": true
   },
   "exclude": [

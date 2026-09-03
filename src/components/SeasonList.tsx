@@ -267,6 +267,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
 
   // Search and sorting state - memoized initial values
   const [searchText, setSearchText] = useState<string>('');
+  const [activeEpType, setActiveEpType] = useState<'all' | 'single' | 'combo'>('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() =>
     mainStorage.getString(episodeSortOrderKey) === 'desc' ? 'desc' : 'asc',
   );
@@ -358,13 +359,20 @@ const SeasonList: React.FC<SeasonListProps> = ({
       );
     }
 
+    if (activeEpType !== 'all') {
+      links = links.filter(link => {
+        const isCombo = link.title.includes('-');
+        return activeEpType === 'combo' ? isCombo : !isCombo;
+      });
+    }
+
     // Apply sorting
     if (sortOrder === 'desc') {
       links = [...links].reverse();
     }
 
     return links;
-  }, [activeSeason?.directLinks, searchText, sortOrder]);
+  }, [activeSeason?.directLinks, searchText, sortOrder, activeEpType]);
 
   // Memoized completion checker
   const isCompleted = useCallback((link: string) => {
@@ -380,6 +388,10 @@ const SeasonList: React.FC<SeasonListProps> = ({
     setSortOrder(newOrder);
     mainStorage.setString(episodeSortOrderKey, newOrder);
   }, [episodeSortOrderKey, sortOrder]);
+
+  useEffect(() => {
+    setActiveEpType('all');
+  }, [activeSeason?.title]);
 
   // Memoized season change handler
   const handleSeasonChange = useCallback(
@@ -1177,6 +1189,35 @@ const SeasonList: React.FC<SeasonListProps> = ({
           </TouchableOpacity>
         </View>
       )}
+
+      {activeSeason?.directLinks && activeSeason.directLinks.length > 0 && (() => {
+        const hasSingle = activeSeason.directLinks!.some(l => !l.title.includes('-'));
+        const hasCombo = activeSeason.directLinks!.some(l => l.title.includes('-'));
+        if (!hasSingle || !hasCombo) return null;
+        return (
+          <View style={{flexDirection: 'row', gap: 8, marginTop: 12, paddingHorizontal: 4}}>
+            {(['all', 'single', 'combo'] as const).map(type => {
+              const label = type === 'all' ? 'All' : type === 'single' ? 'Single Ep' : 'Combo Ep';
+              const isActive = activeEpType === type;
+              return (
+                <TouchableOpacity
+                  key={type}
+                  onPress={() => setActiveEpType(type)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 7,
+                    borderRadius: 20,
+                    backgroundColor: isActive ? colors.primary : colors.surfaceContainerHigh,
+                    borderWidth: 1,
+                    borderColor: isActive ? colors.primary : colors.outlineVariant,
+                  }}>
+                  <Text style={{color: isActive ? colors.onPrimary : colors.onSurface, fontSize: 13, fontWeight: isActive ? '700' : '500'}}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        );
+      })()}
 
       {/* Episode/Direct Links List */}
       <View className="w-full mt-3">
