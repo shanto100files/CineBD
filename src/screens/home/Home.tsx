@@ -196,17 +196,16 @@ const Home = ({}: Props) => {
     }
   }, [provider?.value, installedProviders.length]);
 
-  // Auto-install if no providers at all
+  // Auto-install / auto-update providers from server on every app open
   useEffect(() => {
-    if (installedProviders.length === 0 && !autoInstalling) {
-      setAutoInstalling(true);
-      extensionManager
-        .fetchManifest(undefined, true)
-        .then(() => extensionManager.initialize())
-        .catch(() => {})
-        .finally(() => setAutoInstalling(false));
-    }
-  }, [installedProviders.length, autoInstalling]);
+    if (autoInstalling) return;
+    setAutoInstalling(true);
+    extensionManager
+      .fetchManifest(undefined, true)
+      .then(() => extensionManager.initialize())
+      .catch(() => {})
+      .finally(() => setAutoInstalling(false));
+  }, []);
 
   // Show loading state while providers are being installed
   if (
