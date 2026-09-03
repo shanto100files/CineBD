@@ -253,6 +253,31 @@ const SeasonList: React.FC<SeasonListProps> = ({
     return groups;
   }, [LinkList.length, episodeList]);
 
+  const [activeSeasonNum, setActiveSeasonNum] = useState<number>(() => detectSeasonFromTitle(LinkList[0]?.title || '') || 1);
+  const seasonGroups = useMemo(() => {
+    if (autoGroupedSeasons) return [];
+    const map = new Map<number, Link[]>();
+    for (const link of LinkList) {
+      const num = detectSeasonFromTitle(link.title) || 1;
+      if (!map.has(num)) map.set(num, []);
+      map.get(num)!.push(link);
+    }
+    return Array.from(map.entries()).sort((a,b)=>a[0]-b[0]).map(([num, links])=>({seasonNum:num, links, title:`Season ${String(num).padStart(2,'0')}`} as any));
+  }, [LinkList, autoGroupedSeasons]);
+  const activeSeasonGroup = useMemo(()=> seasonGroups.find(g=>g.seasonNum===activeSeasonNum) || seasonGroups[0], [seasonGroups, activeSeasonNum]);
+
+  useEffect(() => {
+    if (seasonGroups.length>0 && !seasonGroups.some(g=>g.seasonNum===activeSeasonNum)) {
+      setActiveSeasonNum(seasonGroups[0].seasonNum);
+    }
+  }, [seasonGroups, activeSeasonNum]);
+
+  useEffect(() => {
+    if (activeSeasonGroup && activeSeasonGroup.links.length>0 && !activeSeasonGroup.links.some(l=>l.title===activeSeason?.title)) {
+      setActiveSeason(activeSeasonGroup.links[0] as any);
+    }
+  }, [activeSeasonGroup, activeSeason]);
+
   useEffect(() => {
     if (refreshing && activeSeason?.episodesLink) {
       refetchEpisodes();
@@ -1058,6 +1083,29 @@ const SeasonList: React.FC<SeasonListProps> = ({
           showFullOptionLabels
           style={{marginBottom: 8}}
         />
+      ) : seasonGroups.length > 1 ? (
+        <>
+          <DropdownField
+            options={seasonGroups as any}
+            value={activeSeasonGroup as any}
+            getKey={item => String((item as any).seasonNum)}
+            getLabel={item => (item as any).title}
+            onChange={item => setActiveSeasonNum((item as any).seasonNum)}
+            showFullOptionLabels
+            style={{marginBottom: 8}}
+          />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8, paddingHorizontal: 4, marginBottom: 12}}>
+            {activeSeasonGroup?.links.map((item: any, index: number) => {
+              const isActive = activeSeason?.title === item.title;
+              const label = item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || `Q${index+1}`;
+              return (
+                <TouchableOpacity key={item.title+index} onPress={()=>handleSeasonChange(item)} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: isActive?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:isActive?colors.primary:colors.outlineVariant}}>
+                  <Text style={{color:isActive?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:isActive?'700':'500'}}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </>
       ) : (
         <DropdownField
           options={LinkList}
