@@ -186,16 +186,17 @@ const Home = ({}: Props) => {
     );
   }, [error, isLoading, homeData.length]);
 
-  // Early return for no providers
-  // Early return for no providers
   if (
     !installedProviders ||
     installedProviders.length === 0 ||
     !provider?.value
   ) {
     return (
-      <SafeAreaView style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center'}}>
-        <AppText style={{color: '#888', fontSize: 14}}>Loading content...</AppText>
+      <SafeAreaView style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 24}}>
+        <AppText style={{color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center'}}>No providers installed</AppText>
+        <AppText style={{color: '#aaa', fontSize: 13, textAlign: 'center', marginTop: 8}}>Go to Settings → Provider Manager to install a provider</AppText>
+        <View style={{height: 16}} />
+        <AppText style={{color: '#666', fontSize: 12, textAlign: 'center'}}>Pull to refresh after installing</AppText>
       </SafeAreaView>
     );
   }

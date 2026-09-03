@@ -346,9 +346,21 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    // Set root background color to black to prevent white flash after bootsplash
     SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      BootSplash.hide({fade: true}).catch(() => {});
+    }, 1800);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      BootSplash.hide({fade: true}).catch(() => {});
+    }
+  }, [isLoading]);
 
   // Initialize shared folder sync
   useEffect(() => {
