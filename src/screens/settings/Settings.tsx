@@ -4,6 +4,7 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
+  Linking,
 } from 'react-native';
 import React, {useCallback, useMemo} from 'react';
 import {
@@ -24,7 +25,6 @@ import Animated, {FadeInDown, FadeInUp, Layout} from 'react-native-reanimated';
 import {useNavigation} from '@react-navigation/native';
 import RenderProviderFlagIcon from '../../components/RenderProviderFLagIcon';
 import useNavigationPreferencesStore from '../../lib/zustand/navigationPreferencesStore';
-import GitHubStarButton from './components/GitHubStarButton';
 import DnsPreference from './components/DnsPreference';
 import IconButton from '../../components/ui/IconButton';
 import SettingsRow from '../../components/ui/SettingsRow';
@@ -389,15 +389,20 @@ const Settings = ({navigation}: Props) => {
           </SettingsSection>
         </AnimatedSection>
 
-        {/* About & GitHub section */}
         <AnimatedSection delay={400}>
           <SettingsSection title="About">
             <SettingsRow
-              title="About Vega"
+              title="About CineBD"
               icon="information-outline"
               onPress={() => navigation.navigate('About')}
             />
-            <GitHubStarButton primary={colors.primary} />
+            <SettingsRow
+              title="Cinepix.top"
+              description="Visit our website"
+              icon="web"
+              divider={false}
+              onPress={() => Linking.openURL('https://cinepix.top')}
+            />
           </SettingsSection>
         </AnimatedSection>
       </View>

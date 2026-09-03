@@ -163,7 +163,7 @@ const About = () => {
         <AppText
           role="headlineLargeEmphasized"
           className="text-m3-on-background">
-          About Vega
+          About CineBD
         </AppText>
         <AppText role="bodyLarge" className="mt-1 text-m3-on-surface-variant">
           App information and updates
@@ -173,7 +173,7 @@ const About = () => {
       <SettingsSection title="App">
         <SettingsRow
           title="Version"
-          description={`Vega ${Application.nativeApplicationVersion || ''}`}
+          description={`CineBD ${Application.nativeApplicationVersion || ''}`}
           icon="information-outline"
           divider={Constants.expoConfig?.extra?.isPlayStore}
         />
@@ -191,7 +191,7 @@ const About = () => {
             />
             <SettingsSwitchRow
               title="Check on startup"
-              description="Look for a new release when Vega opens"
+              description="Look for a new release when CineBD opens"
               value={autoCheckUpdate}
               onValueChange={next => {
                 setAutoCheckUpdate(next);

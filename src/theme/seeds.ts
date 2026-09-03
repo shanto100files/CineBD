@@ -4,7 +4,8 @@ export type SeedOption = {
 };
 
 export const DEFAULT_SEED = '#FFFFFF';
-export const LEGACY_TERTIARY_BACKGROUND = '#171717';
+export const NETFLIX_SEED = '#E50914';
+export const LEGACY_TERTIARY_BACKGROUND = '#141414';
 
 type HexColor = `#${string}`;
 
@@ -85,17 +86,17 @@ export const createCoherentAccentRoles = (seed: string) => {
 export const LEGACY_NEUTRAL_SURFACE_ROLES = {
   surface: LEGACY_TERTIARY_BACKGROUND,
   surfaceDim: LEGACY_TERTIARY_BACKGROUND,
-  surfaceContainerLowest: LEGACY_TERTIARY_BACKGROUND,
-  surfaceContainerLow: LEGACY_TERTIARY_BACKGROUND,
-  surfaceContainer: LEGACY_TERTIARY_BACKGROUND,
-  surfaceContainerHigh: LEGACY_TERTIARY_BACKGROUND,
-  surfaceContainerHighest: LEGACY_TERTIARY_BACKGROUND,
-  surfaceBright: LEGACY_TERTIARY_BACKGROUND,
-  surfaceVariant: LEGACY_TERTIARY_BACKGROUND,
-  onSurface: '#F5F0EF',
-  onSurfaceVariant: '#D4CBC9',
-  outline: '#938A88',
-  outlineVariant: '#494240',
+  surfaceContainerLowest: '#0A0A0A',
+  surfaceContainerLow: '#141414',
+  surfaceContainer: '#1A1A1A',
+  surfaceContainerHigh: '#222222',
+  surfaceContainerHighest: '#2A2A2A',
+  surfaceBright: '#333333',
+  surfaceVariant: '#1F1F1F',
+  onSurface: '#E5E5E5',
+  onSurfaceVariant: '#B3B3B3',
+  outline: '#757575',
+  outlineVariant: '#3D3D3D',
 } as const;
 
 /**
@@ -104,6 +105,7 @@ export const LEGACY_NEUTRAL_SURFACE_ROLES = {
  */
 export const M3_SEEDS: SeedOption[] = [
   {name: 'White', color: DEFAULT_SEED},
+  {name: 'Netflix', color: NETFLIX_SEED},
   {name: 'Tomato', color: '#FF6347'},
   {name: 'Gray', color: '#9E9E9E'},
   {name: 'Blue', color: '#2196F3'},
