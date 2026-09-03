@@ -279,6 +279,10 @@ const SeasonList: React.FC<SeasonListProps> = ({
   }, [activeSeasonGroup, activeSeason]);
 
   useEffect(() => {
+    setSelectedQuality('all');
+  }, [activeSeasonNum]);
+
+  useEffect(() => {
     if (refreshing && activeSeason?.episodesLink) {
       refetchEpisodes();
     }
@@ -293,6 +297,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
   // Search and sorting state - memoized initial values
   const [searchText, setSearchText] = useState<string>('');
   const [activeEpType, setActiveEpType] = useState<'all' | 'single' | 'combo'>('all');
+  const [selectedQuality, setSelectedQuality] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() =>
     mainStorage.getString(episodeSortOrderKey) === 'desc' ? 'desc' : 'asc',
   );
@@ -366,15 +371,16 @@ const SeasonList: React.FC<SeasonListProps> = ({
 
   // Memoized direct links processing
   const filteredAndSortedDirectLinks = useMemo(() => {
-    if (
-      !activeSeason?.directLinks ||
-      !Array.isArray(activeSeason.directLinks)
-    ) {
+    let baseLinks: any[] = [];
+    if (selectedQuality === 'all' && activeSeasonGroup && activeSeasonGroup.links.length > 1) {
+      baseLinks = activeSeasonGroup.links.flatMap((l: any) => l.directLinks || []);
+    } else if (!activeSeason?.directLinks || !Array.isArray(activeSeason.directLinks)) {
       return [];
+    } else {
+      baseLinks = activeSeason.directLinks;
     }
-
-    let links = activeSeason.directLinks.filter(
-      link => link && link.title && link.link,
+    let links = baseLinks.filter(
+      (link: any) => link && link.title && link.link,
     );
 
     // Apply search filter
@@ -391,13 +397,15 @@ const SeasonList: React.FC<SeasonListProps> = ({
       });
     }
 
+
+
     // Apply sorting
     if (sortOrder === 'desc') {
       links = [...links].reverse();
     }
 
     return links;
-  }, [activeSeason?.directLinks, searchText, sortOrder, activeEpType]);
+  }, [activeSeason?.directLinks, activeSeasonGroup, searchText, sortOrder, activeEpType, selectedQuality]);
 
   // Memoized completion checker
   const isCompleted = useCallback((link: string) => {
@@ -854,13 +862,13 @@ const SeasonList: React.FC<SeasonListProps> = ({
         activeSeason.title,
         downloadIndex,
       );
-      const displayTitle =
-        item.title?.trim() ||
-        (activeSeason?.directLinks?.length && activeSeason.directLinks.length > 1
-          ? `${activeSeason?.title || 'Episode'} ${index + 1}`
-          : activeSeason?.title && activeSeason.title.toLowerCase() !== 'default'
-          ? activeSeason.title
-          : 'Play');
+      const sizeM=item.title.match(/\[.*?GB.*?\]/i);
+      const size=sizeM?sizeM[0]:"";
+      const qM=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
+      const qual=qM?qM[0].trim():"";
+      const fileName=item.title.replace(/\[.*?\]/g,"").replace(/\s+/g," ").trim();
+      const displayTitle=size ? `${size} • ${qual || fileName.slice(0,30)}` : (item.title?.trim() || (activeSeason?.directLinks?.length && activeSeason.directLinks.length > 1 ? `${activeSeason?.title || 'Episode'} ${index + 1}` : activeSeason?.title && activeSeason.title.toLowerCase() !== 'default' ? activeSeason.title : 'Play'));
+      const displayDesc=size ? fileName : item.description;
       const handleEpisodePress = () => {
         playHandler({
           linkIndex: index,
@@ -904,7 +912,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
               }>
               <EpisodeRowContent
                 title={displayTitle}
-                description={item.description}
+                description={displayDesc || item.description}
                 image={item.image}
                 accentColor={primary}
                 textColor={CONTROL_TEXT}
@@ -1095,17 +1103,39 @@ const SeasonList: React.FC<SeasonListProps> = ({
             style={{marginBottom: 8}}
           />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8, paddingHorizontal: 4, marginBottom: 12}}>
+            <TouchableOpacity key="all" onPress={()=>{setSelectedQuality('all'); if(activeSeasonGroup?.links[0]) handleSeasonChange(activeSeasonGroup.links[0] as any);}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: selectedQuality==='all'?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:selectedQuality==='all'?colors.primary:colors.outlineVariant}}>
+              <Text style={{color:selectedQuality==='all'?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:selectedQuality==='all'?'700':'500'}}>All</Text>
+            </TouchableOpacity>
             {activeSeasonGroup?.links.map((item: any, index: number) => {
-              const isActive = activeSeason?.title === item.title;
-              const label = item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || `Q${index+1}`;
+              const isActive = selectedQuality===item.title;
+              const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
+              const sz=item.title.match(/\[.*?GB.*?\]/i);
+              const label=m?m[0].toUpperCase()+(sz?' '+sz[0]:''): (item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || `Q${index+1}`);
               return (
-                <TouchableOpacity key={item.title+index} onPress={()=>handleSeasonChange(item)} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: isActive?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:isActive?colors.primary:colors.outlineVariant}}>
+                <TouchableOpacity key={item.title+index} onPress={()=>{setSelectedQuality(item.title); handleSeasonChange(item);}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: isActive?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:isActive?colors.primary:colors.outlineVariant}}>
                   <Text style={{color:isActive?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:isActive?'700':'500'}}>{label}</Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
         </>
+      ) : seasonGroups.length === 1 && seasonGroups[0].links.length > 1 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8, paddingHorizontal: 4, marginBottom: 12}}>
+          <TouchableOpacity key="all-movie" onPress={()=>{setSelectedQuality('all'); if(seasonGroups[0].links[0]) handleSeasonChange(seasonGroups[0].links[0] as any);}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: selectedQuality==='all'?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:selectedQuality==='all'?colors.primary:colors.outlineVariant}}>
+            <Text style={{color:selectedQuality==='all'?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:selectedQuality==='all'?'700':'500'}}>All</Text>
+          </TouchableOpacity>
+          {seasonGroups[0].links.map((item: any, index: number) => {
+            const isActive = selectedQuality===item.title;
+            const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
+            const sz=item.title.match(/\[.*?GB.*?\]/i);
+            const label=m?m[0].toUpperCase()+(sz?' '+sz[0]:''): (item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || `Q${index+1}`);
+            return (
+              <TouchableOpacity key={item.title+index} onPress={()=>{setSelectedQuality(item.title); handleSeasonChange(item);}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: isActive?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:isActive?colors.primary:colors.outlineVariant}}>
+                <Text style={{color:isActive?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:isActive?'700':'500'}}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       ) : (
         <DropdownField
           options={LinkList}
