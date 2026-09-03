@@ -109,9 +109,9 @@ module.exports = () => {
   ];
   return {
     expo: {
-      name: 'Vega Custom',
+      name: 'CineBD',
       scheme: APP_SCHEME,
-      displayName: 'Vega Custom',
+      displayName: 'CineBD',
       jsEngine: 'hermes',
       newArchEnabled: true,
       autolinking: { exclude: ['expo-splash-screen'] },
