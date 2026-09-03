@@ -139,6 +139,13 @@ export const createProviderSource = (value: string): ProviderSource => {
 };
 
 export function getPostBadge(post: Post): string | undefined {
+  const title = post.title || '';
+  const link = post.link || '';
+  if (/\[Hindi\]|\bHindi\b/i.test(title)) return 'Hindi';
+  if (/\[Tamil\]|\bTamil\b/i.test(title)) return 'Tamil';
+  if (/\[Telugu\]|\bTelugu\b/i.test(title)) return 'Telugu';
+  if (/\[Bengali\]|\bBengali\b/i.test(title)) return 'Bengali';
+
   if (post.totalSeasons && post.totalSeasons > 1) {
     return `S01-S${String(post.totalSeasons).padStart(2, '0')}`;
   }
@@ -157,9 +164,6 @@ export function getPostBadge(post: Post): string | undefined {
   if (post.quality) {
     return post.quality;
   }
-
-  const title = post.title || '';
-  const link = post.link || '';
 
   const rangeMatch = title.match(/s0*(\d+)\s*[-–]\s*s?0*(\d+)/i);
   if (rangeMatch) {

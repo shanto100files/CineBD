@@ -37,6 +37,7 @@ export enum SettingsKeys {
 
   // Quality settings
   EXCLUDED_QUALITIES = 'excludedQualities',
+  PREFERRED_LANGUAGE = 'preferredLanguage',
 
   // Download settings
   DOWNLOAD_LOCATION = 'downloadLocation',
@@ -239,6 +240,14 @@ export class SettingsStorage {
 
   setExcludedQualities(qualities: string[]): void {
     mainStorage.setArray(SettingsKeys.EXCLUDED_QUALITIES, qualities);
+  }
+
+  getPreferredLanguage(): string {
+    return mainStorage.getString(SettingsKeys.PREFERRED_LANGUAGE) || 'Hindi';
+  }
+
+  setPreferredLanguage(lang: string): void {
+    mainStorage.setString(SettingsKeys.PREFERRED_LANGUAGE, lang);
   }
 
   getDownloadLocationConfig(): DownloadLocationConfig | null {
