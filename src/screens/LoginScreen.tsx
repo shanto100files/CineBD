@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform} from 'react-native';
 import {useAuthStore} from '../lib/zustand/authStore';
-import {useM3Colors} from '../lib/theme';
+import {useM3Colors} from '../theme/M3PaletteContext';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
