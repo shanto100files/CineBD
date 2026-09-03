@@ -18,6 +18,7 @@ import {HomeStackParamList} from '../../App';
 import {Drawer} from 'react-native-drawer-layout';
 import {GestureHandlerRootView, ScrollView} from 'react-native-gesture-handler';
 import {providerManager} from '../../lib/services/ProviderManager';
+import {extensionManager} from '../../lib/services/ExtensionManager';
 import {Catalog} from '../../lib/providers/types';
 import Tutorial from '../../components/Touturial';
 import {QueryErrorBoundary} from '../../components/ErrorBoundary';
@@ -186,6 +187,18 @@ const Home = ({}: Props) => {
     );
   }, [error, isLoading, homeData.length]);
 
+  const [autoInstalling, setAutoInstalling] = useState(false);
+  useEffect(() => {
+    if (installedProviders.length === 0 && !autoInstalling) {
+      setAutoInstalling(true);
+      extensionManager
+        .fetchManifest(undefined, true)
+        .then(() => extensionManager.initialize())
+        .catch(() => {})
+        .finally(() => setAutoInstalling(false));
+    }
+  }, [installedProviders.length, autoInstalling]);
+
   if (
     !installedProviders ||
     installedProviders.length === 0 ||
@@ -193,10 +206,20 @@ const Home = ({}: Props) => {
   ) {
     return (
       <SafeAreaView style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 24}}>
-        <AppText style={{color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center'}}>No providers installed</AppText>
-        <AppText style={{color: '#aaa', fontSize: 13, textAlign: 'center', marginTop: 8}}>Go to Settings → Provider Manager to install a provider</AppText>
-        <View style={{height: 16}} />
-        <AppText style={{color: '#666', fontSize: 12, textAlign: 'center'}}>Pull to refresh after installing</AppText>
+        {autoInstalling ? (
+          <>
+            <AppText style={{color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center'}}>Installing providers...</AppText>
+            <View style={{height: 16}} />
+            <AppText style={{color: '#888', fontSize: 13}}>Please wait</AppText>
+          </>
+        ) : (
+          <>
+            <AppText style={{color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center'}}>No providers installed</AppText>
+            <AppText style={{color: '#aaa', fontSize: 13, textAlign: 'center', marginTop: 8}}>Go to Settings → Provider Manager to install a provider</AppText>
+            <View style={{height: 16}} />
+            <AppText style={{color: '#666', fontSize: 12, textAlign: 'center'}}>Pull to refresh after installing</AppText>
+          </>
+        )}
       </SafeAreaView>
     );
   }
