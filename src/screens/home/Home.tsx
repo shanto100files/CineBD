@@ -152,18 +152,26 @@ const Home = ({}: Props) => {
     [skeletonCatalog],
   );
 
-  // Memoized content sliders
+  const preferredLang = settingsStorage.getPreferredLanguage();
   const contentSliders = useMemo(() => {
-    return homeData.map((item, index) => (
-      <Slider
-        isLoading={false}
-        key={`content-${item.filter}-${index}`}
-        title={item.title}
-        posts={item.Posts}
-        filter={item.filter}
-      />
-    ));
-  }, [homeData]);
+    return homeData.map((item, index) => {
+      let posts = item.Posts;
+      if (preferredLang && preferredLang !== 'All') {
+        const lower = preferredLang.toLowerCase();
+        const filtered = posts.filter((p: any) => p.title && p.title.toLowerCase().includes(lower));
+        if (filtered.length > 0) posts = filtered;
+      }
+      return (
+        <Slider
+          isLoading={false}
+          key={`content-${item.filter}-${index}`}
+          title={item.title}
+          posts={posts}
+          filter={item.filter}
+        />
+      );
+    });
+  }, [homeData, preferredLang]);
 
   // Memoized error message - only show if there is no cached data and an error occurred
   const errorComponent = useMemo(() => {

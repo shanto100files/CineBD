@@ -311,6 +311,30 @@ const Settings = ({navigation}: Props) => {
           )}
         </AnimatedSection>
 
+        <AnimatedSection delay={80}>
+          <SettingsSection title="Language">
+            <SettingsRow
+              title="Preferred Language"
+              description={settingsStorage.getPreferredLanguage()}
+              icon="translate"
+              onPress={() => {
+                const langs = ['Hindi', 'English', 'Tamil', 'Telugu', 'Bengali', 'All'];
+                showAppDialog({
+                  title: 'Select Language',
+                  message: 'Filter home content by language',
+                  actions: langs.map(l => ({
+                    label: l,
+                    onPress: () => {
+                      settingsStorage.setPreferredLanguage(l);
+                      ToastAndroid.show(`Language set to ${l}`, ToastAndroid.SHORT);
+                    },
+                  })),
+                });
+              }}
+            />
+          </SettingsSection>
+        </AnimatedSection>
+
         {/* Content provider section */}
         <AnimatedSection delay={100}>
           <View style={{marginBottom: 24}}>
