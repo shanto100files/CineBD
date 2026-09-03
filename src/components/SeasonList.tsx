@@ -84,35 +84,40 @@ function autoGroupEpisodesBySeason(
   episodes: EpisodeLink[],
 ): EpisodeLink[][] {
   const seasonMap = new Map<number, EpisodeLink[]>();
-  let currentSeason = 0;
-
   for (const ep of episodes) {
     const season = detectSeasonFromTitle(ep.title);
     if (season !== null) {
-      if (!seasonMap.has(season)) {
-        seasonMap.set(season, []);
-      }
+      if (!seasonMap.has(season)) seasonMap.set(season, []);
       seasonMap.get(season)!.push(ep);
-    } else {
-      currentSeason++;
-      const fallbackSeason = 1;
-      if (!seasonMap.has(fallbackSeason)) {
-        seasonMap.set(fallbackSeason, []);
-      }
-      seasonMap.get(fallbackSeason)!.push(ep);
     }
   }
-
-  const hasSeasonInfo = Array.from(seasonMap.keys()).some(
-    k => k !== 1 || seasonMap.size > 1,
-  );
-
-  if (!hasSeasonInfo && episodes.length > 0) {
+  if (seasonMap.size > 1) {
+    const sorted = Array.from(seasonMap.entries()).sort((a, b) => a[0] - b[0]);
+    return sorted.map(([, eps]) => eps);
+  }
+  if (seasonMap.size === 1 && episodes.length > seasonMap.get(Array.from(seasonMap.keys())[0])!.length) {
+    // season tag found but not all episodes have it, fallback to episode reset logic
+  } else if (seasonMap.size === 1) {
     return [episodes];
   }
 
-  const sorted = Array.from(seasonMap.entries()).sort((a, b) => a[0] - b[0]);
-  return sorted.map(([, eps]) => eps);
+  const groups: EpisodeLink[][] = [];
+  let current: EpisodeLink[] = [];
+  let prevEpNum: number | null = null;
+  for (const ep of episodes) {
+    const epNum = detectEpisodeFromTitle(ep.title);
+    if (epNum !== null && prevEpNum !== null && epNum <= prevEpNum) {
+      if (epNum === 1 || epNum < prevEpNum) {
+        if (current.length > 0) groups.push(current);
+        current = [];
+      }
+    }
+    current.push(ep);
+    if (epNum !== null) prevEpNum = epNum;
+  }
+  if (current.length > 0) groups.push(current);
+  if (groups.length <= 1) return [episodes];
+  return groups;
 }
 // const CONTROL_OUTLINE = '#494240';
 
