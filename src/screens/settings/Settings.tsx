@@ -184,112 +184,171 @@ const Settings = ({navigation}: Props) => {
       layout={Layout.springify()}
       contentContainerStyle={{
         paddingTop: 15,
-        paddingBottom: 24,
+        paddingBottom: 40,
         flexGrow: 1,
       }}>
-      <View className="p-5">
-        <Animated.View entering={FadeInUp.springify()}>
+      <View style={{paddingHorizontal: 20}}>
+        <Animated.View entering={FadeInUp.springify()} style={{marginBottom: 28}}>
           <AppText
             role="headlineLargeEmphasized"
-            className="mb-6 text-m3-on-background">
+            style={{color: colors.onBackground, fontSize: 32, fontWeight: '800'}}>
             Settings
           </AppText>
+          <View
+            style={{
+              marginTop: 6,
+              height: 3,
+              width: 40,
+              borderRadius: 2,
+              backgroundColor: colors.primary,
+            }}
+          />
         </Animated.View>
 
         {/* Account section */}
         <AnimatedSection delay={50}>
-          <SettingsSection title="Account">
-            {isLoggedIn ? (
-              <>
+          {isLoggedIn ? (
+            <View
+              style={{
+                borderRadius: 20,
+                overflow: 'hidden',
+                marginBottom: 24,
+                backgroundColor: colors.surfaceContainerLow,
+                borderWidth: 1,
+                borderColor: colors.outlineVariant,
+              }}>
+              {/* Premium user header */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: 16,
+                  gap: 14,
+                }}>
                 <View
                   style={{
-                    flexDirection: 'row',
+                    width: 52,
+                    height: 52,
+                    borderRadius: 26,
+                    backgroundColor: colors.primaryContainer,
                     alignItems: 'center',
-                    justifyContent: 'space-between',
-                    paddingHorizontal: 16,
-                    paddingVertical: 14,
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: colors.primary,
                   }}>
-                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
+                  <MaterialIcons
+                    name="person"
+                    size={26}
+                    color={colors.onPrimaryContainer}
+                  />
+                </View>
+                <View style={{flex: 1}}>
+                  <AppText
+                    role="bodyLarge"
+                    style={{color: colors.onSurface, fontWeight: '700', fontSize: 16}}>
+                    {user?.username || 'Unknown'}
+                  </AppText>
+                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3}}>
                     <View
                       style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
-                        backgroundColor: colors.primaryContainer,
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        borderRadius: 6,
+                        backgroundColor: isPremium ? colors.primaryContainer : colors.surfaceContainerHigh,
                       }}>
-                      <MaterialIcons
-                        name="person"
-                        size={22}
-                        color={colors.onPrimaryContainer}
-                      />
-                    </View>
-                    <View>
                       <AppText
-                        role="bodyLarge"
-                        style={{color: colors.onSurface, fontWeight: '600'}}>
-                        {user?.username || 'Unknown'}
-                      </AppText>
-                      <AppText
-                        role="bodySmall"
-                        style={{color: colors.onSurfaceVariant}}>
-                        {isPremium ? 'Premium User' : 'Free User'}
+                        role="labelSmall"
+                        style={{
+                          color: isPremium ? colors.primary : colors.onSurfaceVariant,
+                          fontWeight: '700',
+                          fontSize: 10,
+                          letterSpacing: 0.5,
+                        }}>
+                        {isPremium ? '★ PREMIUM' : 'FREE'}
                       </AppText>
                     </View>
                   </View>
                 </View>
-                <SettingsRow
-                  title="Logout"
-                  icon="logout"
-                  divider={false}
-                  onPress={() => {
-                    showAppDialog({
-                      title: 'Logout?',
-                      message: 'You will need to login again to access your account.',
-                      variant: 'warning',
-                      actions: [
-                        {label: 'Cancel'},
-                        {
-                          label: 'Logout',
-                          variant: 'destructive',
-                          onPress: () => {
-                            logout();
-                          },
+              </View>
+              <View style={{height: 1, backgroundColor: colors.outlineVariant}} />
+              <SettingsRow
+                title="Logout"
+                icon="logout"
+                iconBg={colors.errorContainer}
+                iconColor={colors.error}
+                divider={false}
+                onPress={() => {
+                  showAppDialog({
+                    title: 'Logout?',
+                    message: 'You will need to login again to access your account.',
+                    variant: 'warning',
+                    actions: [
+                      {label: 'Cancel'},
+                      {
+                        label: 'Logout',
+                        variant: 'destructive',
+                        onPress: () => {
+                          logout();
                         },
-                      ],
-                    });
-                  }}
-                />
-              </>
-            ) : (
+                      },
+                    ],
+                  });
+                }}
+              />
+            </View>
+          ) : (
+            <SettingsSection title="Account">
               <SettingsRow
                 title="Login"
                 description="Login to sync watchlist & continue watching"
                 icon="login"
+                iconBg={colors.primaryContainer}
+                iconColor={colors.primary}
                 divider={false}
                 onPress={() => navigation.navigate('Login')}
               />
-            )}
-          </SettingsSection>
+            </SettingsSection>
+          )}
         </AnimatedSection>
 
         {/* Content provider section */}
         <AnimatedSection delay={100}>
-          <View className="mb-6">
-            <AppText
-              role="labelLarge"
-              className="mb-3"
-              style={{color: colors.onSurfaceVariant}}>
-              Content Provider
-            </AppText>
+          <View style={{marginBottom: 24}}>
             <View
               style={{
-                backgroundColor: colors.background,
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 10,
+                paddingHorizontal: 4,
+              }}>
+              <View
+                style={{
+                  width: 3,
+                  height: 14,
+                  borderRadius: 2,
+                  backgroundColor: colors.primary,
+                  marginRight: 8,
+                }}
+              />
+              <AppText
+                role="labelLarge"
+                style={{
+                  color: colors.primary,
+                  fontWeight: '700',
+                  letterSpacing: 0.8,
+                  textTransform: 'uppercase',
+                  fontSize: 11,
+                }}>
+                Active Provider
+              </AppText>
+            </View>
+            <View
+              style={{
+                backgroundColor: colors.surfaceContainerLow,
                 borderColor: colors.outlineVariant,
-                borderRadius: 24,
+                borderRadius: 20,
                 borderWidth: 1,
-                height: 116,
+                height: 108,
                 justifyContent: 'center',
               }}>
               <ScrollView
@@ -299,7 +358,8 @@ const Settings = ({navigation}: Props) => {
                 style={{flexGrow: 0}}
                 contentContainerStyle={{
                   alignItems: 'center',
-                  paddingHorizontal: 10,
+                  paddingHorizontal: 12,
+                  gap: 10,
                 }}>
                 {providersList}
                 {installedProviders.length === 0 && (
@@ -317,12 +377,16 @@ const Settings = ({navigation}: Props) => {
               title="Select Home Providers"
               description="Choose which providers appear on your home page"
               icon="view-grid-outline"
+              iconBg={colors.tertiaryContainer}
+              iconColor={colors.onTertiaryContainer}
               onPress={() => navigation.navigate('ProviderSelect')}
             />
             <SettingsRow
               title="Provider Manager"
               description="Install, update, and test provider extensions"
               icon="puzzle-outline"
+              iconBg={colors.secondaryContainer}
+              iconColor={colors.onSecondaryContainer}
               divider={false}
               onPress={() => navigation.navigate('Extensions')}
             />
@@ -341,25 +405,32 @@ const Settings = ({navigation}: Props) => {
           <SettingsSection title="Options">
             <SettingsRow
               title="Appearance"
-              // description="Accent colors and launcher icon"
               icon="palette-outline"
+              iconBg={'#3D1F5C'}
+              iconColor={'#CE93D8'}
               onPress={() => navigation.navigate('Appearance')}
             />
             <SettingsRow
               title="Subtitle Style"
               icon="subtitles-outline"
+              iconBg={'#1A3A4A'}
+              iconColor={'#80DEEA'}
               onPress={() => navigation.navigate('SubTitlesPreferences')}
             />
             {hideDownloadsTab && (
               <SettingsRow
                 title="Downloads"
                 icon="download-circle-outline"
+                iconBg={'#1A3A2A'}
+                iconColor={'#80CBC4'}
                 onPress={() => navigation.navigate('DownloadsStack')}
               />
             )}
             <SettingsRow
               title="Preferences"
               icon="tune-variant"
+              iconBg={'#3A2A1A'}
+              iconColor={'#FFCC80'}
               divider={false}
               onPress={() => navigation.navigate('Preferences')}
             />
@@ -371,6 +442,9 @@ const Settings = ({navigation}: Props) => {
           <SettingsSection title="Data Management">
             <SettingsRow
               title="Clear Cache"
+              icon="broom"
+              iconBg={colors.surfaceContainerHighest}
+              iconColor={colors.onSurfaceVariant}
               trailing={
                 <IconButton
                   icon="delete-outline"
@@ -381,8 +455,10 @@ const Settings = ({navigation}: Props) => {
             />
             <SettingsRow
               title="Erase all local data"
-              description="Erase all local data"
+              description="Permanently removes all settings and data"
               icon="delete-alert-outline"
+              iconBg={colors.errorContainer}
+              iconColor={colors.error}
               divider={false}
               onPress={confirmEraseAllLocalData}
             />
@@ -394,12 +470,16 @@ const Settings = ({navigation}: Props) => {
             <SettingsRow
               title="About CineBD"
               icon="information-outline"
+              iconBg={colors.primaryContainer}
+              iconColor={colors.onPrimaryContainer}
               onPress={() => navigation.navigate('About')}
             />
             <SettingsRow
               title="Cinepix.top"
               description="Visit our website"
               icon="web"
+              iconBg={'#1A2A3A'}
+              iconColor={'#90CAF9'}
               divider={false}
               onPress={() => Linking.openURL('https://cinepix.top')}
             />

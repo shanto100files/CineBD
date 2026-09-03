@@ -6,6 +6,9 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    env:
+      APP_VARIANT: playstore
+      NODE_ENV: production
     permissions:
       contents: write
 
@@ -69,13 +72,20 @@ jobs:
       - name: Build APK
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
+          MYAPP_UPLOAD_STORE_FILE: "release.keystore"
+          MYAPP_UPLOAD_STORE_PASSWORD: "${{ secrets.KEYSTORE_PASSWORD }}"
+          MYAPP_UPLOAD_KEY_ALIAS: "${{ secrets.KEY_ALIAS }}"
+          MYAPP_UPLOAD_KEY_PASSWORD: "${{ secrets.KEY_PASSWORD }}"
         run: |
           cd android
           if [ -f app/release.keystore ] && [ -s app/release.keystore ]; then
             echo "Building signed release APK..."
-            KEYSTORE_PATH=$(realpath app/release.keystore)
+            # Copy keystore to app folder where with-signing.gradle expects it if relative to android/app
+            # The with-signing script does file(envStoreFile) inside android/app context? 
+            # No, standard Gradle file() is relative to the project/module directory.
+            # with-signing.gradle is applied in app/build.gradle, so it's relative to android/app.
             ./gradlew assembleRelease \
-              -Pandroid.injected.signing.store.file=$KEYSTORE_PATH \
+              -Pandroid.injected.signing.store.file=$(realpath app/release.keystore) \
               -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
               -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
               -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}" \

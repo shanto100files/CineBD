@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "start": "expo start",
     "build:playstore": "eas build --platform android --profile production --auto-submit",
+    "build:android:release": "APP_VARIANT=playstore npm run prebuild && cd android && ./gradlew assembleRelease",
     "build:sandbox": "node scripts/build-sandbox-runtime.mjs",
     "test": "jest",
     "pretest": "npm run build:sandbox",

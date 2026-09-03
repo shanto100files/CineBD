@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React, {ReactNode} from 'react';
-import {TouchableOpacity, View} from 'react-native';
+import {Pressable, View} from 'react-native';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import AppText from './Text';
 
@@ -8,6 +8,8 @@ interface SettingsRowProps {
   title: string;
   description?: string;
   icon?: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  iconColor?: string;
+  iconBg?: string;
   onPress?: () => void;
   trailing?: ReactNode;
   divider?: boolean;
@@ -17,6 +19,8 @@ const SettingsRow = ({
   title,
   description,
   icon,
+  iconColor,
+  iconBg,
   onPress,
   trailing,
   divider = true,
@@ -24,38 +28,53 @@ const SettingsRow = ({
   const colors = useM3Colors();
 
   return (
-    <TouchableOpacity
+    <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
-      activeOpacity={0.6}
       disabled={!onPress}
       hitSlop={{top: 4, bottom: 4, left: 0, right: 0}}
-      onPress={onPress}>
+      onPress={onPress}
+      style={({pressed}) => ({
+        backgroundColor: pressed ? colors.surfaceContainerHigh : 'transparent',
+      })}>
       <View
-        className="min-h-16 flex-row items-center px-4 py-3"
         style={{
+          minHeight: 60,
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
           borderBottomColor: colors.outlineVariant,
           borderBottomWidth: divider ? 1 : 0,
         }}>
         {icon ? (
           <View
-            className="mr-4 h-10 w-10 items-center justify-center rounded-full"
-            style={{backgroundColor: colors.secondaryContainer}}>
+            style={{
+              marginRight: 14,
+              height: 40,
+              width: 40,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 12,
+              backgroundColor: iconBg ?? colors.primaryContainer,
+            }}>
             <MaterialCommunityIcons
               name={icon}
-              size={21}
-              color={colors.onSecondaryContainer}
+              size={20}
+              color={iconColor ?? colors.onPrimaryContainer}
               pointerEvents="none"
             />
           </View>
         ) : null}
-        <View className="mr-3 flex-1">
-          <AppText role="bodyLarge" className="text-m3-on-surface">
+        <View style={{flex: 1, marginRight: 8}}>
+          <AppText
+            role="bodyLargeEmphasized"
+            style={{color: colors.onSurface, fontWeight: '600'}}>
             {title}
           </AppText>
           {description ? (
             <AppText
               role="bodySmall"
-              className="mt-1 text-m3-on-surface-variant">
+              style={{marginTop: 2, color: colors.onSurfaceVariant}}>
               {description}
             </AppText>
           ) : null}
@@ -64,13 +83,13 @@ const SettingsRow = ({
           (onPress ? (
             <MaterialCommunityIcons
               name="chevron-right"
-              size={22}
-              color={colors.onSurfaceVariant}
+              size={20}
+              color={colors.outline}
               pointerEvents="none"
             />
           ) : null)}
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
