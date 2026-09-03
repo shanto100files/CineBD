@@ -394,6 +394,13 @@ const App = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const isPlayStore = Constants.expoConfig?.extra?.isPlayStore;
+    if (!isPlayStore && settingsStorage.isAutoCheckUpdateEnabled()) {
+      checkForUpdate(() => {}, settingsStorage.isAutoDownloadEnabled(), false);
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000'}}>
@@ -623,13 +630,6 @@ const App = () => {
       </Tab.Navigator>
     );
   }
-
-  useEffect(() => {
-    const isPlayStore = Constants.expoConfig?.extra?.isPlayStore;
-    if (!isPlayStore && settingsStorage.isAutoCheckUpdateEnabled()) {
-      checkForUpdate(() => {}, settingsStorage.isAutoDownloadEnabled(), false);
-    }
-  }, []);
 
   return (
     <SafeAreaProvider>
