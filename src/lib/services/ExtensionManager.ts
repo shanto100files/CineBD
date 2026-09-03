@@ -433,6 +433,12 @@ export class ExtensionManager {
 
       const installed = extensionStorage.getInstalledProviders();
       const available = extensionStorage.getAvailableProviders(source.author);
+
+      if (available.length === 0) {
+        console.log('No available providers from manifest, skipping auto-remove');
+        return;
+      }
+
       const availableValues = new Set(available.map(p => p.value));
       const installedValues = new Set(installed.map(p => p.value));
 

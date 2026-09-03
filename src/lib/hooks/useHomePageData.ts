@@ -58,7 +58,8 @@ export const useHomePageData = ({
   const providersToFetch = React.useMemo(() => {
     if (!installedProviders || installedProviders.length === 0) return [provider];
     if (allowedProviders === null) return installedProviders;
-    return installedProviders.filter(p => allowedProviders.includes(p.value));
+    const filtered = installedProviders.filter(p => allowedProviders.includes(p.value));
+    return filtered.length > 0 ? filtered : installedProviders;
   }, [installedProviders, allowedProviders, provider]);
 
   const query = useQuery<HomePageData[], Error>({
