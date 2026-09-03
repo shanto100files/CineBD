@@ -33,6 +33,7 @@ import AppText from '../../components/ui/Text';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import {showAppDialog} from '../../lib/zustand/appDialogStore';
 import {clearAppCache} from '../../lib/clearAppCache';
+import {useAuthStore} from '../../lib/zustand/authStore';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'Settings'>;
 
@@ -40,6 +41,7 @@ const Settings = ({navigation}: Props) => {
   const tabNavigation =
     useNavigation<NativeStackNavigationProp<TabStackParamList>>();
   const colors = useM3Colors();
+  const {user, isPremium, isLoggedIn, logout} = useAuthStore();
   const provider = useContentStore(state => state.provider);
   const setProvider = useContentStore(state => state.setProvider);
   const installedProviders = useContentStore(state => state.installedProviders);
@@ -193,6 +195,84 @@ const Settings = ({navigation}: Props) => {
             Settings
           </AppText>
         </Animated.View>
+
+        {/* Account section */}
+        <AnimatedSection delay={50}>
+          <SettingsSection title="Account">
+            {isLoggedIn ? (
+              <>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                  }}>
+                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: colors.primaryContainer,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                      <MaterialIcons
+                        name="person"
+                        size={22}
+                        color={colors.onPrimaryContainer}
+                      />
+                    </View>
+                    <View>
+                      <AppText
+                        role="bodyLarge"
+                        style={{color: colors.onSurface, fontWeight: '600'}}>
+                        {user?.username || 'Unknown'}
+                      </AppText>
+                      <AppText
+                        role="bodySmall"
+                        style={{color: colors.onSurfaceVariant}}>
+                        {isPremium ? 'Premium User' : 'Free User'}
+                      </AppText>
+                    </View>
+                  </View>
+                </View>
+                <SettingsRow
+                  title="Logout"
+                  icon="logout"
+                  divider={false}
+                  onPress={() => {
+                    showAppDialog({
+                      title: 'Logout?',
+                      message: 'You will need to login again to access your account.',
+                      variant: 'warning',
+                      actions: [
+                        {label: 'Cancel'},
+                        {
+                          label: 'Logout',
+                          variant: 'destructive',
+                          onPress: () => {
+                            logout();
+                          },
+                        },
+                      ],
+                    });
+                  }}
+                />
+              </>
+            ) : (
+              <SettingsRow
+                title="Login"
+                description="Login to sync watchlist & continue watching"
+                icon="login"
+                divider={false}
+                onPress={() => navigation.navigate('Login')}
+              />
+            )}
+          </SettingsSection>
+        </AnimatedSection>
 
         {/* Content provider section */}
         <AnimatedSection delay={100}>

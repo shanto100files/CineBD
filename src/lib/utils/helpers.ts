@@ -161,6 +161,15 @@ export function getPostBadge(post: Post): string | undefined {
   const title = post.title || '';
   const link = post.link || '';
 
+  const rangeMatch = title.match(/s0*(\d+)\s*[-–]\s*s?0*(\d+)/i);
+  if (rangeMatch) {
+    const start = parseInt(rangeMatch[1]);
+    const end = parseInt(rangeMatch[2]);
+    if (start > 0 && end > start) {
+      return `S${String(start).padStart(2, '0')}-S${String(end).padStart(2, '0')}`;
+    }
+  }
+
   const seasonMatch = title.match(/season\s*(\d+)/i) || title.match(/s(\d{1,2})/i);
   if (seasonMatch) {
     const num = parseInt(seasonMatch[1]);

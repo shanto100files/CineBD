@@ -74,7 +74,7 @@ const Slider = ({
   const keyExtractor = useCallback((item: Post) => item.link, []);
 
   return (
-    <Pressable onPress={() => setSelected('')} style={{gap: 14, marginTop: 28}}>
+    <Pressable onPress={() => setSelected('')} style={{gap: 10, marginTop: 20}}>
       <View
         style={{
           alignItems: 'center',
@@ -83,14 +83,16 @@ const Slider = ({
           paddingHorizontal: 20,
         }}>
         <AppText
-          role="titleLargeEmphasized"
+          numberOfLines={1}
           style={{
             color: colors.onBackground,
             flex: 1,
+            fontSize: 16,
+            fontWeight: '600',
+            letterSpacing: 0.15,
             marginRight: 12,
             minWidth: 0,
-          }}
-          numberOfLines={1}>
+          }}>
           {title}
         </AppText>
         {filter !== 'recent' && (
@@ -118,16 +120,15 @@ const Slider = ({
                 width: 72,
               }}>
               <AppText
-                role="labelLargeEmphasized"
                 numberOfLines={1}
-                style={{color: colors.primary, width: 50}}>
+                style={{color: colors.primary, fontSize: 13, fontWeight: '700', width: 50}}>
                 See all
               </AppText>
               <MaterialCommunityIcons
                 name="chevron-right"
                 color={colors.primary}
-                size={18}
-                style={{height: 18, width: 18}}
+                size={16}
+                style={{height: 16, width: 16}}
               />
             </View>
           </Pressable>

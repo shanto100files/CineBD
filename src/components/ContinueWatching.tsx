@@ -198,7 +198,7 @@ const ContinueWatching = () => {
   const isAllSelected = items.length > 0 && selectedIds.size === items.length;
 
   return (
-    <View style={{ gap: 14, marginTop: 28 }}>
+    <View style={{ gap: 10, marginTop: 20 }}>
       <View
         style={{
           alignItems: 'center',
@@ -226,17 +226,15 @@ const ContinueWatching = () => {
               />
             </TouchableOpacity>
             <AppText
-              role="titleLargeEmphasized"
               numberOfLines={1}
-              style={{ color: colors.onBackground, flex: 1 }}>
+              style={{ color: colors.onBackground, flex: 1, fontSize: 16, fontWeight: '600', letterSpacing: 0.15 }}>
               Continue watching
             </AppText>
           </View>
         ) : (
           <AppText
-            role="titleLargeEmphasized"
             numberOfLines={1}
-            style={{ color: colors.onBackground, flex: 1 }}>
+            style={{ color: colors.onBackground, flex: 1, fontSize: 16, fontWeight: '600', letterSpacing: 0.15 }}>
             Continue watching
           </AppText>
         )}

@@ -4,6 +4,7 @@ import {
   TouchableOpacity,
   ToastAndroid,
   View,
+  ScrollView,
   Modal,
   StyleSheet,
 } from 'react-native';

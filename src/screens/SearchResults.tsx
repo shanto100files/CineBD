@@ -190,14 +190,11 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   return (
     <SafeAreaView className="h-full w-full bg-m3-background">
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View className="mt-14 px-4 flex flex-row justify-between items-center gap-x-3">
+        <View className="mt-6 px-4 flex flex-row justify-between items-center gap-x-3">
           <AppText
-            role="headlineMediumEmphasized"
-            className="flex-1 text-m3-on-background">
+            style={{color: colors.onBackground, flex: 1, fontSize: 18, fontWeight: '600', letterSpacing: 0.15}}>
             {isAllLoaded ? 'Searched for' : 'Searching for'}{' '}
-            <AppText
-              role="headlineMediumEmphasized"
-              style={{color: colors.primary}}>
+            <AppText style={{color: colors.primary, fontSize: 18, fontWeight: '600'}}>
               "{route?.params?.filter}"
             </AppText>
           </AppText>

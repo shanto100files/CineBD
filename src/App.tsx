@@ -143,6 +143,7 @@ export type SettingsStackParamList = {
   Extensions: undefined;
   DownloadsStack: undefined;
   ProviderSelect: undefined;
+  Login: undefined;
 };
 
 export type DownloadsStackParamList = {
@@ -180,7 +181,7 @@ export const openDownloadsScreen = (): void => {
 const App = () => {
   const {width: windowWidth, height: windowHeight} = useWindowDimensions();
   const isLargeScreen = Math.min(windowWidth, windowHeight) >= 600;
-  const {isLoading, isLoggedIn} = useAuthStore();
+  const {isLoading} = useAuthStore();
   const loadToken = useAuthStore(s => s.loadToken);
   LogBox.ignoreLogs([
     'You have passed a style to FlashList',
@@ -343,18 +344,7 @@ const App = () => {
     );
   }
 
-  if (!isLoggedIn) {
-    return (
-      <SafeAreaProvider>
-        <SystemBars style="light" />
-        <M3ThemeProvider>
-          <QueryClientProvider client={queryClient}>
-            <LoginScreen />
-          </QueryClientProvider>
-        </M3ThemeProvider>
-      </SafeAreaProvider>
-    );
-  }
+
 
   // Initialize shared folder sync
   useEffect(() => {
@@ -490,6 +480,11 @@ const App = () => {
         <SettingsStack.Screen
           name="ProviderSelect"
           component={ProviderSelect}
+          options={subpageOptions}
+        />
+        <SettingsStack.Screen
+          name="Login"
+          component={LoginScreen}
           options={subpageOptions}
         />
       </SettingsStack.Navigator>

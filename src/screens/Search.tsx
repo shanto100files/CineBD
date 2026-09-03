@@ -310,17 +310,15 @@ const Search = () => {
   const AnimatedContainer = Animated.View;
 
   return (
-    <SafeAreaView className="flex-1 bg-m3-background">
-      {/* Title Section */}
+      <SafeAreaView className="flex-1 bg-m3-background">
       <AnimatedContainer
         entering={FadeInDown.duration(300)}
-        className="px-4 pt-5">
+        className="px-4 pt-3">
         {/* <AppText
           role="headlineLargeEmphasized"
           className="mb-1 text-m3-on-background"></AppText> */}
         <AppText
-          role="bodyLarge"
-          style={{color: colors.onSurfaceVariant, marginBottom: 18}}>
+          style={{color: colors.onSurfaceVariant, fontSize: 13, marginBottom: 14}}>
           Search across all providers
         </AppText>
         <View className="flex-row items-center space-x-3 mb-3">
