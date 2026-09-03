@@ -336,6 +336,19 @@ const App = () => {
     loadToken();
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      BootSplash.hide({fade: true}).catch(() => {});
+    }, 1800);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      BootSplash.hide({fade: true}).catch(() => {});
+    }
+  }, [isLoading]);
+
   // Initialize shared folder sync
   useEffect(() => {
     initializeSyncService().catch(e =>
