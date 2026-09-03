@@ -338,6 +338,15 @@ const App = () => {
 
   useEffect(() => {
     const t = setTimeout(() => {
+      if (useAuthStore.getState().isLoading) {
+        useAuthStore.setState({isLoading: false} as any);
+      }
+    }, 3000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
       BootSplash.hide({fade: true}).catch(() => {});
     }, 1800);
     return () => clearTimeout(t);

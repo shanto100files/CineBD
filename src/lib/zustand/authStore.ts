@@ -1,5 +1,5 @@
 import {create} from 'zustand';
-import {storage} from '../storage';
+import {MMKV} from '../Mmkv';
 import axios from 'axios';
 
 const API = 'https://cinepix.top/api/app';
@@ -25,9 +25,9 @@ interface AuthState {
 }
 
 const authStorage = {
-  getString: (key: string) => storage.getString(`auth:${key}`) || null,
-  setString: (key: string, value: string) => storage.setString(`auth:${key}`, value),
-  delete: (key: string) => storage.delete(`auth:${key}`),
+  getString: (key: string) => MMKV.getString(`auth:${key}`) || null,
+  setString: (key: string, value: string) => MMKV.setString(`auth:${key}`, value),
+  delete: (key: string) => MMKV.removeItem(`auth:${key}`),
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -64,18 +64,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   loadToken: async () => {
-    const token = authStorage.getString('token');
-    const userStr = authStorage.getString('user');
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        set({token, user, isLoggedIn: true, isPremium: user.premium, isLoading: false});
-      } catch {
-        authStorage.delete('token');
-        authStorage.delete('user');
+    try {
+      const token = authStorage.getString('token');
+      const userStr = authStorage.getString('user');
+      if (token && userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          set({token, user, isLoggedIn: true, isPremium: user.premium, isLoading: false});
+        } catch {
+          authStorage.delete('token');
+          authStorage.delete('user');
+          set({isLoading: false});
+        }
+      } else {
         set({isLoading: false});
       }
-    } else {
+    } catch {
       set({isLoading: false});
     }
   },
