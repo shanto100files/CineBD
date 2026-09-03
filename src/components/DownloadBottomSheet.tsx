@@ -7,7 +7,7 @@ import {
   Modal,
   StyleSheet,
 } from 'react-native';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { Stream } from '../lib/providers/types';
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -20,6 +20,8 @@ import { Clipboard } from 'react-native';
 import { TextTrackType } from 'react-native-video';
 import { settingsStorage } from '../lib/storage';
 import { useM3Colors } from '../theme/M3PaletteContext';
+import { fetchFileSizes } from '../lib/download/fetchFileSize';
+import { formatDownloadBytes } from '../lib/downloadFormatting';
 
 export interface DownloadedSubtitleItem {
   id: string;
@@ -83,9 +85,47 @@ const DownloadBottomSheet = ({
   const bottomSheetRef = useRef<BottomSheet>(null);
   const colors = useM3Colors();
   const [activeTab, setActiveTab] = React.useState<1 | 2>(1);
+  const [fileSizes, setFileSizes] = React.useState<Map<string, number>>(
+    new Map(),
+  );
+  const [selectedLanguage, setSelectedLanguage] = React.useState<string>('all');
   const isAlwaysExternal =
     settingsStorage.getBool('alwaysExternalDownloader') === true;
   const streams = Array.isArray(data) ? data : [];
+
+  const languagePatterns = [
+    { label: 'Hindi', pattern: /hindi|hin\b|हिन्दी|dubbed|dub/i },
+    { label: 'English', pattern: /english|eng\b|original/i },
+    { label: 'Bengali', pattern: /bengali|ben\b|বাংলা|bangla/i },
+    { label: 'Tamil', pattern: /tamil|tam\b/i },
+    { label: 'Telugu', pattern: /telugu|tel\b/i },
+    { label: 'Dual', pattern: /dual|multi|multi[a-z]* audio/i },
+  ];
+
+  const detectLanguage = (serverName: string): string => {
+    for (const {label, pattern} of languagePatterns) {
+      if (pattern.test(serverName)) {
+        return label;
+      }
+    }
+    return 'Other';
+  };
+
+  const availableLanguages = useMemo(() => {
+    if (streams.length === 0) {
+      return [];
+    }
+    const langSet = new Set<string>();
+    streams.forEach(s => langSet.add(detectLanguage(s.server)));
+    return Array.from(langSet);
+  }, [streams]);
+
+  const filteredStreams = useMemo(() => {
+    if (selectedLanguage === 'all' || streams.length === 0) {
+      return streams;
+    }
+    return streams.filter(s => detectLanguage(s.server) === selectedLanguage);
+  }, [streams, selectedLanguage]);
 
   const downloadedSubs = downloadedSubtitles || [];
   const hasDownloadedSubs = downloadedSubs.length > 0;
@@ -123,6 +163,14 @@ const DownloadBottomSheet = ({
       bottomSheetRef.current?.snapToIndex?.(0);
     }
   }, [showModal]);
+
+  useEffect(() => {
+    if (streams.length > 0 && showModal) {
+      fetchFileSizes(streams).then(sizes => {
+        setFileSizes(new Map(sizes));
+      });
+    }
+  }, [streams, showModal]);
 
   const renderVideoTab = () => {
     if (videoDownloaded) {
@@ -206,6 +254,14 @@ const DownloadBottomSheet = ({
       return (
         <View style={{ alignItems: 'center', paddingVertical: 40 }}>
           <LoadingIndicator size={60} color={colors.primary} />
+          <Text
+            style={{
+              color: colors.onSurfaceVariant,
+              fontSize: 13,
+              marginTop: 14,
+            }}>
+            Solving…
+          </Text>
         </View>
       );
     }
@@ -253,7 +309,78 @@ const DownloadBottomSheet = ({
       );
     }
 
-    return streams.map((item, index) => (
+    return (
+      <>
+        {availableLanguages.length > 1 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{gap: 8, paddingVertical: 8}}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setSelectedLanguage('all')}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 6,
+                borderRadius: 20,
+                backgroundColor:
+                  selectedLanguage === 'all'
+                    ? colors.primary
+                    : colors.surfaceContainerHigh,
+                borderWidth: 1,
+                borderColor:
+                  selectedLanguage === 'all'
+                    ? colors.primary
+                    : colors.outlineVariant,
+              }}>
+              <Text
+                style={{
+                  color:
+                    selectedLanguage === 'all'
+                      ? colors.onPrimary
+                      : colors.onSurface,
+                  fontSize: 13,
+                  fontWeight:
+                    selectedLanguage === 'all' ? '700' : '500',
+                }}>
+                All
+              </Text>
+            </TouchableOpacity>
+            {availableLanguages.map(lang => {
+              const isActive = selectedLanguage === lang;
+              return (
+                <TouchableOpacity
+                  key={lang}
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedLanguage(lang)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 6,
+                    borderRadius: 20,
+                    backgroundColor: isActive
+                      ? colors.primary
+                      : colors.surfaceContainerHigh,
+                    borderWidth: 1,
+                    borderColor: isActive
+                      ? colors.primary
+                      : colors.outlineVariant,
+                  }}>
+                  <Text
+                    style={{
+                      color: isActive
+                        ? colors.onPrimary
+                        : colors.onSurface,
+                      fontSize: 13,
+                      fontWeight: isActive ? '700' : '500',
+                    }}>
+                    {lang}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+        {filteredStreams.map((item, index) => (
       <TouchableOpacity
         key={index}
         activeOpacity={0.7}
@@ -313,6 +440,24 @@ const DownloadBottomSheet = ({
               </Text>
             </View>
           ) : null}
+          {fileSizes.has(item.link) && (fileSizes.get(item.link) || 0) > 0 ? (
+            <View
+              style={{
+                backgroundColor: colors.tertiaryContainer,
+                borderRadius: 10,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+              }}>
+              <Text
+                style={{
+                  color: colors.onTertiaryContainer,
+                  fontSize: 11,
+                  fontWeight: '700',
+                }}>
+                {formatDownloadBytes(fileSizes.get(item.link) || 0)}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Action buttons */}
@@ -363,7 +508,9 @@ const DownloadBottomSheet = ({
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
-    ));
+    ))
+    </>
+    );
   };
 
   const renderSubtitleTab = () => {

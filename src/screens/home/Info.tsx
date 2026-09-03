@@ -172,7 +172,14 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
       (item: Link) =>
         !item.quality || !excludedQualities.includes(item.quality),
     );
-    return filtered.length > 0 ? filtered : info.linkList;
+    const list = filtered.length > 0 ? filtered : info.linkList;
+
+    if (list.length === 1 && list[0].episodesLink) {
+      const singleLink = list[0];
+      return [singleLink];
+    }
+
+    return list;
   }, [info?.linkList]);
 
   const handleRefresh = useCallback(async () => {

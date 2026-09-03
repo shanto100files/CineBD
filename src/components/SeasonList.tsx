@@ -53,6 +53,67 @@ import {setSyncedEpisodeProgress} from '../lib/sync/syncService';
 
 const CONTROL_TEXT = '#F5F0EF';
 const CONTROL_TEXT_MUTED = '#D4CBC9';
+
+function detectSeasonFromTitle(title: string): number | null {
+  const patterns = [
+    /(?:s|season)\s*(\d{1,2})/i,
+    /^(\d{1,2})\s*[-–]\s*\d/i,
+    /\bS(\d{1,2})\b/i,
+  ];
+  for (const p of patterns) {
+    const m = title.match(p);
+    if (m) return parseInt(m[1], 10);
+  }
+  return null;
+}
+
+function detectEpisodeFromTitle(title: string): number | null {
+  const patterns = [
+    /(?:e|ep|episode)\s*(\d{1,4})/i,
+    /\bE(\d{1,4})\b/i,
+    /[-–]\s*(\d{1,4})\b/,
+  ];
+  for (const p of patterns) {
+    const m = title.match(p);
+    if (m) return parseInt(m[1], 10);
+  }
+  return null;
+}
+
+function autoGroupEpisodesBySeason(
+  episodes: EpisodeLink[],
+): EpisodeLink[][] {
+  const seasonMap = new Map<number, EpisodeLink[]>();
+  let currentSeason = 0;
+
+  for (const ep of episodes) {
+    const season = detectSeasonFromTitle(ep.title);
+    if (season !== null) {
+      if (!seasonMap.has(season)) {
+        seasonMap.set(season, []);
+      }
+      seasonMap.get(season)!.push(ep);
+    } else {
+      currentSeason++;
+      const fallbackSeason = 1;
+      if (!seasonMap.has(fallbackSeason)) {
+        seasonMap.set(fallbackSeason, []);
+      }
+      seasonMap.get(fallbackSeason)!.push(ep);
+    }
+  }
+
+  const hasSeasonInfo = Array.from(seasonMap.keys()).some(
+    k => k !== 1 || seasonMap.size > 1,
+  );
+
+  if (!hasSeasonInfo && episodes.length > 0) {
+    return [episodes];
+  }
+
+  const sorted = Array.from(seasonMap.entries()).sort((a, b) => a[0] - b[0]);
+  return sorted.map(([, eps]) => eps);
+}
 // const CONTROL_OUTLINE = '#494240';
 
 interface SeasonListProps {
@@ -176,6 +237,17 @@ const SeasonList: React.FC<SeasonListProps> = ({
     activeSeason?.episodesLink ? true : false,
   );
 
+  const [activeAutoSeason, setActiveAutoSeason] = useState<number>(0);
+
+  const autoGroupedSeasons = useMemo(() => {
+    if (LinkList.length > 1 || !episodeList || episodeList.length === 0) {
+      return null;
+    }
+    const groups = autoGroupEpisodesBySeason(episodeList);
+    if (groups.length <= 1) return null;
+    return groups;
+  }, [LinkList.length, episodeList]);
+
   useEffect(() => {
     if (refreshing && activeSeason?.episodesLink) {
       refetchEpisodes();
@@ -236,28 +308,30 @@ const SeasonList: React.FC<SeasonListProps> = ({
 
   // Memoized filtering and sorting logic for episodes
   const filteredAndSortedEpisodes = useMemo(() => {
-    if (!episodeList || !Array.isArray(episodeList)) {
-      return [];
+    let episodes: EpisodeLink[] = [];
+
+    if (autoGroupedSeasons && autoGroupedSeasons[activeAutoSeason]) {
+      episodes = autoGroupedSeasons[activeAutoSeason].filter(
+        episode => episode && episode.title && episode.link,
+      );
+    } else if (episodeList && Array.isArray(episodeList)) {
+      episodes = episodeList.filter(
+        episode => episode && episode.title && episode.link,
+      );
     }
 
-    let episodes = episodeList.filter(
-      episode => episode && episode.title && episode.link,
-    );
-
-    // Apply search filter
     if (searchText.trim()) {
       episodes = episodes.filter(episode =>
         episode?.title?.toLowerCase().includes(searchText.toLowerCase()),
       );
     }
 
-    // Apply sorting
     if (sortOrder === 'desc') {
       episodes = [...episodes].reverse();
     }
 
     return episodes;
-  }, [episodeList, searchText, sortOrder]);
+  }, [episodeList, searchText, sortOrder, autoGroupedSeasons, activeAutoSeason]);
 
   // Memoized direct links processing
   const filteredAndSortedDirectLinks = useMemo(() => {
@@ -957,37 +1031,66 @@ const SeasonList: React.FC<SeasonListProps> = ({
   return (
     <View>
       {/* Season Tabs */}
-      {LinkList.length > 1 ? (
+      {(LinkList.length > 1 || autoGroupedSeasons) ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{gap: 8, paddingHorizontal: 4, marginBottom: 12}}>
-          {LinkList.map((item, index) => {
-            const key = item.episodesLink || item.directLinks?.[0]?.link || item.title;
-            const isActive = activeSeason?.title === item.title;
-            return (
-              <TouchableOpacity
-                key={key || index}
-                onPress={() => handleSeasonChange(item)}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: isActive ? colors.primary : colors.surfaceContainerHigh,
-                  borderWidth: 1,
-                  borderColor: isActive ? colors.primary : colors.outlineVariant,
-                }}>
-                <Text
-                  style={{
-                    color: isActive ? colors.onPrimary : colors.onSurface,
-                    fontSize: 13,
-                    fontWeight: isActive ? '700' : '500',
-                  }}>
-                  {item.title || `Season ${index + 1}`}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          {autoGroupedSeasons
+            ? autoGroupedSeasons.map((group, index) => {
+                const seasonNum = detectSeasonFromTitle(group[0]?.title || '') || index + 1;
+                const isActive = activeAutoSeason === index;
+                return (
+                  <TouchableOpacity
+                    key={`auto-season-${index}`}
+                    onPress={() => {
+                      setActiveAutoSeason(index);
+                    }}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 8,
+                      borderRadius: 20,
+                      backgroundColor: isActive ? colors.primary : colors.surfaceContainerHigh,
+                      borderWidth: 1,
+                      borderColor: isActive ? colors.primary : colors.outlineVariant,
+                    }}>
+                    <Text
+                      style={{
+                        color: isActive ? colors.onPrimary : colors.onSurface,
+                        fontSize: 13,
+                        fontWeight: isActive ? '700' : '500',
+                      }}>
+                      Season {seasonNum}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })
+            : LinkList.map((item, index) => {
+                const key = item.episodesLink || item.directLinks?.[0]?.link || item.title;
+                const isActive = activeSeason?.title === item.title;
+                return (
+                  <TouchableOpacity
+                    key={key || index}
+                    onPress={() => handleSeasonChange(item)}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 8,
+                      borderRadius: 20,
+                      backgroundColor: isActive ? colors.primary : colors.surfaceContainerHigh,
+                      borderWidth: 1,
+                      borderColor: isActive ? colors.primary : colors.outlineVariant,
+                    }}>
+                    <Text
+                      style={{
+                        color: isActive ? colors.onPrimary : colors.onSurface,
+                        fontSize: 13,
+                        fontWeight: isActive ? '700' : '500',
+                      }}>
+                      {item.title || `Season ${index + 1}`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
         </ScrollView>
       ) : (
         <DropdownField
