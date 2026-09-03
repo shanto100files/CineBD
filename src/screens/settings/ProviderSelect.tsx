@@ -1,8 +1,8 @@
 import React, {useEffect, useState} from 'react';
 import {View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator} from 'react-native';
-import {useM3Colors} from '../lib/theme';
-import AppText from '../components/ui/Text';
-import {useAuthStore} from '../lib/zustand/authStore';
+import {useM3Colors} from '../../theme/M3PaletteContext';
+import AppText from '../../components/ui/Text';
+import {useAuthStore} from '../../lib/zustand/authStore';
 import axios from 'axios';
 import {useNavigation} from '@react-navigation/native';
 
