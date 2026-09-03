@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import './global.css';
 import Home from './screens/home/Home';
 import Info from './screens/home/Info';
@@ -69,6 +69,8 @@ import {
 } from './lib/utils/firebaseSafe';
 import {useAuthStore} from './lib/zustand/authStore';
 import LoginScreen from './screens/LoginScreen';
+import InitSplash from './components/InitSplash';
+import {initializeApp, InitProgress} from './lib/services/initService';
 
 enableScreens(true);
 enableFreeze(true);
@@ -183,6 +185,8 @@ const App = () => {
   const isLargeScreen = Math.min(windowWidth, windowHeight) >= 600;
   const {isLoading} = useAuthStore();
   const loadToken = useAuthStore(s => s.loadToken);
+  const [initProgress, setInitProgress] = useState<InitProgress>({progress: 0, status: 'Starting...'});
+  const [appReady, setAppReady] = useState(false);
   LogBox.ignoreLogs([
     'You have passed a style to FlashList',
     'new NativeEventEmitter()',
@@ -336,6 +340,13 @@ const App = () => {
     loadToken();
   }, []);
 
+  // Initialize app: install providers, setup home, etc.
+  useEffect(() => {
+    initializeApp(setInitProgress)
+      .then(() => setAppReady(true))
+      .catch(() => setAppReady(true)); // Even on error, show app
+  }, []);
+
   useEffect(() => {
     const t = setTimeout(() => {
       if (useAuthStore.getState().isLoading) {
@@ -401,11 +412,13 @@ const App = () => {
     }
   }, []);
 
-  if (isLoading) {
+  // Show init splash while app is initializing
+  if (!appReady || isLoading) {
     return (
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000'}}>
-        <ActivityIndicator size="large" color="#8b5cf6" />
-      </View>
+      <InitSplash
+        progress={isLoading ? 100 : initProgress.progress}
+        status={isLoading ? 'Loading profile...' : initProgress.status}
+      />
     );
   }
 

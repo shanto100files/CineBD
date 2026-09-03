@@ -188,6 +188,15 @@ const Home = ({}: Props) => {
   }, [error, isLoading, homeData.length]);
 
   const [autoInstalling, setAutoInstalling] = useState(false);
+
+  // Auto-select provider if none selected but providers are installed
+  useEffect(() => {
+    if (!provider?.value && installedProviders.length > 0) {
+      useContentStore.setState({provider: installedProviders[0]});
+    }
+  }, [provider?.value, installedProviders.length]);
+
+  // Auto-install if no providers at all
   useEffect(() => {
     if (installedProviders.length === 0 && !autoInstalling) {
       setAutoInstalling(true);
@@ -199,6 +208,7 @@ const Home = ({}: Props) => {
     }
   }, [installedProviders.length, autoInstalling]);
 
+  // Show loading state while providers are being installed
   if (
     !installedProviders ||
     installedProviders.length === 0 ||
@@ -214,10 +224,9 @@ const Home = ({}: Props) => {
           </>
         ) : (
           <>
-            <AppText style={{color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center'}}>No providers installed</AppText>
-            <AppText style={{color: '#aaa', fontSize: 13, textAlign: 'center', marginTop: 8}}>Go to Settings → Provider Manager to install a provider</AppText>
+            <AppText style={{color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center'}}>Loading content...</AppText>
             <View style={{height: 16}} />
-            <AppText style={{color: '#666', fontSize: 12, textAlign: 'center'}}>Pull to refresh after installing</AppText>
+            <AppText style={{color: '#666', fontSize: 12, textAlign: 'center'}}>Pull to refresh</AppText>
           </>
         )}
       </SafeAreaView>
