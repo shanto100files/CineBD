@@ -311,7 +311,7 @@ const DownloadBottomSheet = ({
     }
 
     return (
-      <>
+      <View>
         {availableLanguages.length > 1 && (
           <ScrollView
             horizontal
@@ -509,8 +509,8 @@ const DownloadBottomSheet = ({
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
-    ))
-    </>
+    ))}
+      </View>
     );
   };
 
