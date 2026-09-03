@@ -109,6 +109,7 @@ module.exports = () => {
   ];
   return {
     expo: {
+      backgroundColor: '#000000',
       name: 'CineBD',
       scheme: APP_SCHEME,
       displayName: 'CineBD',
