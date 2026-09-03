@@ -336,16 +336,6 @@ const App = () => {
     loadToken();
   }, []);
 
-  if (isLoading) {
-    return (
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000'}}>
-        <ActivityIndicator size="large" color="#8b5cf6" />
-      </View>
-    );
-  }
-
-
-
   // Initialize shared folder sync
   useEffect(() => {
     initializeSyncService().catch(e =>
@@ -377,6 +367,14 @@ const App = () => {
       clearInterval(interval);
     };
   }, []);
+
+  if (isLoading) {
+    return (
+      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000'}}>
+        <ActivityIndicator size="large" color="#8b5cf6" />
+      </View>
+    );
+  }
 
   function HomeStackScreen() {
     return (
