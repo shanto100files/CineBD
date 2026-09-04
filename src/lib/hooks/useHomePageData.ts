@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {getHomePageData, HomePageData} from '../getHomepagedata';
 import {Content} from '../zustand/contentStore';
-import {cacheStorage} from '../storage';
+import {cacheStorage, settingsStorage} from '../storage';
 import useContentStore from '../zustand/contentStore';
 import axios from 'axios';
 import {useAuthStore} from '../zustand/authStore';
@@ -57,6 +57,11 @@ export const useHomePageData = ({
 
   const providersToFetch = React.useMemo(() => {
     if (!installedProviders || installedProviders.length === 0) return [provider];
+    const homeProviderValue = settingsStorage.getHomeProvider();
+    if (homeProviderValue) {
+      const single = installedProviders.find((p: any) => p.value === homeProviderValue);
+      if (single) return [single];
+    }
     const homeProviders = installedProviders.filter((p: any) => p.show_on_home !== false);
     if (homeProviders.length === 0) return installedProviders;
     if (allowedProviders === null) return homeProviders;

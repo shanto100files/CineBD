@@ -66,6 +66,9 @@ export enum SettingsKeys {
   DOH_ENABLED = 'dohEnabled',
   DOH_PROVIDER = 'dohProvider',
   DOH_CUSTOM_URL = 'dohCustomUrl',
+
+  // Home provider
+  HOME_PROVIDER = 'homeProvider',
 }
 
 /**
@@ -434,6 +437,14 @@ export class SettingsStorage {
 
   setDohCustomUrl(url: string): void {
     mainStorage.setString(SettingsKeys.DOH_CUSTOM_URL, url);
+  }
+
+  getHomeProvider(): string {
+    return mainStorage.getString(SettingsKeys.HOME_PROVIDER) || '';
+  }
+
+  setHomeProvider(provider: string): void {
+    mainStorage.setString(SettingsKeys.HOME_PROVIDER, provider);
   }
 }
 

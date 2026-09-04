@@ -20,7 +20,9 @@ export default function LoginScreen({navigation}: any) {
     setError('');
     const result = await login(username.trim(), password);
     setLoading(false);
-    if (!result.success) {
+    if (result.success) {
+      navigation.goBack();
+    } else {
       setError(result.error || 'Login failed');
     }
   };

@@ -413,6 +413,30 @@ const Settings = ({navigation}: Props) => {
           </View>
           <SettingsSection title="Provider tools">
             <SettingsRow
+              title="Home Provider"
+              description={settingsStorage.getHomeProvider() || 'All providers (aggregated)'}
+              icon="home-outline"
+              iconBg={colors.primaryContainer}
+              iconColor={colors.onPrimaryContainer}
+              onPress={() => {
+                const options = [
+                  {label: 'All providers (aggregated)', value: ''},
+                  ...installedProviders.map(p => ({label: p.display_name, value: p.value})),
+                ];
+                showAppDialog({
+                  title: 'Select Home Provider',
+                  message: 'Choose which provider shows on your home page',
+                  actions: options.map(o => ({
+                    label: o.label,
+                    onPress: () => {
+                      settingsStorage.setHomeProvider(o.value);
+                      ToastAndroid.show(o.value ? `Home set to ${o.label}` : 'Home set to aggregated', ToastAndroid.SHORT);
+                    },
+                  })),
+                });
+              }}
+            />
+            <SettingsRow
               title="Select Home Providers"
               description="Choose which providers appear on your home page"
               icon="view-grid-outline"

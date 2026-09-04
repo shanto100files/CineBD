@@ -38,7 +38,7 @@ const Home = ({}: Props) => {
 
   // Memoize static values
   const disableDrawer = useMemo(
-    () => mainStorage.getBool('disableDrawer') || false,
+    () => mainStorage.getBool('disableDrawer') || true,
     [],
   );
 
