@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {View, StyleSheet, Linking, ActivityIndicator, Image, Platform} from 'react-native';
 import AppText from '../components/ui/Text';
 import axios from 'axios';
-import DeviceInfo from 'react-native-device-info';
+import * as Application from 'expo-application';
 import RNFS from 'react-native-fs';
 
 const API = 'https://cinepix.top/api/app';
@@ -23,7 +23,7 @@ export default function ForceUpdateScreen() {
     try {
       const res = await axios.get(`${API}/versioncheck`, {timeout: 8000});
       const {min_version, latest_version, download_url, changelog: cl, force_update} = res.data;
-      const current = DeviceInfo.getVersion();
+      const current = Application.nativeApplicationVersion || '0.0.0';
       const needsUpdate = compareVersions(current, min_version);
       if (needsUpdate && force_update) {
         setStatus('update_required');

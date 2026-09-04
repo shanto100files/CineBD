@@ -351,8 +351,8 @@ const App = () => {
   useEffect(() => {
     const checkForceUpdate = async () => {
       try {
-        const {default: DeviceInfo} = await import('react-native-device-info');
         const {default: axios} = await import('axios');
+        const {default: Application} = await import('expo-application');
         const {runSecurityCheck} = await import('./lib/security/securityCheck');
         const security = await runSecurityCheck();
         if (security.isRooted) {
@@ -362,7 +362,7 @@ const App = () => {
         const res = await axios.get('https://cinepix.top/api/app/versioncheck', {timeout: 8000});
         const {min_version, force_update} = res.data;
         if (force_update) {
-          const current = DeviceInfo.getVersion();
+          const current = Application.nativeApplicationVersion || '0.0.0';
           const needs = compareVersionsLocal(current, min_version);
           if (needs) setForceUpdateNeeded(true);
         }

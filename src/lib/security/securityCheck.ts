@@ -1,10 +1,10 @@
 import {Platform, NativeModules} from 'react-native';
-import DeviceInfo from 'react-native-device-info';
+import * as Application from 'expo-application';
 
 let RootedState = false;
 
 const isDevelopmentBuild = (): boolean => {
-  return __DEV__ || DeviceInfo.getBundleId().includes('.debug');
+  return __DEV__ || (Application.applicationId || '').includes('.debug');
 };
 
 const checkRootDetection = async (): Promise<boolean> => {
@@ -33,8 +33,8 @@ const checkRootDetection = async (): Promise<boolean> => {
 const checkEmulator = (): boolean => {
   return (
     Platform.OS === 'android' &&
-    (DeviceInfo.isEmulator() ||
-      NativeModules?.RNDeviceInfo?.isEmulator === true)
+    (NativeModules?.RNDeviceInfo?.isEmulator === true ||
+      (NativeModules?.DeviceInfo?.isEmulator === true))
   );
 };
 
