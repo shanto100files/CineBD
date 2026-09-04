@@ -141,10 +141,14 @@ export const createProviderSource = (value: string): ProviderSource => {
 export function getPostBadge(post: Post): string | undefined {
   const title = post.title || '';
   const link = post.link || '';
+  const providerName = (post.provider || '').toLowerCase();
+
   if (/\[Hindi\]|\bHindi\b/i.test(title)) return 'Hindi';
   if (/\[Tamil\]|\bTamil\b/i.test(title)) return 'Tamil';
   if (/\[Telugu\]|\bTelugu\b/i.test(title)) return 'Telugu';
   if (/\[Bengali\]|\bBengali\b/i.test(title)) return 'Bengali';
+
+  if (providerName.includes('4khdhub') || /\b4k\b/i.test(title)) return '4K';
 
   if (post.totalSeasons && post.totalSeasons > 1) {
     return `S01-S${String(post.totalSeasons).padStart(2, '0')}`;

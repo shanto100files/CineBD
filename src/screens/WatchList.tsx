@@ -6,11 +6,11 @@ import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useState} from 'react';
 import {
   Dimensions,
-  FlatList,
   Platform,
   TouchableOpacity,
   View,
 } from 'react-native';
+import {FlashList} from '@shopify/flash-list';
 import ReactNativeHapticFeedback, {
   HapticFeedbackTypes,
 } from 'react-native-haptic-feedback';
@@ -235,25 +235,24 @@ const WatchList = () => {
         ) : null}
 
         {watchList.length > 0 ? (
-          <FlatList
+          <FlashList
             data={watchList}
-            renderItem={({item}) => (
-              <MediaPosterCard
-                title={item.title}
-                poster={item.poster}
-                width={itemWidth}
-                selected={selectedLinks.has(item.link)}
-                selectionMode={isSelectionMode}
-                onPress={() => handleCardPress(item)}
-                onLongPress={() => handleCardLongPress(item)}
-              />
+            renderItem={({item, index}) => (
+              <View style={{paddingRight: index % numColumns !== numColumns - 1 ? itemSpacing : 0, paddingBottom: itemSpacing}}>
+                <MediaPosterCard
+                  title={item.title}
+                  poster={item.poster}
+                  width={itemWidth}
+                  selected={selectedLinks.has(item.link)}
+                  selectionMode={isSelectionMode}
+                  onPress={() => handleCardPress(item)}
+                  onLongPress={() => handleCardLongPress(item)}
+                />
+              </View>
             )}
             keyExtractor={(item, index) => item.link + index}
             numColumns={numColumns}
-            columnWrapperStyle={{
-              gap: itemSpacing,
-              justifyContent: 'flex-start',
-            }}
+            estimatedItemSize={250}
             contentContainerStyle={{
               paddingTop: isSelectionMode ? 14 : 0,
               paddingBottom: isSelectionMode ? 120 : 50,

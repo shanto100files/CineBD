@@ -864,11 +864,14 @@ const SeasonList: React.FC<SeasonListProps> = ({
       );
       const sizeM=item.title.match(/\[.*?GB.*?\]/i);
       const size=sizeM?sizeM[0]:"";
+      const langM=item.title.match(/\[([^\]]*(?:Hindi|English|Bengali|Tamil|Telugu|Dual|Dubbed)[^\]]*)\]/i);
+      const lang=langM?langM[1]:"";
       const qM=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
       const qual=qM?qM[0].trim():"";
+      const parts=[size, lang, qual].filter(Boolean);
+      const displayTitle=parts.length>0 ? parts.join(' • ') : (item.title?.trim() || (activeSeason?.directLinks?.length && activeSeason.directLinks.length > 1 ? `${activeSeason?.title || 'Episode'} ${index + 1}` : activeSeason?.title && activeSeason.title.toLowerCase() !== 'default' ? activeSeason.title : 'Play'));
       const fileName=item.title.replace(/\[.*?\]/g,"").replace(/\s+/g," ").trim();
-      const displayTitle=size ? `${size} • ${qual || fileName.slice(0,30)}` : (item.title?.trim() || (activeSeason?.directLinks?.length && activeSeason.directLinks.length > 1 ? `${activeSeason?.title || 'Episode'} ${index + 1}` : activeSeason?.title && activeSeason.title.toLowerCase() !== 'default' ? activeSeason.title : 'Play'));
-      const displayDesc=size ? fileName : item.description;
+      const displayDesc=fileName;
       const handleEpisodePress = () => {
         playHandler({
           linkIndex: index,

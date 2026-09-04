@@ -37,6 +37,20 @@ import {useAuthStore} from '../../lib/zustand/authStore';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'Settings'>;
 
+const AnimatedSection = ({
+  delay,
+  children,
+}: {
+  delay: number;
+  children: React.ReactNode;
+}) => (
+  <Animated.View
+    entering={FadeInDown.delay(delay).springify()}
+    layout={Layout.springify()}>
+    {children}
+  </Animated.View>
+);
+
 const Settings = ({navigation}: Props) => {
   const tabNavigation =
     useNavigation<NativeStackNavigationProp<TabStackParamList>>();
@@ -157,20 +171,6 @@ const Settings = ({navigation}: Props) => {
       ],
     });
   }, [eraseAllLocalData]);
-
-  const AnimatedSection = ({
-    delay,
-    children,
-  }: {
-    delay: number;
-    children: React.ReactNode;
-  }) => (
-    <Animated.View
-      entering={FadeInDown.delay(delay).springify()}
-      layout={Layout.springify()}>
-      {children}
-    </Animated.View>
-  );
 
   return (
     <Animated.ScrollView
