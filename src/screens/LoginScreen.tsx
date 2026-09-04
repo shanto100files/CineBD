@@ -22,7 +22,7 @@ export default function LoginScreen({navigation}: any) {
     setLoading(false);
     if (result.success) {
       ToastAndroid.show('Login successful!', ToastAndroid.SHORT);
-      navigation.goBack();
+      setTimeout(() => navigation.pop(), 100);
     } else {
       setError(result.error || 'Login failed');
     }

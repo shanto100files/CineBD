@@ -3,19 +3,21 @@ import {persist, createJSONStorage} from 'zustand/middleware';
 import {MMKVLoader} from 'react-native-mmkv-storage';
 // import {ProvidersList, providersList} from '../constants';
 import {extensionStorage, ProviderExtension} from '../storage/extensionStorage';
+import {settingsStorage} from '../storage';
 
 const storage = new MMKVLoader().initialize();
 
 export interface Content {
   provider: ProviderExtension;
   setProvider: (type: ProviderExtension) => void;
-  // Extension-based provider management
   installedProviders: ProviderExtension[];
   availableProviders: ProviderExtension[];
   setInstalledProviders: (providers: ProviderExtension[]) => void;
   setAvailableProviders: (providers: ProviderExtension[]) => void;
   activeExtensionProvider: ProviderExtension | null;
   setActiveExtensionProvider: (provider: ProviderExtension | null) => void;
+  homeProviderValue: string;
+  setHomeProviderValue: (value: string) => void;
 }
 
 const useContentStore = create<Content>()(
@@ -38,6 +40,7 @@ const useContentStore = create<Content>()(
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
       availableProviders: [],
       activeExtensionProvider: null,
+      homeProviderValue: settingsStorage.getHomeProvider(),
 
       setProvider: (provider: ProviderExtension) => set({provider}),
 
@@ -53,6 +56,9 @@ const useContentStore = create<Content>()(
 
       setActiveExtensionProvider: (provider: ProviderExtension | null) =>
         set({activeExtensionProvider: provider}),
+
+      setHomeProviderValue: (value: string) =>
+        set({homeProviderValue: value}),
     }),
     {
       name: 'content-storage',

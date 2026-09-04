@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {getHomePageData, HomePageData} from '../getHomepagedata';
 import {Content} from '../zustand/contentStore';
-import {cacheStorage, settingsStorage} from '../storage';
+import {cacheStorage} from '../storage';
 import useContentStore from '../zustand/contentStore';
 import axios from 'axios';
 import {useAuthStore} from '../zustand/authStore';
@@ -47,6 +47,7 @@ export const useHomePageData = ({
   enabled = true,
 }: UseHomePageDataOptions) => {
   const installedProviders = useContentStore(state => state.installedProviders);
+  const homeProviderValue = useContentStore(state => state.homeProviderValue);
   const token = useAuthStore(s => s.token);
   const [allowedProviders, setAllowedProviders] = useState<string[] | null>(null);
 
@@ -57,7 +58,6 @@ export const useHomePageData = ({
 
   const providersToFetch = React.useMemo(() => {
     if (!installedProviders || installedProviders.length === 0) return [provider];
-    const homeProviderValue = settingsStorage.getHomeProvider();
     if (homeProviderValue) {
       const single = installedProviders.find((p: any) => p.value === homeProviderValue);
       if (single) return [single];
@@ -67,7 +67,7 @@ export const useHomePageData = ({
     if (allowedProviders === null) return homeProviders;
     const filtered = homeProviders.filter(p => allowedProviders.includes(p.value));
     return filtered.length > 0 ? filtered : homeProviders;
-  }, [installedProviders, allowedProviders, provider]);
+  }, [installedProviders, allowedProviders, provider, homeProviderValue]);
 
   const query = useQuery<HomePageData[], Error>({
     queryKey: ['homePageData', 'aggregate', providersToFetch.map(p => p.value).sort().join(','), token || 'anon'],

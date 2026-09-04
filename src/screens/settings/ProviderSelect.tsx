@@ -22,6 +22,7 @@ export default function ProviderSelectScreen() {
   const token = useAuthStore(s => s.token);
   const navigation = useNavigation();
   const installedProviders = useContentStore(state => state.installedProviders);
+  const setHomeProviderValue = useContentStore(state => state.setHomeProviderValue);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [useAggregated, setUseAggregated] = useState(!settingsStorage.getHomeProvider());
   const [saving, setSaving] = useState(false);
@@ -53,6 +54,7 @@ export default function ProviderSelectScreen() {
     try {
       if (useAggregated) {
         settingsStorage.setHomeProvider('');
+        setHomeProviderValue('');
         await axios.post(`${API}/myproviders`, {providers: []}, {
           headers: {Authorization: `Bearer ${token}`},
           timeout: 8000,
@@ -62,8 +64,10 @@ export default function ProviderSelectScreen() {
         const sel = Array.from(selected);
         if (sel.length === 1) {
           settingsStorage.setHomeProvider(sel[0]);
+          setHomeProviderValue(sel[0]);
         } else {
           settingsStorage.setHomeProvider('');
+          setHomeProviderValue('');
         }
         await axios.post(`${API}/myproviders`, {providers: sel}, {
           headers: {Authorization: `Bearer ${token}`},
