@@ -10,7 +10,7 @@ const isDevelopmentBuild = (): boolean => {
 const checkRootDetection = async (): Promise<boolean> => {
   if (Platform.OS !== 'android') return false;
   try {
-    const {default: RNFS} = await import('react-native-fs');
+    const {default: RNFS} = await import('@dr.pogodin/react-native-fs');
     const paths = [
       '/system/app/Superuser.apk',
       '/system/xbin/su',

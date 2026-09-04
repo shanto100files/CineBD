@@ -3,7 +3,7 @@ import {View, StyleSheet, Linking, ActivityIndicator, Image, Platform} from 'rea
 import AppText from '../components/ui/Text';
 import axios from 'axios';
 import * as Application from 'expo-application';
-import RNFS from 'react-native-fs';
+import * as RNFS from '@dr.pogodin/react-native-fs';
 
 const API = 'https://cinepix.top/api/app';
 
