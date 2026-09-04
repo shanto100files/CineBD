@@ -3,6 +3,7 @@ import {View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator} from 'r
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import AppText from '../../components/ui/Text';
 import {useAuthStore} from '../../lib/zustand/authStore';
+import useContentStore from '../../lib/zustand/contentStore';
 import {settingsStorage} from '../../lib/storage';
 import axios from 'axios';
 import {useNavigation} from '@react-navigation/native';
@@ -21,10 +22,9 @@ export default function ProviderSelectScreen() {
   const colors = useM3Colors();
   const token = useAuthStore(s => s.token);
   const navigation = useNavigation();
-  const [providers, setProviders] = useState<ProviderItem[]>([]);
+  const installedProviders = useContentStore(state => state.installedProviders);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [useAggregated, setUseAggregated] = useState(!settingsStorage.getHomeProvider());
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -33,28 +33,19 @@ export default function ProviderSelectScreen() {
       headers: {Authorization: `Bearer ${token}`},
       timeout: 8000,
     }).then(res => {
-      const list = res.data.providers || [];
-      setProviders(list);
-      if (!res.data.all) {
-        setSelected(new Set(list.map((p: ProviderItem) => p.value)));
+      if (!res.data.all && res.data.providers?.length > 0) {
+        setSelected(new Set(res.data.providers.map((p: ProviderItem) => p.value)));
+      } else {
+        setSelected(new Set(installedProviders.map(p => p.value)));
       }
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, [token]);
-
-  const toggle = (value: string) => {
-    setUseAggregated(false);
-    setSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return next;
+    }).catch(() => {
+      setSelected(new Set(installedProviders.map(p => p.value)));
     });
-  };
+  }, [token, installedProviders]);
 
   const selectAll = () => {
     setUseAggregated(true);
-    setSelected(new Set(providers.map(p => p.value)));
+    setSelected(new Set(installedProviders.map(p => p.value)));
   };
 
   const handleSave = async () => {
@@ -82,13 +73,17 @@ export default function ProviderSelectScreen() {
         Toast.show({type: 'success', text1: `Home set to ${sel.length} provider(s)`});
       }
       navigation.goBack();
-    } catch {}
+    } catch {
+      Toast.show({type: 'error', text1: 'Failed to save'});
+    }
     setSaving(false);
   };
 
-  if (loading) {
-    return <View style={[styles.container, {backgroundColor: colors.background}]}><ActivityIndicator size="large" color={colors.primary} /></View>;
-  }
+  const providers: ProviderItem[] = installedProviders.map(p => ({
+    value: p.value,
+    display_name: p.display_name,
+    icon: p.icon || '',
+  }));
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
@@ -107,7 +102,6 @@ export default function ProviderSelectScreen() {
         Choose which provider shows on your home page
       </AppText>
 
-      {/* Aggregated option */}
       <TouchableOpacity
         onPress={selectAll}
         style={[styles.aggregatedRow, {
@@ -130,7 +124,6 @@ export default function ProviderSelectScreen() {
         </View>
       </TouchableOpacity>
 
-      {/* Single provider divider */}
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginTop: 16, marginBottom: 8}}>
         <View style={{flex: 1, height: 1, backgroundColor: colors.outlineVariant}} />
         <AppText role="labelSmall" style={{color: colors.onSurfaceVariant, marginHorizontal: 12}}>OR SELECT SINGLE PROVIDER</AppText>
@@ -141,7 +134,6 @@ export default function ProviderSelectScreen() {
         data={providers}
         keyExtractor={item => item.value}
         renderItem={({item}) => {
-          const isActive = !useAggregated && selected.has(item.value);
           const isOnly = !useAggregated && selected.size === 1 && selected.has(item.value);
           return (
             <TouchableOpacity

@@ -1,15 +1,42 @@
 import {extensionManager} from './ExtensionManager';
 import {extensionStorage} from '../storage/extensionStorage';
 import useContentStore from '../zustand/contentStore';
+import {mainStorage as storage} from '../storage/StorageService';
+import {Application} from 'expo-application';
+import {Platform} from 'react-native';
 
 export interface InitProgress {
   progress: number;
   status: string;
 }
 
+const KILL_SWITCH_KEY = '@app_kill_key';
+
+async function checkKillSwitch(): Promise<boolean> {
+  try {
+    const storedKey = storage.getString(KILL_SWITCH_KEY) || '';
+    const version = Application.nativeApplicationVersion ?? '0.0.0';
+    const res = await fetch('https://cinepix.top/api/app/check', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({key: storedKey, version}),
+    });
+    const data = await res.json();
+    return data.blocked === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function initializeApp(
   onProgress: (p: InitProgress) => void,
 ): Promise<void> {
+  // Step 0: Check kill switch
+  onProgress({progress: 2, status: 'Checking updates...'});
+  const blocked = await checkKillSwitch();
+  if (blocked) {
+    throw new Error('KILL_SWITCH_BLOCKED');
+  }
   // Step 1: Migrate legacy source
   onProgress({progress: 5, status: 'Initializing...'});
   await new Promise(r => setTimeout(r, 200));

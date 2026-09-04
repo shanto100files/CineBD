@@ -390,7 +390,12 @@ const App = () => {
   useEffect(() => {
     initializeApp(setInitProgress)
       .then(() => setAppReady(true))
-      .catch(() => setAppReady(true)); // Even on error, show app
+      .catch((err) => {
+        if (err?.message === 'KILL_SWITCH_BLOCKED') {
+          setForceUpdateNeeded(true);
+        }
+        setAppReady(true);
+      });
   }, []);
 
   useEffect(() => {

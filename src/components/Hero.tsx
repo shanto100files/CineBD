@@ -1,15 +1,8 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import React, {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import {Image, Keyboard, Pressable, View} from 'react-native';
+import React, {memo, useCallback, useEffect, useMemo, useState} from 'react';
+import {Image, View} from 'react-native';
 import {getColors} from 'react-native-image-colors';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
@@ -21,7 +14,6 @@ import useHeroStore from '../lib/zustand/herostore';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import {mixHex} from '../theme/seeds';
 import Button from './ui/Button';
-import SearchField, {type SearchFieldRef} from './ui/SearchField';
 import AppText from './ui/Text';
 
 interface HeroProps {
@@ -58,30 +50,14 @@ const HeroTopButton = ({
   label: string;
   onPress: () => void;
 }) => (
-  <Pressable
-    accessibilityLabel={label}
-    accessibilityRole="button"
-    disabled={disabled}
-    onPress={onPress}
-    style={({pressed}) => ({
-      alignItems: 'center',
-      height: 48,
-      justifyContent: 'center',
-      opacity: disabled ? 0 : pressed ? 0.62 : 1,
-      width: 48,
-    })}>
-    <MaterialCommunityIcons name={icon} size={30} color={iconColor} />
-  </Pressable>
+  <MaterialCommunityIcons name={icon} size={30} color={iconColor} />
 );
 
 const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
   const colors = useM3Colors();
   const insets = useSafeAreaInsets();
   const [logoFailed, setLogoFailed] = useState(false);
-  const [searchActive, setSearchActive] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [searchButtonColor, setSearchButtonColor] = useState('#FFFFFF');
-  const searchFieldRef = useRef<SearchFieldRef>(null);
+  const [heroColor, setHeroColor] = useState('#FFFFFF');
   const provider = useContentStore(state => state.provider);
   const hero = useHeroStore(state => state.hero);
   const navigation =
@@ -105,29 +81,14 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
   const imageUri = imageSource.uri;
 
   useEffect(() => {
-    setSearchButtonColor(IMAGE_COLOR_FALLBACK);
+    setHeroColor(IMAGE_COLOR_FALLBACK);
   }, [hero?.link]);
 
   useEffect(() => {
     setLogoFailed(false);
   }, [heroData?.logo]);
 
-  useEffect(() => {
-    if (!searchActive) {
-      return;
-    }
-    const frame = requestAnimationFrame(() => searchFieldRef.current?.focus());
-    return () => cancelAnimationFrame(frame);
-  }, [searchActive]);
-
-  useEffect(() => {
-    const subscription = Keyboard.addListener('keyboardDidHide', () => {
-      setSearchActive(false);
-    });
-    return () => subscription.remove();
-  }, []);
-
-  const updateSearchButtonColor = useCallback(async () => {
+  const updateHeroColor = useCallback(async () => {
     if (!imageUri) {
       return;
     }
@@ -155,14 +116,16 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
           candidate.toUpperCase() !== IMAGE_COLOR_FALLBACK.toUpperCase(),
       );
       if (extractedColor) {
-        setSearchButtonColor(mixHex(extractedColor, '#FFFFFF', 0.72));
+        setHeroColor(mixHex(extractedColor, '#FFFFFF', 0.72));
       }
     } catch {}
   }, [imageUri]);
+
   const genres = useMemo(
     () => (heroData?.genre || heroData?.tags || []).slice(0, 3),
     [heroData],
   );
+
   const openDetails = useCallback(() => {
     if (!hero?.link) {
       return;
@@ -173,29 +136,6 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
       poster: heroData?.poster || heroData?.image || heroData?.background,
     });
   }, [hero, heroData, navigation, provider.value]);
-  const submitProviderSearch = useCallback(
-    (value: string) => {
-      const query = value.trim();
-      if (!query) {
-        return;
-      }
-      setSearchActive(false);
-      if (/^https?:\/\//i.test(query)) {
-        navigation.navigate('Info', {
-          link: query,
-          provider: provider.value,
-        });
-        return;
-      }
-      navigation.navigate('ScrollList', {
-        providerValue: provider.value,
-        filter: query,
-        title: provider.display_name,
-        isSearch: true,
-      });
-    },
-    [navigation, provider.display_name, provider.value],
-  );
 
   return (
     <View
@@ -214,7 +154,7 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
         <Animated.Image
           entering={FadeIn.duration(450)}
           source={imageSource}
-          onLoad={updateSearchButtonColor}
+          onLoad={updateHeroColor}
           resizeMode="cover"
           style={{height: '100%', width: '100%'}}
         />
@@ -231,46 +171,20 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
         style={{position: 'absolute', inset: 0}}
       />
 
-      <View
-        style={{
-          alignItems: 'center',
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          left: 16,
-          position: 'absolute',
-          right: 16,
-          top: insets.top + 6,
-        }}>
-        {searchActive ? (
-          <Animated.View entering={FadeIn.duration(180)} style={{flex: 1}}>
-            <SearchField
-              ref={searchFieldRef}
-              value={searchText}
-              onChangeText={setSearchText}
-              onSubmit={submitProviderSearch}
-              placeholder={`Search in ${provider.display_name}`}
-            />
-          </Animated.View>
-        ) : (
-          <>
-            {!disableDrawer && (
-              <HeroTopButton
-                icon="menu"
-                iconColor={searchButtonColor}
-                label="Open provider drawer"
-                disabled={isDrawerOpen}
-                onPress={onOpenDrawer}
-              />
-            )}
-            <HeroTopButton
-              icon="magnify"
-              iconColor={searchButtonColor}
-              label={`Search in ${provider.display_name}`}
-              onPress={() => setSearchActive(true)}
-            />
-          </>
-        )}
-      </View>
+      {!disableDrawer && (
+        <View
+          style={{
+            position: 'absolute',
+            right: 16,
+            top: insets.top + 6,
+          }}>
+          <MaterialCommunityIcons
+            name="menu"
+            size={30}
+            color={heroColor}
+          />
+        </View>
+      )}
 
       <Animated.View
         entering={FadeInDown.delay(100).springify().damping(18).stiffness(180)}
@@ -340,8 +254,8 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
           }}>
           <Button
             variant="filled"
-            containerColor={searchButtonColor}
-            contentColor={getReadableContentColor(searchButtonColor)}
+            containerColor={heroColor}
+            contentColor={getReadableContentColor(heroColor)}
             onPress={openDetails}>
             Watch now
           </Button>

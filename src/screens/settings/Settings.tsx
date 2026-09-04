@@ -130,7 +130,7 @@ const Settings = ({navigation}: Props) => {
   const providersList = useMemo(
     () =>
       installedProviders.map(item =>
-        renderProviderItem(item, provider.value === item.value),
+        renderProviderItem(item, provider?.value === item.value),
       ),
     [installedProviders, provider.value, renderProviderItem],
   );
@@ -295,7 +295,12 @@ const Settings = ({navigation}: Props) => {
                         label: 'Logout',
                         variant: 'destructive',
                         onPress: () => {
-                          logout();
+                          try {
+                            logout();
+                            ToastAndroid.show('Logged out', ToastAndroid.SHORT);
+                          } catch (e) {
+                            console.warn('Logout error:', e);
+                          }
                         },
                       },
                     ],
@@ -421,15 +426,17 @@ const Settings = ({navigation}: Props) => {
               iconColor={colors.onPrimaryContainer}
               onPress={() => navigation.navigate('ProviderSelect')}
             />
-            <SettingsRow
-              title="Provider Manager"
-              description="Install, update, and test provider extensions"
-              icon="puzzle-outline"
-              iconBg={colors.secondaryContainer}
-              iconColor={colors.onSecondaryContainer}
-              divider={false}
-              onPress={() => navigation.navigate('Extensions')}
-            />
+            {user?.is_admin && (
+              <SettingsRow
+                title="Provider Manager"
+                description="Install, update, and test provider extensions"
+                icon="puzzle-outline"
+                iconBg={colors.secondaryContainer}
+                iconColor={colors.onSecondaryContainer}
+                divider={false}
+                onPress={() => navigation.navigate('Extensions')}
+              />
+            )}
           </SettingsSection>
         </AnimatedSection>
         )}

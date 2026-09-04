@@ -1,6 +1,6 @@
 import {Platform} from 'react-native';
 import {Application} from 'expo-application';
-import {storage} from '../storage/mmkvStorage';
+import {mainStorage as storage} from '../storage/StorageService';
 import useAuthStore from '../zustand/authStore';
 
 const API = 'https://cinepix.top/api/app';

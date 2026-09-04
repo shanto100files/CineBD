@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image} from 'react-native';
+import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image, ToastAndroid} from 'react-native';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
 
@@ -21,6 +21,7 @@ export default function LoginScreen({navigation}: any) {
     const result = await login(username.trim(), password);
     setLoading(false);
     if (result.success) {
+      ToastAndroid.show('Login successful!', ToastAndroid.SHORT);
       navigation.goBack();
     } else {
       setError(result.error || 'Login failed');
