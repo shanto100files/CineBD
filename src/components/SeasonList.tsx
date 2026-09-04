@@ -726,10 +726,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
         downloadIndex,
       );
       const epSizeM = item.title.match(/\[.*?GB.*?\]/i) || (item.description || '').match(/\[.*?GB.*?\]/i);
-      const epLangM = item.title.match(/\[([^\]]*(?:Hindi|English|Bengali|Tamil|Telugu|Dual|Dubbed)[^\]]*)\]/i) || (item.description || '').match(/\[([^\]]*(?:Hindi|English|Bengali|Tamil|Telugu|Dual|Dubbed)[^\]]*)\]/i);
-      const epQm = item.title.match(/\d+\s*p/i) || (item.description || '').match(/\d+\s*p/i);
-      const epParts = [epLangM?.[1], epQm?.[0], epSizeM?.[0]].filter(Boolean);
-      const epSubtitle = epParts.length > 0 ? epParts.join(' • ') : '';
+      const epSubtitle = epSizeM ? epSizeM[0] : (item.description || '');
       const handleEpisodePress = () => {
         playHandler({
           linkIndex: index,
@@ -1124,33 +1121,51 @@ const SeasonList: React.FC<SeasonListProps> = ({
             style={{marginBottom: 8}}
           />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8, paddingHorizontal: 4, marginBottom: 12}}>
-            {activeSeasonGroup?.links.map((item: any, index: number) => {
-              const isActive = selectedQuality===item.title;
-              const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
-              const sz=item.title.match(/\[.*?GB.*?\]/i);
-              const label=m?m[0].toUpperCase()+(sz?' '+sz[0]:''): (item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || `Q${index+1}`);
-              return (
-                <TouchableOpacity key={item.title+index} onPress={()=>{setSelectedQuality(item.title); handleSeasonChange(item);}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: isActive?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:isActive?colors.primary:colors.outlineVariant}}>
-                  <Text style={{color:isActive?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:isActive?'700':'500'}}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
+            {(() => {
+              const seen = new Set<string>();
+              return activeSeasonGroup?.links.filter((item: any) => {
+                const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
+                const label=m?m[0].toUpperCase(): (item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || '');
+                if (!label || seen.has(label)) return false;
+                seen.add(label);
+                return true;
+              }).map((item: any, index: number) => {
+                const isActive = selectedQuality===item.title;
+                const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
+                const sz=item.title.match(/\[.*?GB.*?\]/i);
+                const label=m?m[0].toUpperCase()+(sz?' '+sz[0]:''): (item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || `Q${index+1}`);
+                return (
+                  <TouchableOpacity key={item.title+index} onPress={()=>{setSelectedQuality(item.title); handleSeasonChange(item);}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: isActive?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:isActive?colors.primary:colors.outlineVariant}}>
+                    <Text style={{color:isActive?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:isActive?'700':'500'}}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              });
+            })()}
           </ScrollView>
         </>
       ) : seasonGroups.length === 1 && seasonGroups[0].links.length > 1 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8, paddingHorizontal: 4, marginBottom: 12}}>
-          {seasonGroups[0].links.map((item: any, index: number) => {
-            const isActive = selectedQuality===item.title;
-            const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
-            const sz=item.title.match(/\[.*?GB.*?\]/i);
-            const label=m?m[0].toUpperCase()+(sz?' '+sz[0]:''): (item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || `Q${index+1}`);
-            return (
-              <TouchableOpacity key={item.title+index} onPress={()=>{setSelectedQuality(item.title); handleSeasonChange(item);}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: isActive?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:isActive?colors.primary:colors.outlineVariant}}>
-                <Text style={{color:isActive?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:isActive?'700':'500'}}>{label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+            {(() => {
+              const seen = new Set<string>();
+              return seasonGroups[0].links.filter((item: any) => {
+                const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
+                const label=m?m[0].toUpperCase(): (item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || '');
+                if (!label || seen.has(label)) return false;
+                seen.add(label);
+                return true;
+              }).map((item: any, index: number) => {
+                const isActive = selectedQuality===item.title;
+                const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
+                const sz=item.title.match(/\[.*?GB.*?\]/i);
+                const label=m?m[0].toUpperCase()+(sz?' '+sz[0]:''): (item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || `Q${index+1}`);
+                return (
+                  <TouchableOpacity key={item.title+index} onPress={()=>{setSelectedQuality(item.title); handleSeasonChange(item);}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: isActive?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:isActive?colors.primary:colors.outlineVariant}}>
+                    <Text style={{color:isActive?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:isActive?'700':'500'}}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              });
+            })()}
+          </ScrollView>
       ) : (
         <DropdownField
           options={LinkList}
