@@ -66,10 +66,6 @@ const ProviderSourceManager = ({primary, visible, onSourceChanged}: Props) => {
   const reloadSources = () => {
     const nextSources = extensionStorage.getProviderSources();
     setSources(nextSources);
-    if (nextSources.length === 0) {
-      setShowSourcePicker(false);
-      setShowAddDialog(true);
-    }
   };
 
   useEffect(() => {
@@ -80,7 +76,7 @@ const ProviderSourceManager = ({primary, visible, onSourceChanged}: Props) => {
     const currentSources = extensionStorage.getProviderSources();
     setSources(currentSources);
 
-    if (currentSources.length === 0) {
+    if (currentSources.length === 0 && !extensionStorage.getProviderSource()) {
       setShowAddDialog(true);
     }
   }, [visible]);

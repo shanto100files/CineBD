@@ -555,7 +555,7 @@ const Extensions = ({navigation}: Props) => {
         </Pressable>
       </View>
       <ProviderSourceManager
-        visible
+        visible={!activeSourceAuthor}
         primary={primary}
         onSourceChanged={async (source: ProviderSource | undefined) => {
           const author = source?.author || '';
