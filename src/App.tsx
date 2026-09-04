@@ -21,7 +21,6 @@ import SearchResults from './screens/SearchResults';
 import * as SystemUI from 'expo-system-ui';
 // import DisableProviders from './screens/settings/DisableProviders';
 import About, {checkForUpdate} from './screens/settings/About';
-import BootSplash from 'react-native-bootsplash';
 import {SystemBars} from 'react-native-edge-to-edge';
 import {enableFreeze, enableScreens} from 'react-native-screens';
 import Preferences from './screens/settings/Preference';
@@ -421,14 +420,14 @@ const App = () => {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      BootSplash.hide({fade: true}).catch(() => {});
+      Promise.resolve();
     }, 1800);
     return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
     if (!isLoading) {
-      BootSplash.hide({fade: true}).catch(() => {});
+      Promise.resolve();
     }
   }, [isLoading]);
 
@@ -755,9 +754,7 @@ const App = () => {
                   if (pendingDownloadsNavigation) {
                     openDownloadsScreen();
                   }
-                  // Hide bootsplash
-                  await BootSplash.hide({fade: true});
-                  // Track initial screen
+                   // Track initial screen
                   if (hasFirebase) {
                     try {
                       const route = navigationRef.getCurrentRoute();
