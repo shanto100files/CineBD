@@ -28,6 +28,7 @@ import Preferences from './screens/settings/Preference';
 import Appearance from './screens/settings/Appearance';
 import {M3ThemeProvider} from './theme/M3ThemeProvider';
 import {AppState, LogBox, useWindowDimensions, View, ActivityIndicator, Image} from 'react-native';
+import {sendHeartbeat} from './lib/services/heartbeatService';
 import {EpisodeLink} from './lib/providers/types';
 import {
   SafeAreaProvider,
@@ -399,6 +400,14 @@ const App = () => {
 
   useEffect(() => {
     SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    sendHeartbeat();
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') sendHeartbeat();
+    });
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {
