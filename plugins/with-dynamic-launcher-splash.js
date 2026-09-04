@@ -160,6 +160,7 @@ const writeLauncherResources = resRoot => {
   fs.mkdirSync(drawable, {recursive: true});
   fs.mkdirSync(drawableV26, {recursive: true});
   for (const variant of variants) {
+    if (!variant.enabled) continue;
     const id = variant.id.toLowerCase();
     fs.writeFileSync(
       path.join(drawable, `ic_launcher_foreground_${id}.xml`),
@@ -187,11 +188,12 @@ const copySplashResources = (projectRoot, resRoot) => {
     const targetDir = path.join(resRoot, bucket);
     fs.mkdirSync(targetDir, {recursive: true});
     for (const variant of variants) {
+      if (!variant.enabled) continue;
       const filename = `bootsplash_logo_${variant.id.toLowerCase()}.png`;
-      fs.copyFileSync(
-        path.join(sourceDir, filename),
-        path.join(targetDir, filename),
-      );
+      const srcPath = path.join(sourceDir, filename);
+      if (fs.existsSync(srcPath)) {
+        fs.copyFileSync(srcPath, path.join(targetDir, filename));
+      }
     }
   }
 };
