@@ -725,6 +725,11 @@ const SeasonList: React.FC<SeasonListProps> = ({
         activeSeason.title,
         downloadIndex,
       );
+      const epSizeM = item.title.match(/\[.*?GB.*?\]/i) || (item.description || '').match(/\[.*?GB.*?\]/i);
+      const epLangM = item.title.match(/\[([^\]]*(?:Hindi|English|Bengali|Tamil|Telugu|Dual|Dubbed)[^\]]*)\]/i) || (item.description || '').match(/\[([^\]]*(?:Hindi|English|Bengali|Tamil|Telugu|Dual|Dubbed)[^\]]*)\]/i);
+      const epQm = item.title.match(/\d+\s*p/i) || (item.description || '').match(/\d+\s*p/i);
+      const epParts = [epLangM?.[1], epQm?.[0], epSizeM?.[0]].filter(Boolean);
+      const epSubtitle = epParts.length > 0 ? epParts.join(' • ') : '';
       const handleEpisodePress = () => {
         playHandler({
           linkIndex: index,
@@ -767,7 +772,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
               }>
               <EpisodeRowContent
                 title={item.title}
-                description={item.description}
+                description={epSubtitle || item.description}
                 image={item.image}
                 accentColor={primary}
                 textColor={CONTROL_TEXT}
@@ -776,11 +781,11 @@ const SeasonList: React.FC<SeasonListProps> = ({
                   detailsPressRef.current = item.link;
                 }}
                 onShowDetails={
-                  item.description?.trim()
+                  (item.description?.trim() || epSubtitle)
                     ? () => {
                         setEpisodeDetails({
                           title: item.title,
-                          description: item.description!.trim(),
+                          description: epSubtitle || item.description || '',
                           image: item.image,
                         });
                         setTimeout(() => {
@@ -868,10 +873,9 @@ const SeasonList: React.FC<SeasonListProps> = ({
       const lang=langM?langM[1]:"";
       const qM=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
       const qual=qM?qM[0].trim():"";
-      const parts=[size, lang, qual].filter(Boolean);
+      const parts=[lang, qual].filter(Boolean);
       const displayTitle=parts.length>0 ? parts.join(' • ') : (item.title?.trim() || (activeSeason?.directLinks?.length && activeSeason.directLinks.length > 1 ? `${activeSeason?.title || 'Episode'} ${index + 1}` : activeSeason?.title && activeSeason.title.toLowerCase() !== 'default' ? activeSeason.title : 'Play'));
-      const fileName=item.title.replace(/\[.*?\]/g,"").replace(/\s+/g," ").trim();
-      const displayDesc=fileName;
+      const displayDesc=size || item.description || '';
       const handleEpisodePress = () => {
         playHandler({
           linkIndex: index,
@@ -1106,9 +1110,6 @@ const SeasonList: React.FC<SeasonListProps> = ({
             style={{marginBottom: 8}}
           />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8, paddingHorizontal: 4, marginBottom: 12}}>
-            <TouchableOpacity key="all" onPress={()=>{setSelectedQuality('all'); if(activeSeasonGroup?.links[0]) handleSeasonChange(activeSeasonGroup.links[0] as any);}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: selectedQuality==='all'?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:selectedQuality==='all'?colors.primary:colors.outlineVariant}}>
-              <Text style={{color:selectedQuality==='all'?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:selectedQuality==='all'?'700':'500'}}>All</Text>
-            </TouchableOpacity>
             {activeSeasonGroup?.links.map((item: any, index: number) => {
               const isActive = selectedQuality===item.title;
               const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
@@ -1124,9 +1125,6 @@ const SeasonList: React.FC<SeasonListProps> = ({
         </>
       ) : seasonGroups.length === 1 && seasonGroups[0].links.length > 1 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8, paddingHorizontal: 4, marginBottom: 12}}>
-          <TouchableOpacity key="all-movie" onPress={()=>{setSelectedQuality('all'); if(seasonGroups[0].links[0]) handleSeasonChange(seasonGroups[0].links[0] as any);}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: selectedQuality==='all'?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:selectedQuality==='all'?colors.primary:colors.outlineVariant}}>
-            <Text style={{color:selectedQuality==='all'?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:selectedQuality==='all'?'700':'500'}}>All</Text>
-          </TouchableOpacity>
           {seasonGroups[0].links.map((item: any, index: number) => {
             const isActive = selectedQuality===item.title;
             const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);

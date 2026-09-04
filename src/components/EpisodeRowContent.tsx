@@ -115,8 +115,8 @@ const EpisodeRowContent = ({
         {descriptionText ? (
           <View style={{marginTop: 2, position: 'relative'}}>
             <Text
-              role="bodySmall"
-              numberOfLines={2}
+              role="labelSmall"
+              numberOfLines={1}
               onLayout={event => {
                 const width = Math.round(event.nativeEvent.layout.width);
                 setDescriptionWidth(current =>
@@ -141,9 +141,9 @@ const EpisodeRowContent = ({
                     : nextPosition,
                 );
               }}
-              style={{color: mutedTextColor}}>
+              style={{color: mutedTextColor, letterSpacing: 0.3}}>
               {visibleDescription}
-              {descriptionTruncated ? '…' : ''}
+              {descriptionTruncated ? '\u2026' : ''}
             </Text>
             {descriptionTruncated && onShowDetails && morePosition ? (
               <TouchableOpacity
@@ -173,7 +173,7 @@ const EpisodeRowContent = ({
               <Text
                 accessible={false}
                 pointerEvents="none"
-                role="bodySmall"
+                role="labelSmall"
                 onTextLayout={event => {
                   const lines = event.nativeEvent.lines;
                   const truncated =
