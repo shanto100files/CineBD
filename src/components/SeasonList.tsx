@@ -245,13 +245,13 @@ const SeasonList: React.FC<SeasonListProps> = ({
   const [activeAutoSeason, setActiveAutoSeason] = useState<number>(0);
 
   const autoGroupedSeasons = useMemo(() => {
-    if (LinkList.length > 1 || !episodeList || episodeList.length === 0) {
+    if (!episodeList || episodeList.length === 0) {
       return null;
     }
     const groups = autoGroupEpisodesBySeason(episodeList);
     if (groups.length <= 1) return null;
     return groups;
-  }, [LinkList.length, episodeList]);
+  }, [episodeList]);
 
   const [activeSeasonNum, setActiveSeasonNum] = useState<number>(() => detectSeasonFromTitle(LinkList[0]?.title || '') || 1);
   const seasonGroups = useMemo(() => {
@@ -1089,15 +1089,29 @@ const SeasonList: React.FC<SeasonListProps> = ({
     <View>
       {/* Season Tabs - Dropdown */}
       {autoGroupedSeasons ? (
-        <DropdownField
-          options={autoGroupedSeasons.map((g, i) => ({title: `Season ${detectSeasonFromTitle(g[0]?.title || '') || i + 1}`, idx: i})) as any}
-          value={{title: `Season ${detectSeasonFromTitle(autoGroupedSeasons[activeAutoSeason]?.[0]?.title || '') || activeAutoSeason + 1}`} as any}
-          getKey={item => String((item as any).idx)}
-          getLabel={item => (item as any).title}
-          onChange={item => setActiveAutoSeason((item as any).idx)}
-          showFullOptionLabels
-          style={{marginBottom: 8}}
-        />
+        <>
+          {LinkList.length > 1 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8, paddingHorizontal: 4, marginBottom: 8}}>
+              {LinkList.map((item: any, index: number) => {
+                const isActive = activeSeason?.title === item.title;
+                return (
+                  <TouchableOpacity key={item.title+index} onPress={()=>{setActiveSeason(item); if(item.episodesLink){refetchEpisodes();}}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: isActive?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:isActive?colors.primary:colors.outlineVariant}}>
+                    <Text style={{color:isActive?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:isActive?'700':'500'}}>{item.title}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+          <DropdownField
+            options={autoGroupedSeasons.map((g, i) => ({title: `Season ${detectSeasonFromTitle(g[0]?.title || '') || i + 1}`, idx: i})) as any}
+            value={{title: `Season ${detectSeasonFromTitle(autoGroupedSeasons[activeAutoSeason]?.[0]?.title || '') || activeAutoSeason + 1}`} as any}
+            getKey={item => String((item as any).idx)}
+            getLabel={item => (item as any).title}
+            onChange={item => setActiveAutoSeason((item as any).idx)}
+            showFullOptionLabels
+            style={{marginBottom: 8}}
+          />
+        </>
       ) : seasonGroups.length > 1 ? (
         <>
           <DropdownField
