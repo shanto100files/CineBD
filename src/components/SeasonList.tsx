@@ -726,7 +726,10 @@ const SeasonList: React.FC<SeasonListProps> = ({
         downloadIndex,
       );
       const epSizeM = item.title.match(/\[.*?GB.*?\]/i) || (item.description || '').match(/\[.*?GB.*?\]/i);
-      const epSubtitle = epSizeM ? epSizeM[0] : (item.description || '');
+      const epLangM = item.title.match(/\[([^\]]*(?:Hindi|English|Bengali|Tamil|Telugu|Dual|Dubbed)[^\]]*)\]/i) || (item.description || '').match(/\[([^\]]*(?:Hindi|English|Bengali|Tamil|Telugu|Dual|Dubbed)[^\]]*)\]/i);
+      const epQm = item.title.match(/\d+\s*p/i) || (item.description || '').match(/\d+\s*p/i);
+      const epSize = epSizeM ? epSizeM[0] : '';
+      const epSubtitle = [epLangM?.[1], epQm?.[0]].filter(Boolean).join(' • ');
       const handleEpisodePress = () => {
         playHandler({
           linkIndex: index,
@@ -768,7 +771,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
                 onLongPressHandler(true, item.link, 'series')
               }>
               <EpisodeRowContent
-                title={item.title}
+                title={epSize || item.title}
                 description={epSubtitle || item.description}
                 image={item.image}
                 accentColor={primary}
@@ -781,7 +784,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
                   (item.description?.trim() || epSubtitle)
                     ? () => {
                         setEpisodeDetails({
-                          title: item.title,
+                          title: epSize || item.title,
                           description: epSubtitle || item.description || '',
                           image: item.image,
                         });
