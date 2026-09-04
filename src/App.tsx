@@ -69,6 +69,8 @@ import {
 } from './lib/utils/firebaseSafe';
 import {useAuthStore} from './lib/zustand/authStore';
 import LoginScreen from './screens/LoginScreen';
+import RegisterScreen from './screens/RegisterScreen';
+import ProfileScreen from './screens/ProfileScreen';
 import InitSplash from './components/InitSplash';
 import {initializeApp, InitProgress} from './lib/services/initService';
 
@@ -146,6 +148,8 @@ export type SettingsStackParamList = {
   DownloadsStack: undefined;
   ProviderSelect: undefined;
   Login: undefined;
+  Register: undefined;
+  Profile: undefined;
 };
 
 export type DownloadsStackParamList = {
@@ -529,6 +533,16 @@ const App = () => {
         <SettingsStack.Screen
           name="Login"
           component={LoginScreen}
+          options={subpageOptions}
+        />
+        <SettingsStack.Screen
+          name="Register"
+          component={RegisterScreen}
+          options={subpageOptions}
+        />
+        <SettingsStack.Screen
+          name="Profile"
+          component={ProfileScreen}
           options={subpageOptions}
         />
       </SettingsStack.Navigator>

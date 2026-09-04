@@ -3,25 +3,28 @@ import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, 
 import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
 
-export default function LoginScreen({navigation}: any) {
+export default function RegisterScreen({navigation}: any) {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const login = useAuthStore(s => s.login);
+  const register = useAuthStore(s => s.register);
   const colors = useM3Colors();
 
-  const handleLogin = async () => {
-    if (!username.trim() || !password) {
-      setError('Please enter username and password');
+  const handleRegister = async () => {
+    if (!username.trim() || !email.trim() || !password) {
+      setError('Please fill all fields');
       return;
     }
     setLoading(true);
     setError('');
-    const result = await login(username.trim(), password);
+    const result = await register(username.trim(), email.trim(), password);
     setLoading(false);
-    if (!result.success) {
-      setError(result.error || 'Login failed');
+    if (result.success) {
+      navigation.goBack();
+    } else {
+      setError(result.error || 'Registration failed');
     }
   };
 
@@ -31,8 +34,8 @@ export default function LoginScreen({navigation}: any) {
         <View style={[styles.logoBox, {backgroundColor: colors.primary}]}>
           <Text style={styles.logoText}>CP</Text>
         </View>
-        <Text style={[styles.title, {color: colors.onBackground}]}>Cinepix</Text>
-        <Text style={[styles.subtitle, {color: colors.onSurfaceVariant}]}>Login to continue</Text>
+        <Text style={[styles.title, {color: colors.onBackground}]}>Create Account</Text>
+        <Text style={[styles.subtitle, {color: colors.onSurfaceVariant}]}>Join Cinepix</Text>
 
         {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
 
@@ -40,14 +43,17 @@ export default function LoginScreen({navigation}: any) {
           placeholder="Username" placeholderTextColor={colors.onSurfaceVariant} value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} />
 
         <TextInput style={[styles.input, {backgroundColor: colors.surfaceContainer, color: colors.onSurface, borderColor: colors.outline}]}
+          placeholder="Email" placeholderTextColor={colors.onSurfaceVariant} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" />
+
+        <TextInput style={[styles.input, {backgroundColor: colors.surfaceContainer, color: colors.onSurface, borderColor: colors.outline}]}
           placeholder="Password" placeholderTextColor={colors.onSurfaceVariant} value={password} onChangeText={setPassword} secureTextEntry />
 
-        <TouchableOpacity style={[styles.btn, {backgroundColor: colors.primary}]} onPress={handleLogin} disabled={loading}>
-          {loading ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={[styles.btnText, {color: colors.onPrimary}]}>Login</Text>}
+        <TouchableOpacity style={[styles.btn, {backgroundColor: colors.primary}]} onPress={handleRegister} disabled={loading}>
+          {loading ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={[styles.btnText, {color: colors.onPrimary}]}>Register</Text>}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('Register')} style={{marginTop: 12}}>
-          <Text style={{color: colors.primary, fontSize: 14}}>Don't have an account? Register</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop: 12}}>
+          <Text style={{color: colors.primary, fontSize: 14}}>Already have an account? Login</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

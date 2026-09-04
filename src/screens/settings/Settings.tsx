@@ -272,6 +272,13 @@ const Settings = ({navigation}: Props) => {
               </View>
               <View style={{height: 1, backgroundColor: colors.outlineVariant}} />
               <SettingsRow
+                title="Profile"
+                icon="person"
+                iconBg={colors.primaryContainer}
+                iconColor={colors.primary}
+                onPress={() => navigation.navigate('Profile')}
+              />
+              <SettingsRow
                 title="Logout"
                 icon="logout"
                 iconBg={colors.errorContainer}
@@ -304,8 +311,16 @@ const Settings = ({navigation}: Props) => {
                 icon="login"
                 iconBg={colors.primaryContainer}
                 iconColor={colors.primary}
-                divider={false}
                 onPress={() => navigation.navigate('Login')}
+              />
+              <SettingsRow
+                title="Register"
+                description="Create a new account"
+                icon="person-add"
+                iconBg={colors.tertiaryContainer}
+                iconColor={colors.onTertiaryContainer}
+                divider={false}
+                onPress={() => navigation.navigate('Register')}
               />
             </SettingsSection>
           )}

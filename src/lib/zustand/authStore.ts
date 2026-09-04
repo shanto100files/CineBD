@@ -19,6 +19,7 @@ interface AuthState {
   isLoggedIn: boolean;
   isPremium: boolean;
   login: (username: string, password: string) => Promise<{success: boolean; error?: string}>;
+  register: (username: string, email: string, password: string) => Promise<{success: boolean; error?: string}>;
   logout: () => void;
   loadToken: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -52,6 +53,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return {success: true};
       }
       return {success: false, error: res.data.error || 'Login failed'};
+    } catch (e: any) {
+      return {success: false, error: e.response?.data?.error || 'Network error'};
+    }
+  },
+
+  register: async (username, email, password) => {
+    try {
+      const res = await axios.post(`${API}/register`, {username, email, password}, {timeout: 10000});
+      if (res.data.token) {
+        authStorage.setString('token', res.data.token);
+        authStorage.setString('user', JSON.stringify(res.data.user));
+        set({
+          token: res.data.token,
+          user: res.data.user,
+          isLoggedIn: true,
+          isPremium: res.data.user.premium,
+        });
+        return {success: true};
+      }
+      return {success: false, error: res.data.error || 'Registration failed'};
     } catch (e: any) {
       return {success: false, error: e.response?.data?.error || 'Network error'};
     }
