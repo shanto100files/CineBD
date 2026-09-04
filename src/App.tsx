@@ -39,6 +39,8 @@ import DownloadedDetails from './screens/downloads/DownloadedDetails';
 import SubtitlePreference from './screens/settings/SubtitleSettings';
 import Extensions from './screens/settings/Extensions';
 import ProviderSelect from './screens/settings/ProviderSelect';
+import TermsOfService from './screens/settings/TermsOfService';
+import ReportScreen from './screens/settings/ReportScreen';
 import Constants from 'expo-constants';
 import {settingsStorage} from './lib/storage';
 import {updateProvidersService} from './lib/services/UpdateProviders';
@@ -153,6 +155,8 @@ export type SettingsStackParamList = {
   Login: undefined;
   Register: undefined;
   Profile: undefined;
+  TermsOfService: undefined;
+  Report: undefined;
 };
 
 export type DownloadsStackParamList = {
@@ -608,6 +612,16 @@ const App = () => {
           name="Profile"
           component={ProfileScreen}
           options={subpageOptions}
+        />
+        <SettingsStack.Screen
+          name="TermsOfService"
+          component={TermsOfService}
+          options={{headerShown: false}}
+        />
+        <SettingsStack.Screen
+          name="Report"
+          component={ReportScreen}
+          options={{headerShown: false}}
         />
       </SettingsStack.Navigator>
     );

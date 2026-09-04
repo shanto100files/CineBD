@@ -278,6 +278,7 @@ const Home = ({}: Props) => {
               <HeroOptimized
                 isDrawerOpen={isDrawerOpen}
                 onOpenDrawer={handleOpenDrawer}
+                disableDrawer={disableDrawer}
               />
 
               <ContinueWatching />

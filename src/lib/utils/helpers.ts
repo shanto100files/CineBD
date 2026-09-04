@@ -167,7 +167,7 @@ export function getPostBadge(post: Post): string | undefined {
   if (post.episodeCount) {
     return `Ep ${post.episodeCount}`;
   }
-  if (post.quality && post.quality !== '4') {
+  if (post.quality && !['4', '1', '2', '3'].includes(post.quality)) {
     return post.quality;
   }
 

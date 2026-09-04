@@ -350,7 +350,8 @@ const Settings = ({navigation}: Props) => {
           </SettingsSection>
         </AnimatedSection>
 
-        {/* Content provider section */}
+        {/* Content provider section - Admin only */}
+        {user?.is_admin && (
         <AnimatedSection delay={100}>
           <View style={{marginBottom: 24}}>
             <View
@@ -418,30 +419,6 @@ const Settings = ({navigation}: Props) => {
               icon="home-outline"
               iconBg={colors.primaryContainer}
               iconColor={colors.onPrimaryContainer}
-              onPress={() => {
-                const options = [
-                  {label: 'All providers (aggregated)', value: ''},
-                  ...installedProviders.map(p => ({label: p.display_name, value: p.value})),
-                ];
-                showAppDialog({
-                  title: 'Select Home Provider',
-                  message: 'Choose which provider shows on your home page',
-                  actions: options.map(o => ({
-                    label: o.label,
-                    onPress: () => {
-                      settingsStorage.setHomeProvider(o.value);
-                      ToastAndroid.show(o.value ? `Home set to ${o.label}` : 'Home set to aggregated', ToastAndroid.SHORT);
-                    },
-                  })),
-                });
-              }}
-            />
-            <SettingsRow
-              title="Select Home Providers"
-              description="Choose which providers appear on your home page"
-              icon="view-grid-outline"
-              iconBg={colors.tertiaryContainer}
-              iconColor={colors.onTertiaryContainer}
               onPress={() => navigation.navigate('ProviderSelect')}
             />
             <SettingsRow
@@ -455,6 +432,7 @@ const Settings = ({navigation}: Props) => {
             />
           </SettingsSection>
         </AnimatedSection>
+        )}
 
         {/* Network Section */}
         <AnimatedSection delay={150}>
@@ -529,6 +507,28 @@ const Settings = ({navigation}: Props) => {
         </AnimatedSection>
 
         <AnimatedSection delay={400}>
+          <SettingsSection title="Help & Support">
+            <SettingsRow
+              title="Report Bug / Request"
+              description="Report issues or request content"
+              icon="alert-circle-outline"
+              iconBg={colors.errorContainer}
+              iconColor={colors.error}
+              onPress={() => navigation.navigate('Report')}
+            />
+            <SettingsRow
+              title="ব্যবহারবিধি"
+              description="Terms of Service"
+              icon="file-document-outline"
+              iconBg={'#1A3A2A'}
+              iconColor={'#80CBC4'}
+              divider={false}
+              onPress={() => navigation.navigate('TermsOfService')}
+            />
+          </SettingsSection>
+        </AnimatedSection>
+
+        <AnimatedSection delay={450}>
           <SettingsSection title="About">
             <SettingsRow
               title="About CineBD"

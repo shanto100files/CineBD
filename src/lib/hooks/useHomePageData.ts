@@ -79,7 +79,7 @@ export const useHomePageData = ({
           const data = await getHomePageData(prov, signal);
           return data.map(section => ({
             ...section,
-            title: `${prov.display_name} — ${section.title}`,
+            title: section.title,
             Posts: (section.Posts || []).map(post => ({
               ...post,
               provider: prov.value,

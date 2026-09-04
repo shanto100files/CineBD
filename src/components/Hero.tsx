@@ -27,6 +27,7 @@ import AppText from './ui/Text';
 interface HeroProps {
   isDrawerOpen: boolean;
   onOpenDrawer: () => void;
+  disableDrawer?: boolean;
 }
 
 const IMAGE_COLOR_FALLBACK = '#FFFFFF';
@@ -73,7 +74,7 @@ const HeroTopButton = ({
   </Pressable>
 );
 
-const Hero = memo(({isDrawerOpen, onOpenDrawer}: HeroProps) => {
+const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
   const colors = useM3Colors();
   const insets = useSafeAreaInsets();
   const [logoFailed, setLogoFailed] = useState(false);
@@ -252,13 +253,15 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer}: HeroProps) => {
           </Animated.View>
         ) : (
           <>
-            <HeroTopButton
-              icon="menu"
-              iconColor={searchButtonColor}
-              label="Open provider drawer"
-              disabled={isDrawerOpen}
-              onPress={onOpenDrawer}
-            />
+            {!disableDrawer && (
+              <HeroTopButton
+                icon="menu"
+                iconColor={searchButtonColor}
+                label="Open provider drawer"
+                disabled={isDrawerOpen}
+                onPress={onOpenDrawer}
+              />
+            )}
             <HeroTopButton
               icon="magnify"
               iconColor={searchButtonColor}
