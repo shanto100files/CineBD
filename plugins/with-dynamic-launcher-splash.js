@@ -99,7 +99,6 @@ const withLauncherStyles = config =>
       ['bootSplashBackground', '@color/bootsplash_background'],
     ]);
     for (const variant of variants) {
-      if (!variant.enabled) continue;
       upsertStyle(styles, `BootTheme.${variant.id}`, 'BootTheme.Base', [
         [
           'bootSplashLogo',
