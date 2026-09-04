@@ -9,7 +9,7 @@ import AppText from '../components/ui/Text';
 import LoadingIndicator from '../components/ui/LoadingIndicator';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import {useNavigation} from '@react-navigation/native';
-import {getPostBadge} from '../lib/utils/helpers';
+import {getPostBadge, getProviderBadge} from '../lib/utils/helpers';
 import {Post} from '../lib/providers/types';
 
 type Props = NativeStackScreenProps<SearchStackParamList, 'SearchResults'>;
@@ -94,6 +94,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         poster={item.image}
         width={cardWidth}
         badge={getPostBadge(item)}
+        providerBadge={getProviderBadge(item)}
         onPress={() => handleItemPress(item)}
       />
     ),

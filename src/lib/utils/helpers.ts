@@ -147,8 +147,10 @@ export function getPostBadge(post: Post): string | undefined {
   if (/\[Tamil\]|\bTamil\b/i.test(title)) return 'Tamil';
   if (/\[Telugu\]|\bTelugu\b/i.test(title)) return 'Telugu';
   if (/\[Bengali\]|\bBengali\b/i.test(title)) return 'Bengali';
+  if (/\[English\]|\bEnglish\b/i.test(title)) return 'English';
+  if (/\[Dual\]|\bDual\b/i.test(title)) return 'Dual';
 
-  if (providerName.includes('4khdhub') || /\b4k\b/i.test(title)) return '4K';
+  if (providerName.includes('4khdhub') || /\b4k\b|\b2160p\b/i.test(title)) return '4K';
 
   if (post.totalSeasons && post.totalSeasons > 1) {
     return `S01-S${String(post.totalSeasons).padStart(2, '0')}`;
@@ -165,7 +167,7 @@ export function getPostBadge(post: Post): string | undefined {
   if (post.episodeCount) {
     return `Ep ${post.episodeCount}`;
   }
-  if (post.quality) {
+  if (post.quality && post.quality !== '4') {
     return post.quality;
   }
 
@@ -193,10 +195,26 @@ export function getPostBadge(post: Post): string | undefined {
     return 'Series';
   }
 
-  if (/\b(4k|2160p|1080p|720p|hdcam|hd)\b/i.test(title)) {
-    const q = title.match(/\b(4k|2160p|1080p|720p|hdcam|hd)\b/i);
+  if (/\b(2160p|1080p|720p|hdcam|hd)\b/i.test(title)) {
+    const q = title.match(/\b(2160p|1080p|720p|hdcam|hd)\b/i);
     return q ? q[1].toUpperCase() : undefined;
   }
 
+  return undefined;
+}
+
+export function getProviderBadge(post: Post): string | undefined {
+  const provider = (post.provider || '').toLowerCase();
+  if (provider.includes('cinefreak')) return 'CF';
+  if (provider.includes('moviebox') || provider.includes('movieboxweb')) return 'MB';
+  if (provider.includes('4khdhub')) return '4K+';
+  return undefined;
+}
+
+export function getProviderFullName(providerValue: string): string | undefined {
+  const p = providerValue.toLowerCase();
+  if (p.includes('cinefreak')) return 'CineFreak';
+  if (p.includes('moviebox') || p.includes('movieboxweb')) return 'MovieBox';
+  if (p.includes('4khdhub')) return '4KHDHub';
   return undefined;
 }

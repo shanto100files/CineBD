@@ -10,7 +10,7 @@ import useContentStore from '../lib/zustand/contentStore';
 import SkeletonLoader from './Skeleton';
 import MediaPosterCard from './MediaPosterCard';
 import {useM3Colors} from '../theme/M3PaletteContext';
-import {getPostBadge} from '../lib/utils/helpers';
+import {getPostBadge, getProviderBadge} from '../lib/utils/helpers';
 
 import AppText from './ui/Text';
 
@@ -65,6 +65,7 @@ const Slider = ({
         poster={item.image}
         width={124}
         badge={getPostBadge(item)}
+        providerBadge={getProviderBadge(item)}
         onPress={() => handleItemPress(item)}
       />
     ),
@@ -158,10 +159,11 @@ const Slider = ({
           ItemSeparatorComponent={() => <View style={{width: 14}} />}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
-          initialNumToRender={6}
-          maxToRenderPerBatch={6}
-          windowSize={5}
-          removeClippedSubviews={false}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={3}
+          removeClippedSubviews={true}
+          getItemLayout={(_, index) => ({length: 262, offset: 262 * index, index})}
           ListFooterComponent={
             !isLoading && error ? (
               <View className="flex flex-row w-96 justify-center h-10 items-center">

@@ -1,7 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React from 'react';
 import {Image, Pressable, View} from 'react-native';
-import Animated, {FadeInDown} from 'react-native-reanimated';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import AppText from './ui/Text';
 
@@ -11,6 +10,7 @@ interface MediaPosterCardProps {
   width: number;
   subtitle?: string;
   badge?: number | string;
+  providerBadge?: string;
   selected?: boolean;
   selectionMode?: boolean;
   onPress: () => void;
@@ -23,6 +23,7 @@ const MediaPosterCard = ({
   width,
   subtitle,
   badge,
+  providerBadge,
   selected = false,
   selectionMode = false,
   onPress,
@@ -31,7 +32,7 @@ const MediaPosterCard = ({
   const colors = useM3Colors();
 
   return (
-    <Animated.View entering={FadeInDown.duration(280)} style={{width}}>
+    <View style={{width}}>
       <Pressable
         onPress={onPress}
         onLongPress={onLongPress}
@@ -77,6 +78,31 @@ const MediaPosterCard = ({
                   fontSize: 11,
                 }}>
                 {badge}
+              </AppText>
+            </View>
+          ) : null}
+
+          {providerBadge ? (
+            <View
+              style={{
+                position: 'absolute',
+                top: 6,
+                right: 6,
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                borderRadius: 6,
+                paddingHorizontal: 5,
+                paddingVertical: 2,
+                zIndex: 5,
+              }}>
+              <AppText
+                role="labelSmall"
+                style={{
+                  color: '#fff',
+                  fontWeight: '800',
+                  fontSize: 9,
+                  letterSpacing: 0.5,
+                }}>
+                {providerBadge}
               </AppText>
             </View>
           ) : null}
@@ -157,7 +183,7 @@ const MediaPosterCard = ({
           </AppText>
         ) : null}
       </Pressable>
-    </Animated.View>
+    </View>
   );
 };
 
