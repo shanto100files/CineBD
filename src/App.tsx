@@ -27,7 +27,7 @@ import {enableFreeze, enableScreens} from 'react-native-screens';
 import Preferences from './screens/settings/Preference';
 import Appearance from './screens/settings/Appearance';
 import {M3ThemeProvider} from './theme/M3ThemeProvider';
-import {AppState, LogBox, useWindowDimensions, View, ActivityIndicator} from 'react-native';
+import {AppState, LogBox, useWindowDimensions, View, ActivityIndicator, Image} from 'react-native';
 import {EpisodeLink} from './lib/providers/types';
 import {
   SafeAreaProvider,
@@ -71,6 +71,8 @@ import {useAuthStore} from './lib/zustand/authStore';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import ForceUpdateScreen from './screens/ForceUpdateScreen';
+import AppText from './components/ui/Text';
 import InitSplash from './components/InitSplash';
 import {initializeApp, InitProgress} from './lib/services/initService';
 
@@ -191,6 +193,8 @@ const App = () => {
   const loadToken = useAuthStore(s => s.loadToken);
   const [initProgress, setInitProgress] = useState<InitProgress>({progress: 0, status: 'Starting...'});
   const [appReady, setAppReady] = useState(false);
+  const [forceUpdateNeeded, setForceUpdateNeeded] = useState(false);
+  const [securityBlocked, setSecurityBlocked] = useState(false);
   LogBox.ignoreLogs([
     'You have passed a style to FlashList',
     'new NativeEventEmitter()',
@@ -344,6 +348,39 @@ const App = () => {
     loadToken();
   }, []);
 
+  useEffect(() => {
+    const checkForceUpdate = async () => {
+      try {
+        const {default: DeviceInfo} = await import('react-native-device-info');
+        const {default: axios} = await import('axios');
+        const {runSecurityCheck} = await import('./lib/security/securityCheck');
+        const security = await runSecurityCheck();
+        if (security.isRooted) {
+          setSecurityBlocked(true);
+          return;
+        }
+        const res = await axios.get('https://cinepix.top/api/app/versioncheck', {timeout: 8000});
+        const {min_version, force_update} = res.data;
+        if (force_update) {
+          const current = DeviceInfo.getVersion();
+          const needs = compareVersionsLocal(current, min_version);
+          if (needs) setForceUpdateNeeded(true);
+        }
+      } catch {}
+    };
+    checkForceUpdate();
+  }, []);
+
+  function compareVersionsLocal(local: string, min: string): boolean {
+    const l = local.split('.').map(Number);
+    const m = min.split('.').map(Number);
+    if (l[0] > m[0]) return false;
+    if (l[0] < m[0]) return true;
+    if (l[1] > m[1]) return false;
+    if (l[1] < m[1]) return true;
+    return l[2] < m[2];
+  }
+
   // Initialize app: install providers, setup home, etc.
   useEffect(() => {
     initializeApp(setInitProgress)
@@ -423,6 +460,24 @@ const App = () => {
         progress={isLoading ? 100 : initProgress.progress}
         status={isLoading ? 'Loading profile...' : initProgress.status}
       />
+    );
+  }
+
+  // Force update screen
+  if (forceUpdateNeeded) {
+    return <ForceUpdateScreen />;
+  }
+
+  // Security blocked screen (rooted device)
+  if (securityBlocked) {
+    return (
+      <View style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 32}}>
+        <Image source={require('./assets/logo.png')} style={{width: 120, height: 120, marginBottom: 24}} resizeMode="contain" />
+        <AppText role="headlineMedium" style={{color: '#fff', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 12}}>Security Warning</AppText>
+        <AppText role="bodyMedium" style={{color: '#999', textAlign: 'center', lineHeight: 22}}>
+          This app cannot run on a rooted or modified device. Please use a non-rooted device to continue.
+        </AppText>
+      </View>
     );
   }
 

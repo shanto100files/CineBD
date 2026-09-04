@@ -61,6 +61,7 @@
     "react-native": "0.86.2",
     "react-native-bootsplash": "^6.3.7",
     "react-native-css-interop": "^0.2.1",
+    "react-native-device-info": "^15.0.2",
     "react-native-drawer-layout": "^4.2.1",
     "react-native-edge-to-edge": "1.6.0",
     "react-native-element-dropdown": "^2.12.0",
