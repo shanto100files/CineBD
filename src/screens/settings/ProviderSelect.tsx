@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator} from 'react-native';
+import {View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, ToastAndroid} from 'react-native';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import AppText from '../../components/ui/Text';
 import {useAuthStore} from '../../lib/zustand/authStore';
@@ -7,7 +7,6 @@ import useContentStore from '../../lib/zustand/contentStore';
 import {settingsStorage} from '../../lib/storage';
 import axios from 'axios';
 import {useNavigation} from '@react-navigation/native';
-import Toast from 'react-native-toast-message';
 import {MaterialIcons} from '@expo/vector-icons';
 
 const API = 'https://cinepix.top/api/app';
@@ -58,7 +57,7 @@ export default function ProviderSelectScreen() {
           headers: {Authorization: `Bearer ${token}`},
           timeout: 8000,
         });
-        Toast.show({type: 'success', text1: 'Home set to All providers (aggregated)'});
+        ToastAndroid.show('Home set to All providers (aggregated)', ToastAndroid.SHORT);
       } else {
         const sel = Array.from(selected);
         if (sel.length === 1) {
@@ -70,11 +69,11 @@ export default function ProviderSelectScreen() {
           headers: {Authorization: `Bearer ${token}`},
           timeout: 8000,
         });
-        Toast.show({type: 'success', text1: `Home set to ${sel.length} provider(s)`});
+        ToastAndroid.show(`Home set to ${sel.length} provider(s)`, ToastAndroid.SHORT);
       }
       navigation.goBack();
     } catch {
-      Toast.show({type: 'error', text1: 'Failed to save'});
+      ToastAndroid.show('Failed to save', ToastAndroid.SHORT);
     }
     setSaving(false);
   };
