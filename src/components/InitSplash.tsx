@@ -1,5 +1,5 @@
 import React, {useEffect, useRef} from 'react';
-import {View, Animated, StyleSheet} from 'react-native';
+import {View, Animated, StyleSheet, Image} from 'react-native';
 import AppText from './ui/Text';
 
 interface InitSplashProps {
@@ -35,10 +35,11 @@ const InitSplash: React.FC<InitSplashProps> = ({progress, status}) => {
   return (
     <Animated.View style={[styles.container, {opacity: fadeAnim}]}>
       <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <AppText style={styles.logo}>V</AppText>
-        </View>
-        <AppText style={styles.appName}>CineBD</AppText>
+        <Image
+          source={require('../../assets/logo.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
 
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
@@ -70,25 +71,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
   },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: '#8b5cf6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  logo: {
-    fontSize: 40,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  appName: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 40,
+  logoImage: {
+    width: 220,
+    height: 220,
+    marginBottom: 32,
   },
   progressContainer: {
     width: '100%',
@@ -102,7 +88,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#8b5cf6',
+    backgroundColor: '#e11d48',
     borderRadius: 2,
   },
   progressText: {

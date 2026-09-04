@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform} from 'react-native';
+import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image} from 'react-native';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
 
@@ -28,10 +28,12 @@ export default function LoginScreen({navigation}: any) {
   return (
     <KeyboardAvoidingView style={[styles.container, {backgroundColor: colors.background}]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.card}>
-        <View style={[styles.logoBox, {backgroundColor: colors.primary}]}>
-          <Text style={styles.logoText}>CP</Text>
-        </View>
-        <Text style={[styles.title, {color: colors.onBackground}]}>Cinepix</Text>
+        <Image
+          source={require('../../assets/logo.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+        <Text style={[styles.title, {color: colors.onBackground}]}>CineBD</Text>
         <Text style={[styles.subtitle, {color: colors.onSurfaceVariant}]}>Login to continue</Text>
 
         {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
@@ -57,8 +59,7 @@ export default function LoginScreen({navigation}: any) {
 const styles = StyleSheet.create({
   container: {flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24},
   card: {width: '100%', maxWidth: 380, alignItems: 'center', gap: 12},
-  logoBox: {width: 72, height: 72, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 8},
-  logoText: {color: '#fff', fontSize: 28, fontWeight: '800'},
+  logoImage: {width: 180, height: 180, marginBottom: 8},
   title: {fontSize: 28, fontWeight: '800'},
   subtitle: {fontSize: 14, marginBottom: 16},
   errorBox: {width: '100%', padding: 12, borderRadius: 12, backgroundColor: 'rgba(239,68,68,0.1)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)'},
