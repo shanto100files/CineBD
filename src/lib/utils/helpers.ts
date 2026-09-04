@@ -150,7 +150,7 @@ export function getPostBadge(post: Post): string | undefined {
   if (/\[English\]|\bEnglish\b/i.test(title)) return 'English';
   if (/\[Dual\]|\bDual\b/i.test(title)) return 'Dual';
 
-  if (providerName.includes('4khdhub') || /\b4k\b|\b2160p\b/i.test(title)) return '4K';
+  if (/\b4k\b|\b2160p\b/i.test(title)) return '4K';
 
   if (post.totalSeasons && post.totalSeasons > 1) {
     return `S01-S${String(post.totalSeasons).padStart(2, '0')}`;
@@ -207,7 +207,6 @@ export function getProviderBadge(post: Post): string | undefined {
   const provider = (post.provider || '').toLowerCase();
   if (provider.includes('cinefreak')) return 'CF';
   if (provider.includes('moviebox') || provider.includes('movieboxweb')) return 'MB';
-  if (provider.includes('4khdhub')) return '4K+';
   return undefined;
 }
 
