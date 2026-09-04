@@ -79,9 +79,9 @@ const withLauncherManifest = config =>
       removeLauncherIntent(mainActivity);
       mainActivity.$['android:theme'] = '@style/BootTheme';
     }
-    application['activity-alias'] = variants.map(variant =>
-      createLauncherAlias(manifestConfig.android?.package, variant),
-    );
+    application['activity-alias'] = variants
+      .filter(variant => variant.enabled)
+      .map(variant => createLauncherAlias(manifestConfig.android?.package, variant));
     return manifestConfig;
   });
 
@@ -99,6 +99,7 @@ const withLauncherStyles = config =>
       ['bootSplashBackground', '@color/bootsplash_background'],
     ]);
     for (const variant of variants) {
+      if (!variant.enabled) continue;
       upsertStyle(styles, `BootTheme.${variant.id}`, 'BootTheme.Base', [
         [
           'bootSplashLogo',
@@ -110,23 +111,7 @@ const withLauncherStyles = config =>
   });
 
 const bootThemeMethod = `  private fun getBootTheme(): Int {
-    val launchedAlias = intent?.component?.className?.substringAfterLast('.')
-    val selectedIcon = when (launchedAlias) {
-      "LauncherWhite" -> "white"
-      "LauncherTomato" -> "tomato"
-      "LauncherGray" -> "gray"
-      "LauncherBlue" -> "blue"
-      "LauncherLavender" -> "lavender"
-      else -> getSharedPreferences("vega_launcher", MODE_PRIVATE)
-        .getString("icon", "white")
-    }
-    return when (selectedIcon) {
-      "tomato" -> R.style.BootTheme_Tomato
-      "gray" -> R.style.BootTheme_Gray
-      "blue" -> R.style.BootTheme_Blue
-      "lavender" -> R.style.BootTheme_Lavender
-      else -> R.style.BootTheme_White
-    }
+    return R.style.BootTheme_White
   }
 
 `;
