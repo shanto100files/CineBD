@@ -146,7 +146,7 @@ jobs:
           APK_PATHS=$(echo $APK_PATHS | sed 's/,$//')
           echo "apk_paths=${APK_PATHS}" >> $GITHUB_OUTPUT
 
-          RELEASE_TAG="custom-$(date -u '+%Y%m%d')"
+          RELEASE_TAG="v$(grep -m 1 'version' package.json | sed 's/.*"\(.*\)".*/\1/')"
           echo "RELEASE_TAG=${RELEASE_TAG}" >> $GITHUB_ENV
 
           echo "APKs built:"
