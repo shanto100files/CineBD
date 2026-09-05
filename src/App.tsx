@@ -387,9 +387,17 @@ const App = () => {
 
   // Initialize app: install providers, setup home, etc.
   useEffect(() => {
+    const safetyTimeout = setTimeout(() => {
+      setAppReady(true);
+    }, 15000);
+
     initializeApp(setInitProgress)
-      .then(() => setAppReady(true))
+      .then(() => {
+        clearTimeout(safetyTimeout);
+        setAppReady(true);
+      })
       .catch((err) => {
+        clearTimeout(safetyTimeout);
         if (err?.message === 'KILL_SWITCH_BLOCKED') {
           setForceUpdateNeeded(true);
         }

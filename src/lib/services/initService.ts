@@ -16,16 +16,29 @@ async function checkKillSwitch(): Promise<boolean> {
   try {
     const storedKey = storage.getString(KILL_SWITCH_KEY) || '';
     const version = Application.nativeApplicationVersion ?? '0.0.0';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch('https://cinepix.top/api/app/check', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({key: storedKey, version}),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     const data = await res.json();
     return data.blocked === true;
   } catch {
     return false;
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), ms),
+    ),
+  ]);
 }
 
 export async function initializeApp(
@@ -44,10 +57,10 @@ export async function initializeApp(
   // Step 2: Fetch manifest
   onProgress({progress: 15, status: 'Fetching providers...'});
   try {
-    await extensionManager.fetchManifest(undefined, true);
+    await withTimeout(extensionManager.fetchManifest(undefined, true), 8000);
   } catch {
     try {
-      await extensionManager.fetchManifest(undefined, false);
+      await withTimeout(extensionManager.fetchManifest(undefined, false), 8000);
     } catch {}
   }
   onProgress({progress: 35, status: 'Providers found'});
@@ -56,7 +69,7 @@ export async function initializeApp(
   // Step 3: Initialize extension manager (loads installed providers)
   onProgress({progress: 40, status: 'Loading installed providers...'});
   try {
-    await extensionManager.initialize();
+    await withTimeout(extensionManager.initialize(), 5000);
   } catch {}
   await new Promise(r => setTimeout(r, 150));
 
