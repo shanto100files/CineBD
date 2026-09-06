@@ -22,7 +22,10 @@ export default function LoginScreen({navigation}: any) {
     setLoading(false);
     if (result.success) {
       ToastAndroid.show('Login successful!', ToastAndroid.SHORT);
-      setTimeout(() => navigation.pop(), 100);
+      // Navigate to profile instead of just popping back
+      setTimeout(() => {
+        navigation.replace('Profile');
+      }, 100);
     } else {
       setError(result.error || 'Login failed');
     }

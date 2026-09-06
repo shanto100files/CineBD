@@ -22,7 +22,10 @@ export default function RegisterScreen({navigation}: any) {
     const result = await register(username.trim(), email.trim(), password);
     setLoading(false);
     if (result.success) {
-      navigation.goBack();
+      ToastAndroid.show('Registration successful!', ToastAndroid.SHORT);
+      setTimeout(() => {
+        navigation.replace('Profile');
+      }, 100);
     } else {
       setError(result.error || 'Registration failed');
     }

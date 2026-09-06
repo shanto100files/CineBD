@@ -92,13 +92,16 @@ export class ExtensionManager {
       console.log('Fetching manifest from:', manifestUrl);
       const response = await axios.get(manifestUrl, {
         timeout: 10000,
-        headers: shouldForce
-          ? {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              Pragma: 'no-cache',
-              Expires: '0',
-            }
-          : undefined,
+        headers: {
+          ...(shouldForce
+            ? {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                Pragma: 'no-cache',
+                Expires: '0',
+              }
+            : {}),
+          'X-App-Version': require('expo-application').nativeApplicationVersion ?? '0.0.0',
+        },
       });
 
       if (!response.data || !Array.isArray(response.data)) {
