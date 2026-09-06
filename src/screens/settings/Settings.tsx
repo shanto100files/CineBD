@@ -6,7 +6,7 @@ import {
   ScrollView,
   Linking,
 } from 'react-native';
-import React, {useCallback, useMemo} from 'react';
+import React, {useCallback, useMemo, useState} from 'react';
 import {
   settingsStorage,
   clearAllMMKVStorage,
@@ -22,7 +22,7 @@ import {
 import {SettingsStackParamList, TabStackParamList} from '../../App';
 import {MaterialIcons} from '@expo/vector-icons';
 import Animated, {FadeInDown, FadeInUp, Layout} from 'react-native-reanimated';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useIsFocused} from '@react-navigation/native';
 import RenderProviderFlagIcon from '../../components/RenderProviderFLagIcon';
 import useNavigationPreferencesStore from '../../lib/zustand/navigationPreferencesStore';
 import DnsPreference from './components/DnsPreference';
@@ -52,11 +52,14 @@ const AnimatedSection = ({
 );
 
 const Settings = ({navigation}: Props) => {
+  const isFocused = useIsFocused();
   const tabNavigation =
     useNavigation<NativeStackNavigationProp<TabStackParamList>>();
   const colors = useM3Colors();
+  const [preferredLanguage, setPreferredLanguage] = useState(settingsStorage.getPreferredLanguage());
   const {user, isPremium, isLoggedIn, logout} = useAuthStore();
   const provider = useContentStore(state => state.provider);
+  const homeProviderValue = useContentStore(state => state.homeProviderValue);
   const setProvider = useContentStore(state => state.setProvider);
   const installedProviders = useContentStore(state => state.installedProviders);
   const hideDownloadsTab = useNavigationPreferencesStore(
@@ -335,7 +338,7 @@ const Settings = ({navigation}: Props) => {
           <SettingsSection title="Language">
             <SettingsRow
               title="Preferred Language"
-              description={settingsStorage.getPreferredLanguage()}
+              description={preferredLanguage}
               icon="translate"
               onPress={() => {
                 const langs = ['Hindi', 'English', 'Tamil', 'Telugu', 'Bengali', 'All'];
@@ -346,6 +349,7 @@ const Settings = ({navigation}: Props) => {
                     label: l,
                     onPress: () => {
                       settingsStorage.setPreferredLanguage(l);
+                      setPreferredLanguage(l);
                       ToastAndroid.show(`Language set to ${l}`, ToastAndroid.SHORT);
                     },
                   })),
@@ -420,7 +424,10 @@ const Settings = ({navigation}: Props) => {
           <SettingsSection title="Provider tools">
             <SettingsRow
               title="Home Provider"
-              description={settingsStorage.getHomeProvider() || 'All providers (aggregated)'}
+              description={
+                installedProviders.find(p => p.value === homeProviderValue)
+                  ?.display_name || 'All providers (aggregated)'
+              }
               icon="home-outline"
               iconBg={colors.primaryContainer}
               iconColor={colors.onPrimaryContainer}

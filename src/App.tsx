@@ -200,6 +200,8 @@ const App = () => {
   const [appReady, setAppReady] = useState(false);
   const [forceUpdateNeeded, setForceUpdateNeeded] = useState(false);
   const [securityBlocked, setSecurityBlocked] = useState(false);
+  const [appShutdown, setAppShutdown] = useState(false);
+  const [shutdownMessage, setShutdownMessage] = useState('');
   LogBox.ignoreLogs([
     'You have passed a style to FlashList',
     'new NativeEventEmitter()',
@@ -424,6 +426,9 @@ const App = () => {
         clearTimeout(safetyTimeout);
         if (err?.message === 'KILL_SWITCH_BLOCKED') {
           setForceUpdateNeeded(true);
+        } else if (err?.message === 'APP_SHUTDOWN') {
+          setAppShutdown(true);
+          setShutdownMessage(err?.reason || 'App is under maintenance. Please try again later.');
         }
         setAppReady(true);
       });
@@ -515,6 +520,19 @@ const App = () => {
   // Force update screen
   if (forceUpdateNeeded) {
     return <ForceUpdateScreen />;
+  }
+
+  // App shutdown screen
+  if (appShutdown) {
+    return (
+      <View style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 32}}>
+        <Image source={require('../assets/logo.png')} style={{width: 120, height: 120, marginBottom: 24}} resizeMode="contain" />
+        <AppText role="headlineMedium" style={{color: '#fff', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 12}}>Maintenance</AppText>
+        <AppText role="bodyMedium" style={{color: '#999', textAlign: 'center', lineHeight: 22}}>
+          {shutdownMessage || 'App is under maintenance. Please try again later.'}
+        </AppText>
+      </View>
+    );
   }
 
   // Security blocked screen (rooted device)

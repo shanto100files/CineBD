@@ -4,6 +4,7 @@ import useContentStore from '../zustand/contentStore';
 import {mainStorage as storage} from '../storage/StorageService';
 import {Application} from 'expo-application';
 import {Platform} from 'react-native';
+import {getDeviceId} from './heartbeatService';
 
 export interface InitProgress {
   progress: number;
@@ -12,23 +13,24 @@ export interface InitProgress {
 
 const KILL_SWITCH_KEY = '@app_kill_key';
 
-async function checkKillSwitch(): Promise<boolean> {
+async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean}> {
   try {
     const storedKey = storage.getString(KILL_SWITCH_KEY) || '';
     const version = Application.nativeApplicationVersion ?? '0.0.0';
+    const deviceId = getDeviceId();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch('https://cinepix.top/api/app/check', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({key: storedKey, version}),
+      body: JSON.stringify({key: storedKey, version, device_id: deviceId}),
       signal: controller.signal,
     });
     clearTimeout(timeout);
     const data = await res.json();
-    return data.blocked === true;
+    return {blocked: data.blocked === true, shutdown: data.shutdown === true};
   } catch {
-    return false;
+    return {blocked: false};
   }
 }
 
@@ -46,9 +48,12 @@ export async function initializeApp(
 ): Promise<void> {
   // Step 0: Check kill switch
   onProgress({progress: 2, status: 'Checking updates...'});
-  const blocked = await checkKillSwitch();
-  if (blocked) {
+  const check = await checkKillSwitch();
+  if (check.blocked) {
     throw new Error('KILL_SWITCH_BLOCKED');
+  }
+  if (check.shutdown) {
+    throw new Error('APP_SHUTDOWN');
   }
   // Step 1: Migrate legacy source
   onProgress({progress: 5, status: 'Initializing...'});
