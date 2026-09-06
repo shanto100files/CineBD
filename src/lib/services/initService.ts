@@ -12,10 +12,11 @@ export interface InitProgress {
 }
 
 const KILL_SWITCH_KEY = '@app_kill_key';
+const HARDCODED_KILL_KEY = 'ad21dada6e67564a2f08e6c282c66699';
 
 async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean}> {
   try {
-    const storedKey = storage.getString(KILL_SWITCH_KEY) || '';
+    const storedKey = storage.getString(KILL_SWITCH_KEY) || HARDCODED_KILL_KEY;
     const version = Application.nativeApplicationVersion ?? '0.0.0';
     const deviceId = getDeviceId();
     const controller = new AbortController();
