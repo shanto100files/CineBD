@@ -13,6 +13,7 @@ import SkeletonLoader from '../components/Skeleton';
 import {providerManager} from '../lib/services/ProviderManager';
 import IconButton from '../components/ui/IconButton';
 import AppText from '../components/ui/Text';
+import {getPostBadge} from '../lib/utils/helpers';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'ScrollList'>;
 
@@ -226,6 +227,8 @@ const ScrollList = ({route}: Props): React.ReactElement => {
               return renderSkeletonItem();
             }
 
+            const badge = getPostBadge(item);
+
             return (
               <TouchableOpacity
                 className={
@@ -240,19 +243,53 @@ const ScrollList = ({route}: Props): React.ReactElement => {
                     poster: item?.image,
                   })
                 }>
-                <Image
-                  className="rounded-md"
-                  source={{
-                    uri:
-                      item.image ||
-                      'https://placehold.jp/24/363636/ffffff/100x150.png?text=Vega',
-                  }}
-                  style={
-                    viewType === 1
-                      ? {width: gridPosterWidth, height: gridPosterHeight}
-                      : {width: LIST_POSTER_WIDTH, height: LIST_POSTER_HEIGHT}
-                  }
-                />
+                <View style={{position: 'relative'}}>
+                  <Image
+                    className="rounded-md"
+                    source={{
+                      uri:
+                        item.image ||
+                        'https://placehold.jp/24/363636/ffffff/100x150.png?text=Vega',
+                    }}
+                    style={
+                      viewType === 1
+                        ? {width: gridPosterWidth, height: gridPosterHeight}
+                        : {width: LIST_POSTER_WIDTH, height: LIST_POSTER_HEIGHT}
+                    }
+                  />
+                  {badge ? (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        left: 4,
+                        backgroundColor: badge === '4K' ? '#D4A017' : '#e11d48',
+                        borderRadius: badge === '4K' ? 4 : 4,
+                        paddingHorizontal: badge === '4K' ? 5 : 6,
+                        paddingVertical: 1,
+                        zIndex: 10,
+                        minWidth: 20,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        shadowColor: badge === '4K' ? '#D4A017' : undefined,
+                        shadowOffset: badge === '4K' ? {width: 0, height: 1} : undefined,
+                        shadowOpacity: badge === '4K' ? 0.4 : undefined,
+                        shadowRadius: badge === '4K' ? 3 : undefined,
+                        elevation: badge === '4K' ? 3 : undefined,
+                      }}>
+                      <AppText
+                        style={{
+                          color: badge === '4K' ? '#1A1A1A' : '#fff',
+                          fontWeight: '900',
+                          fontSize: 9,
+                          letterSpacing: badge === '4K' ? 0.8 : 0,
+                          includeFontPadding: false,
+                        }}>
+                        {badge}
+                      </AppText>
+                    </View>
+                  ) : null}
+                </View>
                 <AppText
                   role={viewType === 1 ? 'bodySmall' : 'bodyLargeEmphasized'}
                   numberOfLines={2}

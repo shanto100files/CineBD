@@ -62,20 +62,30 @@ const MediaPosterCard = ({
                 position: 'absolute',
                 top: 6,
                 left: 6,
-                backgroundColor: colors.primaryContainer,
-                borderRadius: 8,
-                paddingHorizontal: 7,
+                backgroundColor: badge === '4K' ? '#D4A017' : colors.primaryContainer,
+                borderRadius: badge === '4K' ? 6 : 8,
+                paddingHorizontal: badge === '4K' ? 6 : 8,
                 paddingVertical: 2,
-                zIndex: 5,
-                borderWidth: 1,
-                borderColor: colors.outlineVariant,
+                zIndex: 10,
+                borderWidth: badge === '4K' ? 0 : 1,
+                borderColor: badge === '4K' ? 'transparent' : colors.outlineVariant,
+                minWidth: 24,
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: badge === '4K' ? '#D4A017' : undefined,
+                shadowOffset: badge === '4K' ? {width: 0, height: 1} : undefined,
+                shadowOpacity: badge === '4K' ? 0.4 : undefined,
+                shadowRadius: badge === '4K' ? 3 : undefined,
+                elevation: badge === '4K' ? 3 : undefined,
               }}>
               <AppText
                 role="labelSmallEmphasized"
                 style={{
-                  color: colors.onPrimaryContainer,
-                  fontWeight: '800',
-                  fontSize: 11,
+                  color: badge === '4K' ? '#1A1A1A' : colors.onPrimaryContainer,
+                  fontWeight: '900',
+                  fontSize: badge === '4K' ? 9 : 10,
+                  letterSpacing: badge === '4K' ? 0.8 : 0,
+                  includeFontPadding: false,
                 }}>
                 {badge}
               </AppText>

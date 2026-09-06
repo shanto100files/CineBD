@@ -143,6 +143,8 @@ export function getPostBadge(post: Post): string | undefined {
   const link = post.link || '';
   const providerName = (post.provider || '').toLowerCase();
 
+  if (providerName.includes('4khdhub')) return '4K';
+
   if (/\[Hindi\]|\bHindi\b/i.test(title)) return 'Hindi';
   if (/\[Tamil\]|\bTamil\b/i.test(title)) return 'Tamil';
   if (/\[Telugu\]|\bTelugu\b/i.test(title)) return 'Telugu';
