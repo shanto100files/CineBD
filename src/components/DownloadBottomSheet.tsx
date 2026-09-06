@@ -47,6 +47,48 @@ const formatQualityLabel = (quality?: string): string => {
   return trimmed;
 };
 
+const extractFilenameInfo = (url: string): { language?: string; fileSize?: string } => {
+  try {
+    let filename = '';
+    const urlParts = url.split('?')[0];
+    const lastSegment = urlParts.split('/').pop() || '';
+    if (lastSegment.includes('.')) {
+      filename = decodeURIComponent(lastSegment).replace(/_/g, ' ');
+    }
+    if (!filename) return {};
+
+    let language: string | undefined;
+    const langPatterns: [RegExp, string][] = [
+      [/\.hindi\b/i, 'Hindi'],
+      [/\.english\b/i, 'English'],
+      [/\.bengali\b/i, 'Bengali'],
+      [/\.bangla\b/i, 'Bengali'],
+      [/\.tamil\b/i, 'Tamil'],
+      [/\.telugu\b/i, 'Telugu'],
+      [/\.malayalam\b/i, 'Malayalam'],
+      [/\.kannada\b/i, 'Kannada'],
+      [/\.marathi\b/i, 'Marathi'],
+      [/\.punjabi\b/i, 'Punjabi'],
+      [/\.gujarati\b/i, 'Gujarati'],
+      [/\.dubbed\b/i, 'Dubbed'],
+      [/\.dual[\.\s]/i, 'Dual'],
+    ];
+    for (const [pat, label] of langPatterns) {
+      if (pat.test(filename)) { language = label; break; }
+    }
+
+    let fileSize: string | undefined;
+    const sizeMatch = filename.match(/([\d.]+)\s*(GB|MB|TB|KB)/i);
+    if (sizeMatch) {
+      fileSize = `${sizeMatch[1]}${sizeMatch[2].toUpperCase()}`;
+    }
+
+    return {language, fileSize};
+  } catch {
+    return {};
+  }
+};
+
 type Props = {
   data: Stream[];
   loading: boolean;
@@ -423,6 +465,49 @@ const DownloadBottomSheet = ({
             }}>
             {item.server}
           </Text>
+          {(() => {
+            const info = extractFilenameInfo(item.link);
+            return (
+              <>
+                {info.language ? (
+                  <View
+                    style={{
+                      backgroundColor: colors.tertiaryContainer,
+                      borderRadius: 10,
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                    }}>
+                    <Text
+                      style={{
+                        color: colors.onTertiaryContainer,
+                        fontSize: 10,
+                        fontWeight: '700',
+                      }}>
+                      {info.language}
+                    </Text>
+                  </View>
+                ) : null}
+                {info.fileSize ? (
+                  <View
+                    style={{
+                      backgroundColor: colors.tertiaryContainer,
+                      borderRadius: 10,
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                    }}>
+                    <Text
+                      style={{
+                        color: colors.onTertiaryContainer,
+                        fontSize: 10,
+                        fontWeight: '700',
+                      }}>
+                      {info.fileSize}
+                    </Text>
+                  </View>
+                ) : null}
+              </>
+            );
+          })()}
           {item.quality ? (
             <View
               style={{
