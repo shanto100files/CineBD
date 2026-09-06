@@ -1,61 +1,37 @@
 import {Stream} from './providers/types';
 
 const fetchFileSizeForStream = async (stream: Stream): Promise<number> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  const headers: Record<string, string> = {
+    ...stream.headers,
+    Range: 'bytes=0-0',
+  };
+
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const headers: Record<string, string> = {
-      ...stream.headers,
-      Range: 'bytes=0-0',
-    };
-
     const response = await fetch(stream.link, {
-      method: 'HEAD',
+      method: 'GET',
       signal: controller.signal,
       headers,
     });
 
     clearTimeout(timeout);
 
+    const contentRange = response.headers.get('Content-Range');
+    if (contentRange) {
+      const match = contentRange.match(/\/(\d+)/);
+      if (match) return parseInt(match[1], 10);
+    }
+
     const contentLength = response.headers.get('Content-Length');
-    if (contentLength) {
-      return parseInt(contentLength, 10);
-    }
+    if (contentLength) return parseInt(contentLength, 10);
 
-    return 0;
+    await response.body?.cancel();
   } catch {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const response = await fetch(stream.link, {
-        method: 'GET',
-        signal: controller.signal,
-        headers: {
-          ...stream.headers,
-          Range: 'bytes=0-0',
-        },
-      });
-      clearTimeout(timeout);
-
-      const contentRange = response.headers.get('Content-Range');
-      if (contentRange) {
-        const match = contentRange.match(/\/(\d+)/);
-        if (match) {
-          return parseInt(match[1], 10);
-        }
-      }
-      const contentLength = response.headers.get('Content-Length');
-      if (contentLength) {
-        return parseInt(contentLength, 10);
-      }
-
-      await response.body?.cancel();
-      return 0;
-    } catch {
-      return 0;
-    }
+    clearTimeout(timeout);
   }
+  return 0;
 };
 
 export const fetchFileSizes = async (
