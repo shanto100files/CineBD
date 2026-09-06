@@ -385,7 +385,7 @@ const App = () => {
         const {default: Application} = await import('expo-application');
         const {runSecurityCheck} = await import('./lib/security/securityCheck');
         const security = await runSecurityCheck();
-        if (security.isRooted) {
+        if (security.isRooted || security.isTampered) {
           setSecurityBlocked(true);
           return;
         }
