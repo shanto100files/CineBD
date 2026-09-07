@@ -14,7 +14,7 @@ export interface InitProgress {
 const KILL_SWITCH_KEY = '@app_kill_key';
 const HARDCODED_KILL_KEY = 'ad21dada6e67564a2f08e6c282c66699';
 
-async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean; reason?: string; failed?: boolean}> {
+async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean; reason?: string}> {
   try {
     const storedKey = storage.getString(KILL_SWITCH_KEY) || HARDCODED_KILL_KEY;
     const version = Application.nativeApplicationVersion ?? '0.0.0';
@@ -31,7 +31,7 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
     const data = await res.json();
     return {blocked: data.blocked === true, shutdown: data.shutdown === true, reason: data.reason};
   } catch {
-    return {blocked: true, reason: 'Unable to connect to server. Please check your internet connection.'};
+    return {blocked: false, shutdown: false};
   }
 }
 

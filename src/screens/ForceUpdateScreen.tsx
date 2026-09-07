@@ -34,7 +34,7 @@ export default function ForceUpdateScreen() {
         setStatus('ok');
       }
     } catch {
-      setStatus('ok');
+      setStatus('network_error');
     }
   };
 
@@ -75,6 +75,29 @@ export default function ForceUpdateScreen() {
   }
 
   if (status === 'ok') return null;
+
+  if (status === 'network_error') {
+    return (
+      <View style={styles.container}>
+        <Image
+          source={require('../../assets/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <AppText role="headlineMedium" style={styles.title}>Update Required</AppText>
+        <AppText role="bodyMedium" style={styles.subtitle}>
+          Unable to check for updates. Please connect to the internet and try again.
+        </AppText>
+        <View style={styles.btnRow}>
+          <View style={[styles.btn, {backgroundColor: '#e11d48'}]}>
+            <AppText role="labelLarge" style={styles.btnText} onPress={checkVersion}>
+              Retry
+            </AppText>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
