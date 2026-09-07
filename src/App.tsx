@@ -413,24 +413,35 @@ const App = () => {
 
   // Initialize app: install providers, setup home, etc.
   useEffect(() => {
-    const safetyTimeout = setTimeout(() => {
-      setAppReady(true);
+    let safetyTimeout: ReturnType<typeof setTimeout>;
+    let initDone = false;
+
+    safetyTimeout = setTimeout(() => {
+      if (!initDone) {
+        setAppReady(true);
+      }
     }, 15000);
 
     initializeApp(setInitProgress)
       .then(() => {
+        initDone = true;
         clearTimeout(safetyTimeout);
         setAppReady(true);
       })
       .catch((err) => {
+        initDone = true;
         clearTimeout(safetyTimeout);
         if (err?.message === 'KILL_SWITCH_BLOCKED') {
           setForceUpdateNeeded(true);
+          setShutdownMessage(err?.reason || '');
+          setAppReady(true);
         } else if (err?.message === 'APP_SHUTDOWN') {
           setAppShutdown(true);
           setShutdownMessage(err?.reason || 'App is under maintenance. Please try again later.');
+          setAppReady(true);
+        } else {
+          setAppReady(true);
         }
-        setAppReady(true);
       });
   }, []);
 

@@ -14,13 +14,13 @@ export interface InitProgress {
 const KILL_SWITCH_KEY = '@app_kill_key';
 const HARDCODED_KILL_KEY = 'ad21dada6e67564a2f08e6c282c66699';
 
-async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean}> {
+async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean; reason?: string; failed?: boolean}> {
   try {
     const storedKey = storage.getString(KILL_SWITCH_KEY) || HARDCODED_KILL_KEY;
     const version = Application.nativeApplicationVersion ?? '0.0.0';
     const deviceId = getDeviceId();
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const timeout = setTimeout(() => controller.abort(), 8000);
     const res = await fetch('https://cinepix.top/api/app/check', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -29,9 +29,9 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean}
     });
     clearTimeout(timeout);
     const data = await res.json();
-    return {blocked: data.blocked === true, shutdown: data.shutdown === true};
+    return {blocked: data.blocked === true, shutdown: data.shutdown === true, reason: data.reason};
   } catch {
-    return {blocked: false};
+    return {blocked: true, reason: 'Unable to connect to server. Please check your internet connection.'};
   }
 }
 
@@ -50,11 +50,15 @@ export async function initializeApp(
   // Step 0: Check kill switch
   onProgress({progress: 2, status: 'Checking updates...'});
   const check = await checkKillSwitch();
-  if (check.blocked) {
-    throw new Error('KILL_SWITCH_BLOCKED');
-  }
   if (check.shutdown) {
-    throw new Error('APP_SHUTDOWN');
+    const err = new Error('APP_SHUTDOWN');
+    (err as any).reason = check.reason || 'App is under maintenance. Please try again later.';
+    throw err;
+  }
+  if (check.blocked) {
+    const err = new Error('KILL_SWITCH_BLOCKED');
+    (err as any).reason = check.reason || 'App version is outdated. Please update.';
+    throw err;
   }
   // Step 1: Migrate legacy source
   onProgress({progress: 5, status: 'Initializing...'});
