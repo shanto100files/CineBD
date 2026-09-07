@@ -42,17 +42,9 @@ export default function ForceUpdateScreen() {
     if (downloading) return;
     setDownloading(true);
     try {
-      const releaseRes = await axios.get('https://api.github.com/repos/shanto100files/CineBD/releases/latest', {timeout: 10000});
-      const apkAsset = releaseRes.data.assets?.find((a: any) => a.name?.endsWith('.apk') && a.name?.toLowerCase().includes('universal'))
-        || releaseRes.data.assets?.find((a: any) => a.name?.endsWith('.apk'));
-      if (!apkAsset) {
-        Linking.openURL(downloadUrl);
-        setDownloading(false);
-        return;
-      }
-      const filePath = `${RNFS.CachesDirectoryPath}/${apkAsset.name}`;
+      const filePath = `${RNFS.CachesDirectoryPath}/cinebd-update.apk`;
       const result = await RNFS.downloadFile({
-        fromUrl: apkAsset.browser_download_url,
+        fromUrl: downloadUrl,
         toFile: filePath,
         progressInterval: 500,
         progressDivider: 1,
