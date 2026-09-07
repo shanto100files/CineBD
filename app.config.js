@@ -116,7 +116,7 @@ module.exports = () => {
       icon: './assets/icon.png',
       jsEngine: 'hermes',
       newArchEnabled: true,
-      autolinking: { exclude: ['expo-splash-screen'] },
+      autolinking: { exclude: ['expo-splash-screen', 'react-native-fullscreen-chz', 'react-native-worklets', 'react-native-reanimated'] },
       plugins,
       slug: 'vega',
       version: '5.5.7',

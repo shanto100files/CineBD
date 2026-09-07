@@ -90,56 +90,31 @@ export const checkForUpdate = async (
 ) => {
   setUpdateLoading(true);
   try {
-    const res = await fetch(
-      'https://api.github.com/repos/shanto100files/CineBD/releases/latest',
-    );
+    const res = await fetch('https://cinepix.top/api/app/versioncheck');
     const data = await res.json();
-    const localVersion = Application.nativeApplicationVersion;
-    const remoteVersion = Number(
-      data.tag_name.replace('v', '')?.split('.').join(''),
-    );
-    if (compareVersions(localVersion || '', data.tag_name.replace('v', ''))) {
+    const localVersion = Application.nativeApplicationVersion || '0.0.0';
+    const latestVersion = data.latest_version || '0.0.0';
+    const downloadUrl = data.download_url;
+    const changelog = data.changelog || '';
+
+    if (compareVersions(localVersion, latestVersion)) {
       ToastAndroid.show('New update available', ToastAndroid.SHORT);
       showAppDialog({
-        title: `Update v${localVersion} -> ${data.tag_name}`,
-        message: data.body,
-        messageFormat: 'markdown',
+        title: `Update v${localVersion} -> ${latestVersion}`,
+        message: changelog || 'New version available',
         actions: [
           {label: 'Cancel'},
           {
             label: 'Update',
             variant: 'primary',
             onPress: () => {
-              const apkAsset =
-                data?.assets?.find(
-                  (asset: any) =>
-                    asset.name?.endsWith('.apk') &&
-                    asset.name?.toLowerCase().includes('universal'),
-                ) ||
-                data?.assets?.find((asset: any) =>
-                  asset.name?.endsWith('.apk'),
-                );
-              return autoDownload && apkAsset
-                ? downloadUpdate(apkAsset.browser_download_url, apkAsset.name)
-                : Linking.openURL(data.html_url);
+              Linking.openURL(downloadUrl);
             },
           },
         ],
       });
-      console.log(
-        'local version',
-        localVersion,
-        'remote version',
-        remoteVersion,
-      );
     } else {
       showToast && ToastAndroid.show('App is up to date', ToastAndroid.SHORT);
-      console.log(
-        'local version',
-        localVersion,
-        'remote version',
-        remoteVersion,
-      );
     }
   } catch (error) {
     ToastAndroid.show('Failed to check for update', ToastAndroid.SHORT);
