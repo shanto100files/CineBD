@@ -5,7 +5,7 @@ import {
 } from '@react-navigation/native-stack';
 import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {FlatList, RefreshControl, View} from 'react-native';
+import {FlatList, RefreshControl, View, Linking} from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import {HomeStackParamList, TabStackParamList} from '../../App';
 import Button from '../../components/ui/Button';
@@ -309,7 +309,10 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                   }
                   onOpenWeb={
                     webUrl
-                      ? () => navigation.navigate('Webview', {link: webUrl})
+                      ? () =>
+                          Linking.openURL(
+                            'https://www.profitableratecpmnetwork.com/kgeqdmn1eg?key=cc8e202ca79f5970480bca704a0e8e43',
+                          )
                       : undefined
                   }
                   onSearchTitle={searchTitle}
