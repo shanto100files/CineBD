@@ -7,6 +7,7 @@ import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {FlatList, RefreshControl, View, Linking} from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import {WebView} from 'react-native-webview';
 import {HomeStackParamList, TabStackParamList} from '../../App';
 import Button from '../../components/ui/Button';
 import AppText from '../../components/ui/Text';
@@ -74,6 +75,14 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   const imageAccentRequest = useRef(0);
   const [statusBarScrimVisible, setStatusBarScrimVisible] = useState(false);
   const dynamicInfoAccentEnabled = settingsStorage.isDynamicInfoAccentEnabled();
+  const [appAds, setAppAds] = useState<{enabled: boolean; web_url: string; top: string; bottom: string}>({enabled: false, web_url: '', top: '', bottom: ''});
+
+  useEffect(() => {
+    fetch('https://cinepix.top/api/app/ads', {headers: {'X-App-Key': 'ad21dada6e67564a2f08e6c282c66699'}})
+      .then(r => r.json())
+      .then(d => setAppAds(d))
+      .catch(() => {});
+  }, []);
   const contentProviderName = useMemo(
     () =>
       installedProviders.find(item => item.value === providerValue)
@@ -308,10 +317,10 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                       : undefined
                   }
                   onOpenWeb={
-                    webUrl
+                    appAds.enabled && appAds.web_url
                       ? () =>
                           navigation.navigate('Webview', {
-                            link: 'https://www.profitableratecpmnetwork.com/kgeqdmn1eg?key=cc8e202ca79f5970480bca704a0e8e43',
+                            link: appAds.web_url,
                           })
                       : undefined
                   }
@@ -329,6 +338,11 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                   trailerUrl={info?.trailerUrl?.trim()}
                   year={meta?.year}
                 />
+                {appAds.enabled && appAds.top ? (
+                  <View style={{marginHorizontal: 18, marginTop: 16, borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
+                    <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:100px;">${appAds.top}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                  </View>
+                ) : null}
                 <View style={{paddingHorizontal: 18, paddingTop: 24}}>
                   {isLoading && !info ? (
                     <View style={{gap: 12}}>
@@ -355,6 +369,11 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                     />
                   )}
                 </View>
+                {appAds.enabled && appAds.bottom ? (
+                  <View style={{marginHorizontal: 18, marginTop: 16, marginBottom: 16, borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
+                    <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:100px;">${appAds.bottom}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                  </View>
+                ) : null}
               </>
             }
             ListFooterComponent={<View style={{height: 110}} />}

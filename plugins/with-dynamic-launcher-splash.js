@@ -4,7 +4,6 @@ const {
   withAndroidManifest,
   withAndroidStyles,
   withDangerousMod,
-  withMainActivity,
 } = require('expo/config-plugins');
 
 const variants = [
@@ -47,7 +46,7 @@ const createLauncherAlias = (packageName, variant) => ({
     'android:icon': `@drawable/ic_launcher_${variant.id.toLowerCase()}`,
     'android:roundIcon': `@drawable/ic_launcher_${variant.id.toLowerCase()}`,
     'android:targetActivity': '.MainActivity',
-    'android:theme': `@style/BootTheme.${variant.id}`,
+    'android:theme': '@style/AppTheme',
   },
   'intent-filter': [
     {
@@ -77,7 +76,6 @@ const withLauncherManifest = config =>
     );
     if (mainActivity) {
       removeLauncherIntent(mainActivity);
-      mainActivity.$['android:theme'] = '@style/BootTheme';
     }
     application['activity-alias'] = variants
       .filter(variant => variant.enabled)
@@ -89,44 +87,7 @@ const withLauncherStyles = config =>
   withAndroidStyles(config, stylesConfig => {
     const styles = stylesConfig.modResults.resources.style || [];
     stylesConfig.modResults.resources.style = styles;
-    upsertStyle(styles, 'BootTheme', 'BootTheme.White');
-    const bootTheme = styles.find(style => style?.$?.name === 'BootTheme');
-    if (bootTheme) {
-      bootTheme.item = [];
-    }
-    upsertStyle(styles, 'BootTheme.Base', 'Theme.AppCompat.NoActionBar', [
-      ['android:windowBackground', '@android:color/black'],
-    ]);
-    for (const variant of variants) {
-      upsertStyle(styles, `BootTheme.${variant.id}`, 'BootTheme.Base', []);
-    }
     return stylesConfig;
-  });
-
-const bootThemeMethod = `  private fun getBootTheme(): Int {
-    return R.style.BootTheme_White
-  }
-
-`;
-
-const withLauncherMainActivity = config =>
-  withMainActivity(config, activityConfig => {
-    let contents = activityConfig.modResults.contents;
-    if (!contents.includes('private fun getBootTheme()')) {
-      contents = contents.replace(
-        /class MainActivity\s*:\s*ReactActivity\(\)\s*\{\n/,
-        match => `${match}${bootThemeMethod}`,
-      );
-    }
-    contents = contents.replace(
-      /val bootTheme = getBootTheme\(\)[\s\S]*RNBootSplash\.init\(this,\s*bootTheme\)/,
-      'val bootTheme = getBootTheme()\n' +
-        '    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {\n' +
-        '      splashScreen.setSplashScreenTheme(bootTheme)\n' +
-        '    }',
-    );
-    activityConfig.modResults.contents = contents;
-    return activityConfig;
   });
 
 const writeLauncherResources = resRoot => {
@@ -155,46 +116,6 @@ const writeLauncherResources = resRoot => {
   }
 };
 
-const copySplashResources = (projectRoot, resRoot) => {
-  const sourceRoot = path.join(projectRoot, 'assets', 'bootsplash', 'android');
-  for (const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
-    const bucket = `drawable-${density}`;
-    const sourceDir = path.join(sourceRoot, bucket);
-    const targetDir = path.join(resRoot, bucket);
-    fs.mkdirSync(targetDir, {recursive: true});
-    for (const variant of variants) {
-      if (!variant.enabled) continue;
-      const filename = `bootsplash_logo_${variant.id.toLowerCase()}.png`;
-      const srcPath = path.join(sourceDir, filename);
-      if (fs.existsSync(srcPath)) {
-        fs.copyFileSync(srcPath, path.join(targetDir, filename));
-      }
-    }
-  }
-};
-
-const patchGeneratedBootSplashFiles = (projectRoot, packageName) => {
-  const mainActivityPath = path.join(
-    projectRoot,
-    'android',
-    'app',
-    'src',
-    'main',
-    'java',
-    ...packageName.split('.'),
-    'MainActivity.kt',
-  );
-  let mainActivity = fs.readFileSync(mainActivityPath, 'utf8');
-  mainActivity = mainActivity.replace(
-    /val bootTheme = getBootTheme\(\)[\s\S]*RNBootSplash\.init\(this,\s*bootTheme\)/,
-    'val bootTheme = getBootTheme()\n' +
-      '    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {\n' +
-      '      splashScreen.setSplashScreenTheme(bootTheme)\n' +
-      '    }',
-  );
-  fs.writeFileSync(mainActivityPath, mainActivity, 'utf8');
-};
-
 const withLauncherResources = config =>
   withDangerousMod(config, [
     'android',
@@ -209,11 +130,6 @@ const withLauncherResources = config =>
         'res',
       );
       writeLauncherResources(resRoot);
-      copySplashResources(projectRoot, resRoot);
-      patchGeneratedBootSplashFiles(
-        projectRoot,
-        modConfig.android?.package || 'com.vega',
-      );
       return modConfig;
     },
   ]);
@@ -221,6 +137,5 @@ const withLauncherResources = config =>
 module.exports = function withDynamicLauncherSplash(config) {
   config = withLauncherManifest(config);
   config = withLauncherStyles(config);
-  config = withLauncherMainActivity(config);
   return withLauncherResources(config);
 };

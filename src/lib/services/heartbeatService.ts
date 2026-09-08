@@ -33,6 +33,7 @@ export async function sendHeartbeat() {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-App-Version': version,
+      'X-App-Key': 'ad21dada6e67564a2f08e6c282c66699',
       'X-Device-Info': device,
       'X-Device-Id': deviceId,
     };

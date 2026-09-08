@@ -90,7 +90,9 @@ export const checkForUpdate = async (
 ) => {
   setUpdateLoading(true);
   try {
-    const res = await fetch('https://cinepix.top/api/app/versioncheck');
+    const res = await fetch('https://cinepix.top/api/app/versioncheck', {
+      headers: {'X-App-Key': 'ad21dada6e67564a2f08e6c282c66699'},
+    });
     const data = await res.json();
     const localVersion = Application.nativeApplicationVersion || '0.0.0';
     const latestVersion = data.latest_version || '0.0.0';

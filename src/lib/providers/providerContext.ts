@@ -7,6 +7,15 @@ import * as Crypto from 'expo-crypto';
 import {openWebView} from '../services/wafResolver';
 import {deleteCookie} from '../services/cookieManager';
 
+const APP_KEY = 'ad21dada6e67564a2f08e6c282c66699';
+
+axios.interceptors.request.use(config => {
+  if (config.headers) {
+    config.headers['X-App-Key'] = APP_KEY;
+  }
+  return config;
+});
+
 // Add a global interceptor to automatically clear cookies on Cloudflare WAF blocks
 axios.interceptors.response.use(
   (response) => response,

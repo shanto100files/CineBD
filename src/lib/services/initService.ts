@@ -23,7 +23,7 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
     const timeout = setTimeout(() => controller.abort(), 8000);
     const res = await fetch('https://cinepix.top/api/app/check', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'X-App-Key': 'ad21dada6e67564a2f08e6c282c66699'},
       body: JSON.stringify({key: storedKey, version, device_id: deviceId}),
       signal: controller.signal,
     });
