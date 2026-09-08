@@ -49,8 +49,10 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
     const version = Application.nativeApplicationVersion ?? '0.0.0';
     const deviceId = getDeviceId();
 
+    console.log('[KillSwitch] sending key:', storedKey, 'version:', version);
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000); // Low timeout for quick fail
+    const timeout = setTimeout(() => controller.abort(), 4000);
 
     const res = await fetch(`${API_BASE}/check`, {
       method: 'POST',
@@ -64,15 +66,17 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
 
     clearTimeout(timeout);
 
+    console.log('[KillSwitch] response status:', res.status);
+
     if (!res.ok) {
       return {blocked: true, reason: 'Access Denied (Security Server Error)'};
     }
 
     const data = await res.json();
+    console.log('[KillSwitch] data:', JSON.stringify(data));
     return {blocked: data.blocked === true, shutdown: data.shutdown === true, reason: data.reason};
   } catch (e) {
-    console.warn('Kill switch check error:', e);
-    // If you want it to ALWAYS block when server is unreachable, change this to blocked: true
+    console.warn('[KillSwitch] error:', e);
     return {blocked: false, shutdown: false};
   }
 }
