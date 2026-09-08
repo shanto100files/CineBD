@@ -7,7 +7,7 @@ import * as Crypto from 'expo-crypto';
 import {openWebView} from '../services/wafResolver';
 import {deleteCookie} from '../services/cookieManager';
 
-const APP_KEY = '78a0e573dfd894d443685159b2e71e2f';
+const APP_KEY = 'ad21dada6e67564a2f08e6c282c66699';
 
 axios.interceptors.request.use(config => {
   if (config.headers) {

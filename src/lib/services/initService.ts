@@ -12,7 +12,7 @@ export interface InitProgress {
 }
 
 const KILL_SWITCH_KEY = '@app_kill_key';
-const HARDCODED_KILL_KEY = '78a0e573dfd894d443685159b2e71e2f';
+const HARDCODED_KILL_KEY = 'ad21dada6e67564a2f08e6c282c66699';
 const API_BASE = 'https://cinepix.top/api/app';
 
 function compareVersions(local: string, min: string): boolean {
@@ -55,7 +55,7 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-App-Key': '78a0e573dfd894d443685159b2e71e2f'
+        'X-App-Key': 'ad21dada6e67564a2f08e6c282c66699'
       },
       body: JSON.stringify({key: storedKey, version, device_id: deviceId}),
       signal: controller.signal,

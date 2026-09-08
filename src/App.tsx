@@ -17,7 +17,6 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import 'react-native-reanimated';
-import BootSplash from 'react-native-bootsplash';
 import WebView from './screens/WebView';
 import SearchResults from './screens/SearchResults';
 import * as SystemUI from 'expo-system-ui';

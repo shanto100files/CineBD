@@ -1,6 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {View, Animated, StyleSheet, Image, ActivityIndicator, Text, TouchableOpacity} from 'react-native';
-import BootSplash from 'react-native-bootsplash';
 
 interface InitSplashProps {
   progress: number;
@@ -21,18 +20,7 @@ const InitSplash: React.FC<InitSplashProps> = ({progress, status, onForceReady})
       useNativeDriver: true,
     }).start();
 
-    // 2. Hide the native splash screen immediately
-    const hideNativeSplash = async () => {
-      try {
-        await BootSplash.hide({ fade: true });
-      } catch (e) {
-        console.warn('Failed to hide native splash:', e);
-      }
-    };
-
-    setTimeout(hideNativeSplash, 100);
-
-    // 3. Safety timer
+    // 2. Safety timer
     const troubleTimer = setTimeout(() => {
       setShowTroubleshoot(true);
     }, 6000);
