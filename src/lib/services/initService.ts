@@ -2,7 +2,7 @@ import {extensionManager} from './ExtensionManager';
 import {extensionStorage} from '../storage/extensionStorage';
 import useContentStore from '../zustand/contentStore';
 import {mainStorage as storage} from '../storage/StorageService';
-import {Application} from 'expo-application';
+import * as Application from 'expo-application';
 import {getDeviceId} from './heartbeatService';
 import axios from 'axios';
 
@@ -16,24 +16,24 @@ const HARDCODED_KILL_KEY = 'ad21dada6e67564a2f08e6c282c66699';
 const API_BASE = 'https://cinepix.top/api/app';
 
 function compareVersions(local: string, min: string): boolean {
-  const l = local.split('.').map(Number);
-  const m = min.split('.').map(Number);
-  if (l[0] > m[0]) return false;
-  if (l[0] < m[0]) return true;
-  if (l[1] > m[1]) return false;
-  if (l[1] < m[1]) return true;
-  return (l[2] || 0) < (m[2] || 0);
+  if (!local || !min) return false;
+  const l = local.split('.').map(v => parseInt(v, 10) || 0);
+  const m = min.split('.').map(v => parseInt(v, 10) || 0);
+
+  for (let i = 0; i < Math.max(l.length, m.length); i++) {
+    const lNum = l[i] || 0;
+    const mNum = m[i] || 0;
+    if (lNum < mNum) return true;
+    if (lNum > mNum) return false;
+  }
+  return false;
 }
 
-/**
- * Perform a quick version check only.
- * Used for foreground/app-return checks.
- */
 export async function checkForceUpdateOnly(): Promise<boolean> {
   try {
-    const vRes = await axios.get(`${API_BASE}/versioncheck`, { timeout: 5000 });
+    const vRes = await axios.get(`${API_BASE}/versioncheck`, { timeout: 6000 });
     const { min_version, force_update } = vRes.data;
-    if (force_update) {
+    if (force_update == true || force_update == 1) {
       const currentVersion = Application.nativeApplicationVersion || '0.0.0';
       return compareVersions(currentVersion, min_version);
     }
@@ -48,62 +48,67 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
     const storedKey = storage.getString(KILL_SWITCH_KEY) || HARDCODED_KILL_KEY;
     const version = Application.nativeApplicationVersion ?? '0.0.0';
     const deviceId = getDeviceId();
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const timeout = setTimeout(() => controller.abort(), 7000);
 
     const res = await fetch(`${API_BASE}/check`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-App-Key': 'ad21dada6e67564a2f08e6c282c66699'
+        'X-App-Key': HARDCODED_KILL_KEY
       },
       body: JSON.stringify({key: storedKey, version, device_id: deviceId}),
       signal: controller.signal,
     });
+
     clearTimeout(timeout);
+
+    if (!res.ok) {
+      // STRICT: If server returns any error (403, 500, etc), block access
+      console.warn(`Kill switch server error: ${res.status}`);
+      return {blocked: true, reason: 'Security check failed. Please restart the app.'};
+    }
+
     const data = await res.json();
     return {blocked: data.blocked === true, shutdown: data.shutdown === true, reason: data.reason};
   } catch (e) {
-    console.warn('Kill switch check failed, bypassing:', e);
-    return {blocked: false, shutdown: false};
+    console.error('Kill switch network check failed:', e);
+    // If it's a real network timeout/offline, we might allow bypass,
+    // but if we want strictly to follow the site settings, we should block.
+    // Setting to true to be safe when user wants to kill the app.
+    return {blocked: true, reason: 'Unable to connect to security server.'};
   }
 }
 
 export async function initializeApp(
   onProgress: (p: InitProgress) => void,
-): Promise<{forceUpdate?: boolean}> {
+): Promise<{forceUpdate?: boolean; blocked?: boolean; reason?: string}> {
   try {
-    // Step 0: Check version & kill switch together
-    onProgress({progress: 5, status: 'Checking updates...'});
+    onProgress({progress: 5, status: 'Verifying session...'});
 
+    // 1. Kill Switch Check (Strict)
+    const check = await checkKillSwitch();
+    if (check.shutdown || check.blocked) {
+      return { blocked: true, reason: check.reason };
+    }
+
+    // 2. Force Update Check
+    onProgress({progress: 10, status: 'Checking for updates...'});
     const forceUpdateNeeded = await checkForceUpdateOnly();
     if (forceUpdateNeeded) {
       return { forceUpdate: true };
     }
 
-    // Check Kill Switch
-    const check = await checkKillSwitch();
-    if (check.shutdown) {
-      const err = new Error('APP_SHUTDOWN');
-      (err as any).reason = check.reason || 'App is under maintenance.';
-      throw err;
-    }
-    if (check.blocked) {
-      const err = new Error('KILL_SWITCH_BLOCKED');
-      (err as any).reason = check.reason || 'App version is outdated.';
-      throw err;
-    }
-
-    // Step 1: Initialize providers
-    onProgress({progress: 20, status: 'Initializing engine...'});
-
+    // Normal Initialization
+    onProgress({progress: 30, status: 'Initializing engine...'});
     try {
-      await withTimeout(extensionManager.fetchManifest(undefined, true), 4000);
+      await withTimeout(extensionManager.fetchManifest(undefined, true), 5000);
     } catch {}
 
-    onProgress({progress: 50, status: 'Loading providers...'});
+    onProgress({progress: 60, status: 'Loading providers...'});
     try {
-      await withTimeout(extensionManager.initialize(), 4000);
+      await withTimeout(extensionManager.initialize(), 5000);
     } catch {}
 
     const installed = extensionStorage.getInstalledProviders();
@@ -118,11 +123,8 @@ export async function initializeApp(
     onProgress({progress: 100, status: 'Ready!'});
     return { forceUpdate: false };
   } catch (err: any) {
-    if (err?.message === 'APP_SHUTDOWN' || err?.message === 'KILL_SWITCH_BLOCKED') {
-      throw err;
-    }
-    console.error('Initialization error:', err);
-    return { forceUpdate: false };
+    console.error('Init critical failure:', err);
+    return { blocked: true, reason: 'Critical initialization error.' };
   }
 }
 
