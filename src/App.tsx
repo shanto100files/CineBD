@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useCallback} from 'react';
 import './global.css';
 import Home from './screens/home/Home';
 import Info from './screens/home/Info';
@@ -17,17 +17,17 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import 'react-native-reanimated';
+import BootSplash from 'react-native-bootsplash';
 import WebView from './screens/WebView';
 import SearchResults from './screens/SearchResults';
 import * as SystemUI from 'expo-system-ui';
-// import DisableProviders from './screens/settings/DisableProviders';
 import About, {checkForUpdate} from './screens/settings/About';
 import {SystemBars} from 'react-native-edge-to-edge';
 import {enableFreeze, enableScreens} from 'react-native-screens';
 import Preferences from './screens/settings/Preference';
 import Appearance from './screens/settings/Appearance';
 import {M3ThemeProvider} from './theme/M3ThemeProvider';
-import {AppState, LogBox, useWindowDimensions, View, ActivityIndicator, Image} from 'react-native';
+import {AppState, LogBox, useWindowDimensions, View, Image} from 'react-native';
 import {sendHeartbeat} from './lib/services/heartbeatService';
 import {EpisodeLink} from './lib/providers/types';
 import {
@@ -77,7 +77,7 @@ import ProfileScreen from './screens/ProfileScreen';
 import ForceUpdateScreen from './screens/ForceUpdateScreen';
 import AppText from './components/ui/Text';
 import InitSplash from './components/InitSplash';
-import {initializeApp, InitProgress} from './lib/services/initService';
+import {initializeApp, InitProgress, checkForceUpdateOnly} from './lib/services/initService';
 
 enableScreens(true);
 enableFreeze(true);
@@ -135,6 +135,7 @@ export type SearchStackParamList = {
   };
   Info: {link: string; provider?: string; poster?: string};
   SearchResults: {filter: string; availableProviders?: string[]};
+  Webview: {link: string};
 };
 
 export type WatchListStackParamList = {
@@ -171,6 +172,7 @@ export type TabStackParamList = {
   DownloadsStack: undefined;
   SettingsStack: undefined;
 };
+
 const Tab = createBottomTabNavigator<TabStackParamList>();
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 let pendingDownloadsNavigation = false;
@@ -202,29 +204,38 @@ const App = () => {
   const [securityBlocked, setSecurityBlocked] = useState(false);
   const [appShutdown, setAppShutdown] = useState(false);
   const [shutdownMessage, setShutdownMessage] = useState('');
+
   LogBox.ignoreLogs([
     'You have passed a style to FlashList',
     'new NativeEventEmitter()',
   ]);
+
   const HomeStack = createNativeStackNavigator<HomeStackParamList>();
   const Stack = createNativeStackNavigator<RootStackParamList>();
   const SearchStack = createNativeStackNavigator<SearchStackParamList>();
   const WatchListStack = createNativeStackNavigator<WatchListStackParamList>();
   const DownloadsStack = createNativeStackNavigator<DownloadsStackParamList>();
   const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
-  const hasFirebase =
-    Boolean(Constants?.expoConfig?.extra?.hasFirebase) &&
-    isFirebaseNativeReady();
+  const hasFirebase = Boolean(Constants?.expoConfig?.extra?.hasFirebase) && isFirebaseNativeReady();
 
-  // const showTabBarLables = settingsStorage.showTabBarLabels();
-
+  // Function to perform update check only
+  const runUpdateCheck = useCallback(async () => {
+    try {
+      const needsUpdate = await checkForceUpdateOnly();
+      if (needsUpdate) {
+        setForceUpdateNeeded(true);
+        // Force splash to stay visible if update needed
+        setAppReady(false);
+      }
+    } catch (e) {
+      console.warn('Update check failed:', e);
+    }
+  }, []);
 
   useEffect(() => {
     let reconciled = false;
     const reconcile = () => {
-      if (reconciled) {
-        return;
-      }
+      if (reconciled) return;
       reconciled = true;
       reconcileDownloadState()
         .then(() => initializeSyncService())
@@ -238,302 +249,141 @@ const App = () => {
     return useDownloadsStore.persist.onFinishHydration(reconcile);
   }, []);
 
+  // Strict foreground check: check update every time user comes back to app
   useEffect(() => {
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'active') {
-        reconcileCompletedDownloadOutputs().catch(error =>
-          console.warn('Download foreground reconciliation failed:', error),
-        );
-        syncFromSharedFolder().catch(error =>
-          console.warn('[VegaSync] Foreground sync failed:', error),
-        );
-      } else {
-        publishSyncManifest().catch(error =>
-          console.warn('[VegaSync] Background publish failed:', error),
-        );
+        // Re-verify update status immediately on return
+        runUpdateCheck();
+
+        reconcileCompletedDownloadOutputs().catch(() => {});
+        syncFromSharedFolder().catch(() => {});
+        sendHeartbeat();
+      } else if (state === 'background' || state === 'inactive') {
+        publishSyncManifest().catch(() => {});
       }
     });
     return () => subscription.remove();
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (AppState.currentState === 'active') {
-        syncFromSharedFolder().catch(error =>
-          console.warn('[VegaSync] Periodic sync failed:', error),
-        );
-      }
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [runUpdateCheck]);
 
   useEffect(() => {
     const optIn = settingsStorage.isTelemetryOptIn();
     if (hasFirebase) {
       try {
         const crashlytics = getCrashlytics();
-        crashlytics && crashlytics().setCrashlyticsCollectionEnabled(optIn);
-      } catch {}
-      try {
+        if (crashlytics) crashlytics().setCrashlyticsCollectionEnabled(optIn);
         const analytics = getAnalytics();
-        analytics && analytics().setAnalyticsCollectionEnabled(optIn);
-      } catch {}
-      try {
-        const analytics = getAnalytics();
-        analytics &&
+        if (analytics) {
+          analytics().setAnalyticsCollectionEnabled(optIn);
           analytics().setConsent({
             analytics_storage: optIn,
             ad_storage: optIn,
             ad_user_data: optIn,
             ad_personalization: optIn,
           });
-      } catch {}
-
-      // Mark app open
-      try {
-        const analytics = getAnalytics();
-        analytics && analytics().logAppOpen();
-      } catch {}
-      // Example user property: theme
-      try {
-        const analytics = getAnalytics();
-        analytics &&
-          analytics().setUserProperty('theme_preference', 'fixed-neutral');
-      } catch {}
-
-      // Initial Crashlytics log
-      try {
-        const crashlytics = getCrashlytics();
-        crashlytics && crashlytics().log('App mounted');
+          analytics().logAppOpen();
+        }
       } catch {}
     }
 
     const unsubscribe = notifee.onForegroundEvent(({type, detail}) => {
       notificationService.actionHandler({type, detail});
     });
-    notifee
-      .getInitialNotification()
-      .then(initialNotification => {
-        if (!initialNotification) {
-          return;
-        }
-        const pressActionId = initialNotification.pressAction?.id;
-        return notificationService.actionHandler({
-          type:
-            pressActionId && pressActionId !== 'default'
-              ? EventType.ACTION_PRESS
-              : EventType.PRESS,
-          detail: initialNotification,
-        });
-      })
-      .catch(error =>
+
+    notifee.getInitialNotification().then(initialNotification => {
+      if (!initialNotification) return;
+      const pressActionId = initialNotification.pressAction?.id;
+      return notificationService.actionHandler({
+        type: pressActionId && pressActionId !== 'default' ? EventType.ACTION_PRESS : EventType.PRESS,
+        detail: initialNotification,
+      });
+    }).catch(error =>
         console.warn('Failed to handle initial notification:', error),
-      );
-    return () => {
-      unsubscribe();
-    };
+    );
+
+    return () => unsubscribe();
   }, []);
 
-  // Initialize update service
   useEffect(() => {
-    // Start automatic update checking at app startup
     updateProvidersService.startAutomaticUpdateCheck();
-
-    // Cleanup on unmount
-    return () => {
-      updateProvidersService.stopAutomaticUpdateCheck();
-    };
-  }, []);
-
-  // Initialize DNS over HTTPS
-  useEffect(() => {
     syncDohSettings().catch(e =>
       console.warn('[DoH] Failed to sync settings:', e),
     );
-  }, []);
-
-  useEffect(() => {
     loadToken();
+    SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
+    return () => updateProvidersService.stopAutomaticUpdateCheck();
   }, []);
 
+  // Unified Initial Load
   useEffect(() => {
-    const checkForceUpdate = async () => {
-      try {
-        const {default: axios} = await import('axios');
-        const {default: Application} = await import('expo-application');
-        const {runSecurityCheck} = await import('./lib/security/securityCheck');
-        const security = await runSecurityCheck();
-        if (security.isRooted || security.isTampered) {
-          setSecurityBlocked(true);
-          return;
-        }
-        const res = await axios.get('https://cinepix.top/api/app/versioncheck', {timeout: 8000});
-        const {min_version, force_update} = res.data;
-        if (force_update) {
-          const current = Application.nativeApplicationVersion || '0.0.0';
-          const needs = compareVersionsLocal(current, min_version);
-          if (needs) setForceUpdateNeeded(true);
-        }
-      } catch {}
-    };
-    checkForceUpdate();
-  }, []);
-
-  function compareVersionsLocal(local: string, min: string): boolean {
-    const l = local.split('.').map(Number);
-    const m = min.split('.').map(Number);
-    if (l[0] > m[0]) return false;
-    if (l[0] < m[0]) return true;
-    if (l[1] > m[1]) return false;
-    if (l[1] < m[1]) return true;
-    return l[2] < m[2];
-  }
-
-  // Initialize app: install providers, setup home, etc.
-  useEffect(() => {
-    let safetyTimeout: ReturnType<typeof setTimeout>;
     let initDone = false;
 
-    safetyTimeout = setTimeout(() => {
+    const startInit = async () => {
+      try {
+        const res = await initializeApp(setInitProgress);
+        initDone = true;
+        if (res?.forceUpdate) {
+          console.log('App.tsx: Force update required');
+          setForceUpdateNeeded(true);
+          setAppReady(true); // Set ready to true so it stops showing Splash and shows ForceUpdateScreen instead
+        } else {
+          setAppReady(true);
+        }
+      } catch (err: any) {
+        initDone = true;
+        console.error('App.tsx: Init failed', err);
+        if (err?.message === 'KILL_SWITCH_BLOCKED' || err?.message === 'APP_SHUTDOWN') {
+          setForceUpdateNeeded(true); // Reuse update screen for blocking
+          setShutdownMessage(err?.reason || 'Access denied.');
+        }
+        setAppReady(true);
+      }
+    };
+
+    startInit();
+
+    const safetyTimer = setTimeout(() => {
       if (!initDone) {
+        console.warn('App.tsx: Safety timeout reached');
         setAppReady(true);
       }
     }, 15000);
 
-    initializeApp(setInitProgress)
-      .then(() => {
-        initDone = true;
-        clearTimeout(safetyTimeout);
-        setAppReady(true);
-      })
-      .catch((err) => {
-        initDone = true;
-        clearTimeout(safetyTimeout);
-        if (err?.message === 'KILL_SWITCH_BLOCKED') {
-          setForceUpdateNeeded(true);
-          setShutdownMessage(err?.reason || '');
-          setAppReady(true);
-        } else if (err?.message === 'APP_SHUTDOWN') {
-          setAppShutdown(true);
-          setShutdownMessage(err?.reason || 'App is under maintenance. Please try again later.');
-          setAppReady(true);
-        } else {
-          setAppReady(true);
-        }
-      });
+    return () => clearTimeout(safetyTimer);
   }, []);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (useAuthStore.getState().isLoading) {
-        useAuthStore.setState({isLoading: false} as any);
-      }
-    }, 3000);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    sendHeartbeat();
-    const sub = AppState.addEventListener('change', state => {
-      if (state === 'active') sendHeartbeat();
-    });
-    return () => sub.remove();
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      Promise.resolve();
-    }, 1800);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    if (!isLoading) {
-      Promise.resolve();
-    }
-  }, [isLoading]);
-
-  // Initialize shared folder sync
-  useEffect(() => {
-    initializeSyncService().catch(e =>
-      console.warn('[VegaSync] Startup sync failed:', e),
-    );
-
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (nextAppState === 'active') {
-        syncFromSharedFolder().catch(e =>
-          console.warn('[VegaSync] Foreground sync failed:', e),
-        );
-      } else if (nextAppState === 'background' || nextAppState === 'inactive') {
-        publishSyncManifest().catch(e =>
-          console.warn('[VegaSync] Background publish failed:', e),
-        );
-      }
-    });
-
-    const interval = setInterval(() => {
-      if (AppState.currentState === 'active') {
-        syncFromSharedFolder().catch(e =>
-          console.warn('[VegaSync] Periodic sync failed:', e),
-        );
-      }
-    }, 30000);
-
-    return () => {
-      subscription.remove();
-      clearInterval(interval);
-    };
-  }, []);
-
-  useEffect(() => {
-    const isPlayStore = Constants.expoConfig?.extra?.isPlayStore;
-    if (!isPlayStore && settingsStorage.isAutoCheckUpdateEnabled()) {
-      checkForUpdate(() => {}, settingsStorage.isAutoDownloadEnabled(), false);
-    }
-  }, []);
-
-  // Show init splash while app is initializing
-  if (!appReady || isLoading) {
-    return (
-      <InitSplash
-        progress={isLoading ? 100 : initProgress.progress}
-        status={isLoading ? 'Loading profile...' : initProgress.status}
-      />
-    );
-  }
-
-  // Force update screen
-  if (forceUpdateNeeded) {
-    return <ForceUpdateScreen />;
-  }
-
-  // App shutdown screen
+  // Priority Rendering Logic
   if (appShutdown) {
     return (
       <View style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 32}}>
         <Image source={require('../assets/logo.png')} style={{width: 120, height: 120, marginBottom: 24}} resizeMode="contain" />
         <AppText role="headlineMedium" style={{color: '#fff', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 12}}>Maintenance</AppText>
-        <AppText role="bodyMedium" style={{color: '#999', textAlign: 'center', lineHeight: 22}}>
-          {shutdownMessage || 'App is under maintenance. Please try again later.'}
-        </AppText>
+        <AppText role="bodyMedium" style={{color: '#999', textAlign: 'center'}}>{shutdownMessage}</AppText>
       </View>
     );
   }
 
-  // Security blocked screen (rooted device)
+  // Force Update takes precedence over everything
+  if (forceUpdateNeeded) {
+    return <ForceUpdateScreen />;
+  }
+
   if (securityBlocked) {
     return (
       <View style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 32}}>
-        <Image source={require('../assets/logo.png')} style={{width: 120, height: 120, marginBottom: 24}} resizeMode="contain" />
-        <AppText role="headlineMedium" style={{color: '#fff', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 12}}>Security Warning</AppText>
-        <AppText role="bodyMedium" style={{color: '#999', textAlign: 'center', lineHeight: 22}}>
-          This app cannot run on a rooted or modified device. Please use a non-rooted device to continue.
-        </AppText>
+        <AppText role="headlineMedium" style={{color: '#fff', textAlign: 'center'}}>Security Block</AppText>
       </View>
+    );
+  }
+
+  // Splash Screen showing during check
+  if (!appReady || isLoading) {
+    return (
+      <InitSplash
+        progress={isLoading ? 100 : initProgress.progress}
+        status={isLoading ? 'Loading profile...' : initProgress.status}
+        onForceReady={() => setAppReady(true)}
+      />
     );
   }
 
@@ -567,7 +417,7 @@ const App = () => {
         <SearchStack.Screen name="ScrollList" component={ScrollList} />
         <SearchStack.Screen name="Info" component={Info} />
         <SearchStack.Screen name="SearchResults" component={SearchResults} />
-        <HomeStack.Screen name="Webview" component={WebView} />
+        <SearchStack.Screen name="Webview" component={WebView} />
       </SearchStack.Navigator>
     );
   }
@@ -607,10 +457,6 @@ const App = () => {
           component={Appearance}
           options={subpageOptions}
         />
-        {/* <SettingsStack.Screen
-          name="DisableProviders"
-          component={DisableProviders}
-        /> */}
         <SettingsStack.Screen
           name="About"
           component={About}
@@ -799,11 +645,12 @@ const App = () => {
                       const route = navigationRef.getCurrentRoute();
                       if (route?.name) {
                         const analytics = getAnalytics();
-                        analytics &&
-                          (await analytics().logScreenView({
+                        if (analytics) {
+                          await analytics().logScreenView({
                             screen_name: route.name,
                             screen_class: 'Navigation',
-                          }));
+                          });
+                        }
                       }
                     } catch {}
                   }
@@ -814,43 +661,25 @@ const App = () => {
                       const route = navigationRef.getCurrentRoute();
                       if (route?.name) {
                         const analytics = getAnalytics();
-                        analytics &&
-                          (await analytics().logScreenView({
+                        if (analytics) {
+                          await analytics().logScreenView({
                             screen_name: route.name,
                             screen_class: 'Navigation',
-                          }));
+                          });
+                        }
                       }
                     } catch {}
                   }
                 }}
                 theme={{
                   fonts: {
-                    regular: {
-                      fontFamily: 'Inter_400Regular',
-                      fontWeight: '400',
-                    },
-                    medium: {
-                      fontFamily: 'Inter_500Medium',
-                      fontWeight: '500',
-                    },
-                    bold: {
-                      fontFamily: 'Inter_700Bold',
-                      fontWeight: '700',
-                    },
-                    heavy: {
-                      fontFamily: 'Inter_800ExtraBold',
-                      fontWeight: '800',
-                    },
+                    regular: {fontFamily: 'Inter_400Regular', fontWeight: '400'},
+                    medium: {fontFamily: 'Inter_500Medium', fontWeight: '500'},
+                    bold: {fontFamily: 'Inter_700Bold', fontWeight: '700'},
+                    heavy: {fontFamily: 'Inter_800ExtraBold', fontWeight: '800'},
                   },
                   dark: true,
-                  colors: {
-                    background: 'transparent',
-                    card: 'black',
-                    primary: '#E4E4E4',
-                    text: 'white',
-                    border: 'black',
-                    notification: '#E4E4E4',
-                  },
+                  colors: {background: 'transparent', card: 'black', primary: '#E4E4E4', text: 'white', border: 'black', notification: '#E4E4E4'},
                 }}>
                 <Stack.Navigator
                   screenOptions={{
@@ -873,12 +702,7 @@ const App = () => {
                   />
                 </Stack.Navigator>
               </NavigationContainer>
-              {/* Global WAF / captcha solving dialog, triggered by providers via
-                providerContext.openWebView */}
               <WafWebViewDialog />
-              {/* Isolated realm that runs untrusted provider code. Must stay
-                mounted for the app lifetime: every provider call is dispatched
-                into it. */}
               <ProviderSandboxHost />
             </View>
           </QueryClientProvider>

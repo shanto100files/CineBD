@@ -3,8 +3,8 @@ import {extensionStorage} from '../storage/extensionStorage';
 import useContentStore from '../zustand/contentStore';
 import {mainStorage as storage} from '../storage/StorageService';
 import {Application} from 'expo-application';
-import {Platform} from 'react-native';
 import {getDeviceId} from './heartbeatService';
+import axios from 'axios';
 
 export interface InitProgress {
   progress: number;
@@ -12,7 +12,36 @@ export interface InitProgress {
 }
 
 const KILL_SWITCH_KEY = '@app_kill_key';
-const HARDCODED_KILL_KEY = 'ad21dada6e67564a2f08e6c282c66699';
+const HARDCODED_KILL_KEY = '78a0e573dfd894d443685159b2e71e2f';
+const API_BASE = 'https://cinepix.top/api/app';
+
+function compareVersions(local: string, min: string): boolean {
+  const l = local.split('.').map(Number);
+  const m = min.split('.').map(Number);
+  if (l[0] > m[0]) return false;
+  if (l[0] < m[0]) return true;
+  if (l[1] > m[1]) return false;
+  if (l[1] < m[1]) return true;
+  return (l[2] || 0) < (m[2] || 0);
+}
+
+/**
+ * Perform a quick version check only.
+ * Used for foreground/app-return checks.
+ */
+export async function checkForceUpdateOnly(): Promise<boolean> {
+  try {
+    const vRes = await axios.get(`${API_BASE}/versioncheck`, { timeout: 5000 });
+    const { min_version, force_update } = vRes.data;
+    if (force_update) {
+      const currentVersion = Application.nativeApplicationVersion || '0.0.0';
+      return compareVersions(currentVersion, min_version);
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean; reason?: string}> {
   try {
@@ -20,18 +49,80 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
     const version = Application.nativeApplicationVersion ?? '0.0.0';
     const deviceId = getDeviceId();
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch('https://cinepix.top/api/app/check', {
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch(`${API_BASE}/check`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-App-Key': 'ad21dada6e67564a2f08e6c282c66699'},
+      headers: {
+        'Content-Type': 'application/json',
+        'X-App-Key': '78a0e573dfd894d443685159b2e71e2f'
+      },
       body: JSON.stringify({key: storedKey, version, device_id: deviceId}),
       signal: controller.signal,
     });
     clearTimeout(timeout);
     const data = await res.json();
     return {blocked: data.blocked === true, shutdown: data.shutdown === true, reason: data.reason};
-  } catch {
+  } catch (e) {
+    console.warn('Kill switch check failed, bypassing:', e);
     return {blocked: false, shutdown: false};
+  }
+}
+
+export async function initializeApp(
+  onProgress: (p: InitProgress) => void,
+): Promise<{forceUpdate?: boolean}> {
+  try {
+    // Step 0: Check version & kill switch together
+    onProgress({progress: 5, status: 'Checking updates...'});
+
+    const forceUpdateNeeded = await checkForceUpdateOnly();
+    if (forceUpdateNeeded) {
+      return { forceUpdate: true };
+    }
+
+    // Check Kill Switch
+    const check = await checkKillSwitch();
+    if (check.shutdown) {
+      const err = new Error('APP_SHUTDOWN');
+      (err as any).reason = check.reason || 'App is under maintenance.';
+      throw err;
+    }
+    if (check.blocked) {
+      const err = new Error('KILL_SWITCH_BLOCKED');
+      (err as any).reason = check.reason || 'App version is outdated.';
+      throw err;
+    }
+
+    // Step 1: Initialize providers
+    onProgress({progress: 20, status: 'Initializing engine...'});
+
+    try {
+      await withTimeout(extensionManager.fetchManifest(undefined, true), 4000);
+    } catch {}
+
+    onProgress({progress: 50, status: 'Loading providers...'});
+    try {
+      await withTimeout(extensionManager.initialize(), 4000);
+    } catch {}
+
+    const installed = extensionStorage.getInstalledProviders();
+    const contentStore = useContentStore.getState();
+    if (installed.length > 0) {
+      useContentStore.setState({installedProviders: installed});
+      if (!contentStore.provider?.value) {
+        useContentStore.setState({provider: installed[0]});
+      }
+    }
+
+    onProgress({progress: 100, status: 'Ready!'});
+    return { forceUpdate: false };
+  } catch (err: any) {
+    if (err?.message === 'APP_SHUTDOWN' || err?.message === 'KILL_SWITCH_BLOCKED') {
+      throw err;
+    }
+    console.error('Initialization error:', err);
+    return { forceUpdate: false };
   }
 }
 
@@ -42,104 +133,4 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       setTimeout(() => reject(new Error('timeout')), ms),
     ),
   ]);
-}
-
-export async function initializeApp(
-  onProgress: (p: InitProgress) => void,
-): Promise<void> {
-  // Step 0: Check kill switch
-  onProgress({progress: 2, status: 'Checking updates...'});
-  const check = await checkKillSwitch();
-  if (check.shutdown) {
-    const err = new Error('APP_SHUTDOWN');
-    (err as any).reason = check.reason || 'App is under maintenance. Please try again later.';
-    throw err;
-  }
-  if (check.blocked) {
-    const err = new Error('KILL_SWITCH_BLOCKED');
-    (err as any).reason = check.reason || 'App version is outdated. Please update.';
-    throw err;
-  }
-  // Step 1: Migrate legacy source
-  onProgress({progress: 5, status: 'Initializing...'});
-  await new Promise(r => setTimeout(r, 200));
-
-  // Step 2: Fetch manifest
-  onProgress({progress: 15, status: 'Fetching providers...'});
-  try {
-    await withTimeout(extensionManager.fetchManifest(undefined, true), 8000);
-  } catch {
-    try {
-      await withTimeout(extensionManager.fetchManifest(undefined, false), 8000);
-    } catch {}
-  }
-  onProgress({progress: 35, status: 'Providers found'});
-  await new Promise(r => setTimeout(r, 150));
-
-  // Step 3: Initialize extension manager (loads installed providers)
-  onProgress({progress: 40, status: 'Loading installed providers...'});
-  try {
-    await withTimeout(extensionManager.initialize(), 5000);
-  } catch {}
-  await new Promise(r => setTimeout(r, 150));
-
-  // Step 4: Get installed providers and check if we need to install more
-  const source = extensionStorage.getProviderSource();
-  if (source) {
-    const installed = extensionStorage.getInstalledProviders();
-    const available = extensionStorage.getAvailableProviders(source.author);
-
-    onProgress({
-      progress: 50,
-      status: `${installed.length} providers installed`,
-    });
-
-    // Step 5: Install any missing providers
-    const notInstalled = available.filter(
-      p => !installed.some(i => i.value === p.value),
-    );
-
-    if (notInstalled.length > 0) {
-      onProgress({
-        progress: 55,
-        status: `Installing ${notInstalled.length} providers...`,
-      });
-
-      for (let i = 0; i < notInstalled.length; i++) {
-        const prov = notInstalled[i];
-        const percent = 55 + Math.round((i / notInstalled.length) * 30);
-        onProgress({
-          progress: percent,
-          status: `Installing ${prov.display_name}...`,
-        });
-        try {
-          await extensionManager.installProvider(prov);
-        } catch (err) {
-          console.warn(`Failed to install ${prov.value}:`, err);
-        }
-      }
-    }
-
-    // Step 6: Auto-select providers for home (if none selected)
-    onProgress({progress: 85, status: 'Setting up home...'});
-    const contentStore = useContentStore.getState();
-    const installedAfter = extensionStorage.getInstalledProviders();
-
-    if (installedAfter.length > 0) {
-      // Update installed providers in store
-      useContentStore.setState({installedProviders: installedAfter});
-
-      // If no provider is selected, select the first one
-      if (!contentStore.provider?.value && installedAfter.length > 0) {
-        useContentStore.setState({provider: installedAfter[0]});
-      }
-    }
-  }
-
-  // Step 7: Final
-  onProgress({progress: 95, status: 'Almost ready...'});
-  await new Promise(r => setTimeout(r, 200));
-
-  onProgress({progress: 100, status: 'Ready!'});
-  await new Promise(r => setTimeout(r, 150));
 }
