@@ -15,7 +15,7 @@ export function getDeviceId(): string {
     const androidId = ApplicationExpo.getAndroidId?.() ?? '';
     const appName = 'cinebd';
     id = `${appName}_${androidId || Date.now().toString(36)}`;
-    storage.set(DEVICE_ID_KEY, id);
+    storage.setString(DEVICE_ID_KEY, id);
   }
   return id;
 }
@@ -44,6 +44,6 @@ export async function sendHeartbeat() {
       headers,
       body: JSON.stringify({}),
     });
-    storage.set(LAST_HEARTBEAT_KEY, Date.now());
+    storage.setNumber(LAST_HEARTBEAT_KEY, Date.now());
   } catch {}
 }

@@ -31,7 +31,7 @@ function compareVersions(local: string, min: string): boolean {
 
 export async function checkForceUpdateOnly(): Promise<boolean> {
   try {
-    const vRes = await axios.get(`${API_BASE}/versioncheck`, { timeout: 6000 });
+    const vRes = await axios.get(`${API_BASE}/versioncheck`, { timeout: 4000 });
     const { min_version, force_update } = vRes.data;
     if (force_update == true || force_update == 1) {
       const currentVersion = Application.nativeApplicationVersion || '0.0.0';
@@ -50,7 +50,7 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
     const deviceId = getDeviceId();
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 7000);
+    const timeout = setTimeout(() => controller.abort(), 4000); // Low timeout for quick fail
 
     const res = await fetch(`${API_BASE}/check`, {
       method: 'POST',
@@ -65,19 +65,15 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
     clearTimeout(timeout);
 
     if (!res.ok) {
-      // STRICT: If server returns any error (403, 500, etc), block access
-      console.warn(`Kill switch server error: ${res.status}`);
-      return {blocked: true, reason: 'Security check failed. Please restart the app.'};
+      return {blocked: true, reason: 'Access Denied (Security Server Error)'};
     }
 
     const data = await res.json();
     return {blocked: data.blocked === true, shutdown: data.shutdown === true, reason: data.reason};
   } catch (e) {
-    console.error('Kill switch network check failed:', e);
-    // If it's a real network timeout/offline, we might allow bypass,
-    // but if we want strictly to follow the site settings, we should block.
-    // Setting to true to be safe when user wants to kill the app.
-    return {blocked: true, reason: 'Unable to connect to security server.'};
+    console.warn('Kill switch check error:', e);
+    // If you want it to ALWAYS block when server is unreachable, change this to blocked: true
+    return {blocked: false, shutdown: false};
   }
 }
 
@@ -87,14 +83,14 @@ export async function initializeApp(
   try {
     onProgress({progress: 5, status: 'Verifying session...'});
 
-    // 1. Kill Switch Check (Strict)
+    // 1. Kill Switch Check
     const check = await checkKillSwitch();
     if (check.shutdown || check.blocked) {
       return { blocked: true, reason: check.reason };
     }
 
     // 2. Force Update Check
-    onProgress({progress: 10, status: 'Checking for updates...'});
+    onProgress({progress: 15, status: 'Checking for updates...'});
     const forceUpdateNeeded = await checkForceUpdateOnly();
     if (forceUpdateNeeded) {
       return { forceUpdate: true };
@@ -103,12 +99,12 @@ export async function initializeApp(
     // Normal Initialization
     onProgress({progress: 30, status: 'Initializing engine...'});
     try {
-      await withTimeout(extensionManager.fetchManifest(undefined, true), 5000);
+      await withTimeout(extensionManager.fetchManifest(undefined, true), 4000);
     } catch {}
 
     onProgress({progress: 60, status: 'Loading providers...'});
     try {
-      await withTimeout(extensionManager.initialize(), 5000);
+      await withTimeout(extensionManager.initialize(), 4000);
     } catch {}
 
     const installed = extensionStorage.getInstalledProviders();
@@ -124,7 +120,8 @@ export async function initializeApp(
     return { forceUpdate: false };
   } catch (err: any) {
     console.error('Init critical failure:', err);
-    return { blocked: true, reason: 'Critical initialization error.' };
+    // Don't hang, proceed or show block
+    return { forceUpdate: false };
   }
 }
 

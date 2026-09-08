@@ -321,20 +321,22 @@ const App = () => {
       try {
         const res = await initializeApp(setInitProgress);
         initDone = true;
-        if (res?.forceUpdate) {
+
+        if (res?.blocked) {
+          console.log('App.tsx: Kill switch active');
+          setShutdownMessage(res.reason || 'Access denied.');
+          setForceUpdateNeeded(true);
+          setAppReady(true);
+        } else if (res?.forceUpdate) {
           console.log('App.tsx: Force update required');
           setForceUpdateNeeded(true);
-          setAppReady(true); // Set ready to true so it stops showing Splash and shows ForceUpdateScreen instead
+          setAppReady(true);
         } else {
           setAppReady(true);
         }
       } catch (err: any) {
         initDone = true;
         console.error('App.tsx: Init failed', err);
-        if (err?.message === 'KILL_SWITCH_BLOCKED' || err?.message === 'APP_SHUTDOWN') {
-          setForceUpdateNeeded(true); // Reuse update screen for blocking
-          setShutdownMessage(err?.reason || 'Access denied.');
-        }
         setAppReady(true);
       }
     };
@@ -346,9 +348,19 @@ const App = () => {
         console.warn('App.tsx: Safety timeout reached');
         setAppReady(true);
       }
-    }, 15000);
+    }, 12000);
 
     return () => clearTimeout(safetyTimer);
+  }, []);
+
+  // Force resolve auth loading if it takes too long
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (useAuthStore.getState().isLoading) {
+        useAuthStore.setState({isLoading: false} as any);
+      }
+    }, 5000);
+    return () => clearTimeout(t);
   }, []);
 
   // Priority Rendering Logic
