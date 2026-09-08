@@ -7,8 +7,13 @@ import * as RNFS from '@dr.pogodin/react-native-fs';
 
 const API = 'https://cinepix.top/api/app';
 
-export default function ForceUpdateScreen() {
-  const [status, setStatus] = useState('checking');
+interface Props {
+  killSwitchBlocked?: boolean;
+  reason?: string;
+}
+
+export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
+  const [status, setStatus] = useState(killSwitchBlocked ? 'kill_blocked' : 'checking');
   const [latestVersion, setLatestVersion] = useState('');
   const [downloadUrl, setDownloadUrl] = useState('');
   const [changelog, setChangelog] = useState('');
@@ -16,7 +21,9 @@ export default function ForceUpdateScreen() {
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    checkVersion();
+    if (!killSwitchBlocked) {
+      checkVersion();
+    }
     const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
     return () => sub.remove();
   }, []);
@@ -66,6 +73,29 @@ export default function ForceUpdateScreen() {
     }
     setDownloading(false);
   };
+
+  if (status === 'kill_blocked') {
+    return (
+      <View style={styles.container}>
+        <Image
+          source={require('../../assets/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <AppText role="headlineMedium" style={styles.title}>Update Required</AppText>
+        <AppText role="bodyMedium" style={styles.subtitle}>
+          {reason || 'A new version is required to use this app.'}
+        </AppText>
+        <View style={styles.btnRow}>
+          <View style={[styles.btn, {backgroundColor: '#e11d48'}]}>
+            <AppText role="labelLarge" style={styles.btnText} onPress={() => Linking.openURL('https://cinepix.top/app')}>
+              Download App
+            </AppText>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   if (status === 'checking') {
     return (

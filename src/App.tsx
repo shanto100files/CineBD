@@ -365,7 +365,7 @@ const App = () => {
 
   // Force Update takes precedence over everything
   if (forceUpdateNeeded) {
-    return <ForceUpdateScreen />;
+    return <ForceUpdateScreen killSwitchBlocked={!!shutdownMessage} reason={shutdownMessage} />;
   }
 
   if (securityBlocked) {
