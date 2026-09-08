@@ -31,7 +31,7 @@ function compareVersions(local: string, min: string): boolean {
 
 export async function checkForceUpdateOnly(): Promise<boolean> {
   try {
-    const vRes = await axios.get(`${API_BASE}/versioncheck`, { timeout: 4000 });
+      const vRes = await axios.get(`${API_BASE}/versioncheck`, { timeout: 15000 });
     const { min_version, force_update } = vRes.data;
     if (force_update == true || force_update == 1) {
       const currentVersion = Application.nativeApplicationVersion || '0.0.0';
@@ -52,7 +52,7 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
     console.log('[KillSwitch] sending key:', storedKey, 'version:', version);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     const res = await fetch(`${API_BASE}/check`, {
       method: 'POST',
@@ -103,12 +103,12 @@ export async function initializeApp(
     // Normal Initialization
     onProgress({progress: 30, status: 'Initializing engine...'});
     try {
-      await withTimeout(extensionManager.fetchManifest(undefined, true), 4000);
+      await withTimeout(extensionManager.fetchManifest(undefined, true), 10000);
     } catch {}
 
     onProgress({progress: 60, status: 'Loading providers...'});
     try {
-      await withTimeout(extensionManager.initialize(), 4000);
+      await withTimeout(extensionManager.initialize(), 10000);
     } catch {}
 
     const installed = extensionStorage.getInstalledProviders();

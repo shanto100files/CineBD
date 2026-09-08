@@ -323,13 +323,10 @@ const App = () => {
         initDone = true;
 
         if (res?.blocked) {
-          console.log('App.tsx: Kill switch active, reason:', res.reason);
           setShutdownMessage(res.reason || 'Access denied.');
           setForceUpdateNeeded(true);
           setAppReady(true);
-          console.log('App.tsx: States set — forceUpdateNeeded=true, appReady=true');
         } else if (res?.forceUpdate) {
-          console.log('App.tsx: Force update required');
           setForceUpdateNeeded(true);
           setAppReady(true);
         } else {
