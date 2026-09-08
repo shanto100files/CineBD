@@ -310,9 +310,9 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                   onOpenWeb={
                     webUrl
                       ? () =>
-                          Linking.openURL(
-                            'https://www.profitableratecpmnetwork.com/kgeqdmn1eg?key=cc8e202ca79f5970480bca704a0e8e43',
-                          )
+                          navigation.navigate('Webview', {
+                            link: 'https://www.profitableratecpmnetwork.com/kgeqdmn1eg?key=cc8e202ca79f5970480bca704a0e8e43',
+                          })
                       : undefined
                   }
                   onSearchTitle={searchTitle}

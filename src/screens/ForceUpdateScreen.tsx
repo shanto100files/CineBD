@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {View, StyleSheet, Linking, ActivityIndicator, Image, Platform} from 'react-native';
+import {View, StyleSheet, Linking, ActivityIndicator, Image, Platform, BackHandler} from 'react-native';
 import AppText from '../components/ui/Text';
 import axios from 'axios';
 import * as Application from 'expo-application';
@@ -17,6 +17,8 @@ export default function ForceUpdateScreen() {
 
   useEffect(() => {
     checkVersion();
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => sub.remove();
   }, []);
 
   const checkVersion = async () => {
