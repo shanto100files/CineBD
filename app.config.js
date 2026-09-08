@@ -59,15 +59,6 @@ module.exports = () => {
     'react-native-edge-to-edge',
     './plugins/with-dynamic-launcher-splash.js',
     [
-      'react-native-bootsplash',
-      {
-        assetsDir: 'assets/bootsplash',
-        android: {
-          parentTheme: 'EdgeToEdge',
-        },
-      },
-    ],
-    [
       'expo-build-properties',
       {
         android: {

@@ -15,7 +15,7 @@ import {
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import RNBootSplash from 'react-native-bootsplash';
+
 import 'react-native-reanimated';
 import WebView from './screens/WebView';
 import SearchResults from './screens/SearchResults';
@@ -218,28 +218,6 @@ const App = () => {
 
   // const showTabBarLables = settingsStorage.showTabBarLabels();
 
-  useEffect(() => {
-    const hideSplash = async () => {
-      try {
-        await RNBootSplash.hide({fade: true});
-        console.log('[BootSplash] Native splash hidden');
-      } catch (e) {
-        console.warn('[BootSplash] Failed to hide native splash:', e);
-      }
-    };
-
-    // Call multiple times to ensure it hides even if the bridge is slow
-    hideSplash();
-    const t1 = setTimeout(hideSplash, 500);
-    const t2 = setTimeout(hideSplash, 2000);
-    const t3 = setTimeout(hideSplash, 5000);
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, []);
 
   useEffect(() => {
     let reconciled = false;

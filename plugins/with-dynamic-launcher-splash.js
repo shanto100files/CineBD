@@ -94,17 +94,11 @@ const withLauncherStyles = config =>
     if (bootTheme) {
       bootTheme.item = [];
     }
-    upsertStyle(styles, 'BootTheme.Base', 'Theme.BootSplash.EdgeToEdge', [
-      ['postBootSplashTheme', '@style/AppTheme'],
-      ['bootSplashBackground', '@color/bootsplash_background'],
+    upsertStyle(styles, 'BootTheme.Base', 'Theme.AppCompat.NoActionBar', [
+      ['android:windowBackground', '@android:color/black'],
     ]);
     for (const variant of variants) {
-      upsertStyle(styles, `BootTheme.${variant.id}`, 'BootTheme.Base', [
-        [
-          'bootSplashLogo',
-          `@drawable/bootsplash_logo_${variant.id.toLowerCase()}`,
-        ],
-      ]);
+      upsertStyle(styles, `BootTheme.${variant.id}`, 'BootTheme.Base', []);
     }
     return stylesConfig;
   });
@@ -114,12 +108,6 @@ const bootThemeMethod = `  private fun getBootTheme(): Int {
   }
 
 `;
-
-const bootSplashInitialization = `val bootTheme = getBootTheme()
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-      splashScreen.setSplashScreenTheme(bootTheme)
-    }
-    RNBootSplash.init(this, bootTheme)`;
 
 const withLauncherMainActivity = config =>
   withMainActivity(config, activityConfig => {
@@ -131,8 +119,11 @@ const withLauncherMainActivity = config =>
       );
     }
     contents = contents.replace(
-      /RNBootSplash\.init\(this,\s*(?:R\.style\.BootTheme|getBootTheme\(\))\)/,
-      bootSplashInitialization,
+      /val bootTheme = getBootTheme\(\)[\s\S]*RNBootSplash\.init\(this,\s*bootTheme\)/,
+      'val bootTheme = getBootTheme()\n' +
+        '    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {\n' +
+        '      splashScreen.setSplashScreenTheme(bootTheme)\n' +
+        '    }',
     );
     activityConfig.modResults.contents = contents;
     return activityConfig;
@@ -195,8 +186,11 @@ const patchGeneratedBootSplashFiles = (projectRoot, packageName) => {
   );
   let mainActivity = fs.readFileSync(mainActivityPath, 'utf8');
   mainActivity = mainActivity.replace(
-    /RNBootSplash\.init\(this,\s*(?:R\.style\.BootTheme|getBootTheme\(\))\)/,
-    bootSplashInitialization,
+    /val bootTheme = getBootTheme\(\)[\s\S]*RNBootSplash\.init\(this,\s*bootTheme\)/,
+    'val bootTheme = getBootTheme()\n' +
+      '    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {\n' +
+      '      splashScreen.setSplashScreenTheme(bootTheme)\n' +
+      '    }',
   );
   fs.writeFileSync(mainActivityPath, mainActivity, 'utf8');
 };

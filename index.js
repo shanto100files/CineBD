@@ -5,10 +5,7 @@
 import {AppRegistry} from 'react-native';
 import App from './src/App';
 import notifee from '@notifee/react-native';
-import RNBootSplash from 'react-native-bootsplash';
 
-// Attempt to hide splash as soon as JS starts
-RNBootSplash.hide({fade: true}).catch(() => {});
 // import notificationService from './src/lib/services/Notification';
 
 // Enable react-native-firebase debug mode for Analytics DebugView in dev
