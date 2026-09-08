@@ -20,6 +20,8 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloading, setDownloading] = useState(false);
 
+  console.log('[ForceUpdateScreen] RENDERED, killSwitchBlocked:', killSwitchBlocked, 'reason:', reason, 'status:', status);
+
   useEffect(() => {
     if (!killSwitchBlocked) {
       checkVersion();

@@ -322,14 +322,19 @@ const App = () => {
         const res = await initializeApp(setInitProgress);
         initDone = true;
 
+        console.log('[AppInit] initializeApp result:', JSON.stringify(res));
+
         if (res?.blocked) {
+          console.log('[AppInit] BLOCKED by kill switch:', res.reason);
           setShutdownMessage(res.reason || 'Access denied.');
           setForceUpdateNeeded(true);
           setAppReady(true);
         } else if (res?.forceUpdate) {
+          console.log('[AppInit] force update needed');
           setForceUpdateNeeded(true);
           setAppReady(true);
         } else {
+          console.log('[AppInit] all clear, app ready');
           setAppReady(true);
         }
       } catch (err: any) {
@@ -374,6 +379,7 @@ const App = () => {
 
   // Force Update takes precedence over everything
   if (forceUpdateNeeded) {
+    console.log('[AppInit] RENDERING ForceUpdateScreen, shutdownMessage:', shutdownMessage);
     return <ForceUpdateScreen killSwitchBlocked={!!shutdownMessage} reason={shutdownMessage} />;
   }
 
