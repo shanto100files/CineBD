@@ -78,7 +78,7 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   const [appAds, setAppAds] = useState<{enabled: boolean; web_url: string; top: string; bottom: string}>({enabled: false, web_url: '', top: '', bottom: ''});
 
   useEffect(() => {
-    fetch('https://cinepix.top/api/app/ads', {headers: {'X-App-Key': 'ad21dada6e67564a2f08e6c282c66699'}})
+    fetch('https://cinepix.top/api/app/ads', {headers: {'X-App-Key': '78a0e573dfd894d443685159b2e71e2f'}})
       .then(r => r.json())
       .then(d => setAppAds(d))
       .catch(() => {});
