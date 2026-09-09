@@ -361,6 +361,21 @@ const App = () => {
     return () => clearTimeout(t);
   }, []);
 
+  // Periodic update check — every 30 min while app is active
+  useEffect(() => {
+    if (!appReady) return;
+    const interval = setInterval(async () => {
+      try {
+        const needsUpdate = await checkForceUpdateOnly();
+        if (needsUpdate) {
+          setForceUpdateNeeded(true);
+          setAppReady(false);
+        }
+      } catch {}
+    }, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [appReady]);
+
   // Priority Rendering Logic
   if (appShutdown) {
     return (
