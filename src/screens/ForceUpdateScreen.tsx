@@ -1,8 +1,7 @@
 import React, {useEffect, useState} from 'react';
-import {View, StyleSheet, Linking, ActivityIndicator, Image, Platform, BackHandler} from 'react-native';
-import AppText from '../components/ui/Text';
-import axios from 'axios';
+import {View, StyleSheet, Linking, ActivityIndicator, Image, Text, TouchableOpacity, BackHandler} from 'react-native';
 import * as Application from 'expo-application';
+import axios from 'axios';
 import * as RNFS from '@dr.pogodin/react-native-fs';
 
 const API = 'https://cinepix.top/api/app';
@@ -13,14 +12,14 @@ interface Props {
 }
 
 export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
-  const [status, setStatus] = useState(killSwitchBlocked ? 'kill_blocked' : 'checking');
+  const [status, setStatus] = useState<'kill_blocked' | 'checking' | 'update_required' | 'ok' | 'network_error'>(
+    killSwitchBlocked ? 'kill_blocked' : 'checking',
+  );
   const [latestVersion, setLatestVersion] = useState('');
   const [downloadUrl, setDownloadUrl] = useState('');
   const [changelog, setChangelog] = useState('');
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloading, setDownloading] = useState(false);
-
-  console.log('[ForceUpdateScreen] RENDERED, killSwitchBlocked:', killSwitchBlocked, 'reason:', reason, 'status:', status);
 
   useEffect(() => {
     if (!killSwitchBlocked) {
@@ -84,17 +83,13 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
           style={styles.logo}
           resizeMode="contain"
         />
-        <AppText role="headlineMedium" style={styles.title}>Update Required</AppText>
-        <AppText role="bodyMedium" style={styles.subtitle}>
+        <Text style={styles.title}>Update Required</Text>
+        <Text style={styles.subtitle}>
           {reason || 'A new version is required to use this app.'}
-        </AppText>
-        <View style={styles.btnRow}>
-          <View style={[styles.btn, {backgroundColor: '#e11d48'}]}>
-            <AppText role="labelLarge" style={styles.btnText} onPress={() => Linking.openURL('https://cinepix.top/app')}>
-              Download App
-            </AppText>
-          </View>
-        </View>
+        </Text>
+        <TouchableOpacity style={styles.btn} onPress={() => Linking.openURL('https://cinepix.top/app')} activeOpacity={0.8}>
+          <Text style={styles.btnText}>Download App</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -103,7 +98,7 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#e11d48" />
-        <AppText role="bodyMedium" style={styles.checkingText}>Checking for updates...</AppText>
+        <Text style={styles.checkingText}>Checking for updates...</Text>
       </View>
     );
   }
@@ -118,17 +113,13 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
           style={styles.logo}
           resizeMode="contain"
         />
-        <AppText role="headlineMedium" style={styles.title}>Update Required</AppText>
-        <AppText role="bodyMedium" style={styles.subtitle}>
+        <Text style={styles.title}>Update Required</Text>
+        <Text style={styles.subtitle}>
           Unable to check for updates. Please connect to the internet and try again.
-        </AppText>
-        <View style={styles.btnRow}>
-          <View style={[styles.btn, {backgroundColor: '#e11d48'}]}>
-            <AppText role="labelLarge" style={styles.btnText} onPress={checkVersion}>
-              Retry
-            </AppText>
-          </View>
-        </View>
+        </Text>
+        <TouchableOpacity style={styles.btn} onPress={checkVersion} activeOpacity={0.8}>
+          <Text style={styles.btnText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -140,15 +131,15 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
         style={styles.logo}
         resizeMode="contain"
       />
-      <AppText role="headlineMedium" style={styles.title}>Update Required</AppText>
-      <AppText role="bodyMedium" style={styles.subtitle}>
+      <Text style={styles.title}>Update Required</Text>
+      <Text style={styles.subtitle}>
         Please update to v{latestVersion} to continue
-      </AppText>
+      </Text>
 
       {changelog ? (
         <View style={styles.changelogBox}>
-          <AppText role="labelMedium" style={styles.changelogTitle}>What's New:</AppText>
-          <AppText role="bodySmall" style={styles.changelogText}>{changelog}</AppText>
+          <Text style={styles.changelogTitle}>What's New:</Text>
+          <Text style={styles.changelogText}>{changelog}</Text>
         </View>
       ) : null}
 
@@ -157,16 +148,12 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, {width: `${downloadProgress}%`}]} />
           </View>
-          <AppText role="bodySmall" style={styles.progressText}>{downloadProgress}%</AppText>
+          <Text style={styles.progressText}>{downloadProgress}%</Text>
         </View>
       ) : (
-        <View style={styles.btnRow}>
-          <View style={[styles.btn, {backgroundColor: '#e11d48'}]}>
-            <AppText role="labelLarge" style={styles.btnText} onPress={downloadAndInstall}>
-              Update Now
-            </AppText>
-          </View>
-        </View>
+        <TouchableOpacity style={styles.btn} onPress={downloadAndInstall} activeOpacity={0.8}>
+          <Text style={styles.btnText}>Update Now</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -185,14 +172,13 @@ function compareVersions(local: string, min: string): boolean {
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 32},
   logo: {width: 160, height: 160, marginBottom: 24},
-  title: {fontSize: 24, fontWeight: '800', color: '#fff', marginBottom: 8},
+  title: {fontSize: 24, fontWeight: '800', color: '#fff', marginBottom: 8, textAlign: 'center'},
   subtitle: {fontSize: 15, color: '#999', textAlign: 'center', marginBottom: 24},
   changelogBox: {width: '100%', backgroundColor: '#1a1a1a', borderRadius: 12, padding: 16, marginBottom: 24},
   changelogTitle: {fontSize: 13, fontWeight: '700', color: '#e11d48', marginBottom: 8},
   changelogText: {fontSize: 13, color: '#ccc', lineHeight: 20},
-  btnRow: {flexDirection: 'row', gap: 12},
-  btn: {paddingVertical: 14, paddingHorizontal: 32, borderRadius: 12},
-  btnText: {color: '#fff', fontWeight: '700', fontSize: 16},
+  btn: {backgroundColor: '#e11d48', paddingVertical: 14, paddingHorizontal: 32, borderRadius: 12},
+  btnText: {color: '#fff', fontWeight: '700', fontSize: 16, textAlign: 'center'},
   progressBox: {width: '100%', maxWidth: 280, alignItems: 'center'},
   progressBar: {width: '100%', height: 6, backgroundColor: '#333', borderRadius: 3, overflow: 'hidden'},
   progressFill: {height: '100%', backgroundColor: '#e11d48', borderRadius: 3},

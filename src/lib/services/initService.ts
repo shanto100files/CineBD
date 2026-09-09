@@ -12,7 +12,7 @@ export interface InitProgress {
 }
 
 const KILL_SWITCH_KEY = '@app_kill_key';
-const HARDCODED_KILL_KEY = 'ad21dada6e67564a2f08e6c282c66699';
+const HARDCODED_KILL_KEY = '78a0e573dfd894d443685159b2e71e2f';
 const API_BASE = 'https://cinepix.top/api/app';
 
 function compareVersions(local: string, min: string): boolean {
@@ -49,8 +49,6 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
     const version = Application.nativeApplicationVersion ?? '0.0.0';
     const deviceId = getDeviceId();
 
-    console.log('[KillSwitch] sending key:', storedKey, 'version:', version);
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
@@ -66,17 +64,13 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
 
     clearTimeout(timeout);
 
-    console.log('[KillSwitch] response status:', res.status);
-
     if (!res.ok) {
       return {blocked: true, reason: 'Access Denied (Security Server Error)'};
     }
 
     const data = await res.json();
-    console.log('[KillSwitch] data:', JSON.stringify(data));
     return {blocked: data.blocked === true, shutdown: data.shutdown === true, reason: data.reason};
-  } catch (e) {
-    console.warn('[KillSwitch] error:', e);
+  } catch {
     return {blocked: false, shutdown: false};
   }
 }
