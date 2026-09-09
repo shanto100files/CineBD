@@ -7,6 +7,7 @@ import {
 } from '../storage/extensionStorage';
 import {mainStorage} from '../storage/StorageService';
 import {createProviderSource} from '../utils/helpers';
+import { HARDCODED_KILL_KEY } from './initService';
 /**
  * Extension manager service for handling dynamic provider loading
  */
@@ -93,6 +94,7 @@ export class ExtensionManager {
       const response = await axios.get(manifestUrl, {
         timeout: 10000,
         headers: {
+          'X-App-Key': HARDCODED_KILL_KEY,
           ...(shouldForce
             ? {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -166,6 +168,7 @@ export class ExtensionManager {
           const response = await axios.get(url, {
             timeout: 15000,
             headers: {
+              'X-App-Key': HARDCODED_KILL_KEY,
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               Pragma: 'no-cache',
               Expires: '0',
@@ -457,14 +460,15 @@ export class ExtensionManager {
 
       if (notInstalled.length > 0) {
         console.log(`Background auto-installing ${notInstalled.length} providers...`);
-        for (const provider of notInstalled) {
+        // Use Promise.all with individual try-catch to avoid blocking sequentially
+        await Promise.allSettled(notInstalled.map(async (provider) => {
           try {
             await this.installProvider(provider);
             console.log(`Auto-installed: ${provider.display_name}`);
           } catch (error) {
             console.warn(`Failed to auto-install ${provider.value}:`, error);
           }
-        }
+        }));
       }
     } catch (error) {
       console.warn('Auto-install failed:', error);

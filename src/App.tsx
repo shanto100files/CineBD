@@ -77,6 +77,7 @@ import ForceUpdateScreen from './screens/ForceUpdateScreen';
 import AppText from './components/ui/Text';
 import InitSplash from './components/InitSplash';
 import {initializeApp, InitProgress, checkForceUpdateOnly} from './lib/services/initService';
+import RNBootSplash from 'react-native-bootsplash';
 
 enableScreens(true);
 enableFreeze(true);
@@ -354,10 +355,12 @@ const App = () => {
   // Force resolve auth loading if it takes too long
   useEffect(() => {
     const t = setTimeout(() => {
-      if (useAuthStore.getState().isLoading) {
+      const state = useAuthStore.getState();
+      if (state.isLoading) {
+        console.warn('App.tsx: Auth isLoading timed out, force clearing');
         useAuthStore.setState({isLoading: false} as any);
       }
-    }, 5000);
+    }, 6000);
     return () => clearTimeout(t);
   }, []);
 
@@ -375,6 +378,16 @@ const App = () => {
     }, 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, [appReady]);
+
+  // Hide native splash screen when app is ready or update is needed
+  useEffect(() => {
+    if ((appReady || forceUpdateNeeded) && !isLoading) {
+      const timer = setTimeout(() => {
+        RNBootSplash.hide({fade: true}).catch(() => {});
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [appReady, forceUpdateNeeded, isLoading]);
 
   // Priority Rendering Logic
   if (appShutdown) {

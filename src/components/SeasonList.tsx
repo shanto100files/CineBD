@@ -372,7 +372,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
   // Memoized direct links processing
   const filteredAndSortedDirectLinks = useMemo(() => {
     let baseLinks: any[] = [];
-    if (selectedQuality === 'all' && activeSeasonGroup && activeSeasonGroup.links.length > 1) {
+    if (activeSeasonGroup && activeSeasonGroup.links.length > 1) {
       baseLinks = activeSeasonGroup.links.flatMap((l: any) => l.directLinks || []);
     } else if (!activeSeason?.directLinks || !Array.isArray(activeSeason.directLinks)) {
       return [];
@@ -1113,62 +1113,15 @@ const SeasonList: React.FC<SeasonListProps> = ({
           />
         </>
       ) : seasonGroups.length > 1 ? (
-        <>
-          <DropdownField
-            options={seasonGroups as any}
-            value={activeSeasonGroup as any}
-            getKey={item => String((item as any).seasonNum)}
-            getLabel={item => (item as any).title}
-            onChange={item => setActiveSeasonNum((item as any).seasonNum)}
-            showFullOptionLabels
-            style={{marginBottom: 8}}
-          />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8, paddingHorizontal: 4, marginBottom: 12}}>
-            {(() => {
-              const seen = new Set<string>();
-              return activeSeasonGroup?.links.filter((item: any) => {
-                const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
-                const label=m?m[0].toUpperCase(): (item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || '');
-                if (!label || seen.has(label)) return false;
-                seen.add(label);
-                return true;
-              }).map((item: any, index: number) => {
-                const isActive = selectedQuality===item.title;
-                const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
-                const sz=item.title.match(/\[.*?GB.*?\]/i);
-                const label=m?m[0].toUpperCase()+(sz?' '+sz[0]:''): (item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || `Q${index+1}`);
-                return (
-                  <TouchableOpacity key={item.title+index} onPress={()=>{setSelectedQuality(item.title); handleSeasonChange(item);}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: isActive?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:isActive?colors.primary:colors.outlineVariant}}>
-                    <Text style={{color:isActive?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:isActive?'700':'500'}}>{label}</Text>
-                  </TouchableOpacity>
-                );
-              });
-            })()}
-          </ScrollView>
-        </>
-      ) : seasonGroups.length === 1 && seasonGroups[0].links.length > 1 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8, paddingHorizontal: 4, marginBottom: 12}}>
-            {(() => {
-              const seen = new Set<string>();
-              return seasonGroups[0].links.filter((item: any) => {
-                const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
-                const label=m?m[0].toUpperCase(): (item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || '');
-                if (!label || seen.has(label)) return false;
-                seen.add(label);
-                return true;
-              }).map((item: any, index: number) => {
-                const isActive = selectedQuality===item.title;
-                const m=item.title.match(/(HD|HQ)?\s*\d+\s*p[^ \]]*/i);
-                const sz=item.title.match(/\[.*?GB.*?\]/i);
-                const label=m?m[0].toUpperCase()+(sz?' '+sz[0]:''): (item.quality ? item.quality.toUpperCase() : item.title.replace(/S\d+\s*/i,'').trim().slice(0,18) || `Q${index+1}`);
-                return (
-                  <TouchableOpacity key={item.title+index} onPress={()=>{setSelectedQuality(item.title); handleSeasonChange(item);}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: isActive?colors.primary:colors.surfaceContainerHigh, borderWidth:1, borderColor:isActive?colors.primary:colors.outlineVariant}}>
-                    <Text style={{color:isActive?colors.onPrimary:colors.onSurface, fontSize:12, fontWeight:isActive?'700':'500'}}>{label}</Text>
-                  </TouchableOpacity>
-                );
-              });
-            })()}
-          </ScrollView>
+        <DropdownField
+          options={seasonGroups as any}
+          value={activeSeasonGroup as any}
+          getKey={item => String((item as any).seasonNum)}
+          getLabel={item => (item as any).title}
+          onChange={item => setActiveSeasonNum((item as any).seasonNum)}
+          showFullOptionLabels
+          style={{marginBottom: 8}}
+        />
       ) : (
         <DropdownField
           options={LinkList}

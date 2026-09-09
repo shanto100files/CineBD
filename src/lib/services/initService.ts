@@ -12,7 +12,7 @@ export interface InitProgress {
 }
 
 const KILL_SWITCH_KEY = '@app_kill_key';
-const HARDCODED_KILL_KEY = '78a0e573dfd894d443685159b2e71e2f';
+export const HARDCODED_KILL_KEY = '78a0e573dfd894d443685159b2e71e2f';
 const API_BASE = 'https://cinepix.top/api/app';
 
 function compareVersions(local: string, min: string): boolean {
@@ -31,7 +31,12 @@ function compareVersions(local: string, min: string): boolean {
 
 export async function checkForceUpdateOnly(): Promise<boolean> {
   try {
-      const vRes = await axios.get(`${API_BASE}/versioncheck`, { timeout: 15000 });
+      const vRes = await axios.get(`${API_BASE}/versioncheck`, {
+        timeout: 15000,
+        headers: {
+          'X-App-Key': HARDCODED_KILL_KEY
+        }
+      });
     const { min_version, force_update } = vRes.data;
     if (force_update == true || force_update == 1) {
       const currentVersion = Application.nativeApplicationVersion || '0.0.0';
@@ -69,7 +74,11 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
     }
 
     const data = await res.json();
-    return {blocked: data.blocked === true, shutdown: data.shutdown === true, reason: data.reason};
+    return {
+      blocked: data.blocked === true,
+      shutdown: data.shutdown === true,
+      reason: data.reason || 'অ্যাপটি বর্তমানে মেইনটেন্যান্সের অধীনে আছে। দয়া করে কিছুক্ষণ পর আবার চেষ্টা করুন।'
+    };
   } catch {
     return {blocked: false, shutdown: false};
   }
