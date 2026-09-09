@@ -1,60 +1,65 @@
 import React, {useEffect, useState, useRef} from 'react';
-import {View, StyleSheet, Linking, ActivityIndicator, Image, Text, TouchableOpacity, BackHandler, Platform} from 'react-native';
+import {View, StyleSheet, Linking, ActivityIndicator, Image, Text, TouchableOpacity, BackHandler} from 'react-native';
 import * as Application from 'expo-application';
 import axios from 'axios';
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import notifee from '@notifee/react-native';
 
 const API = 'https://cinepix.top/api/app';
+const DOWNLOAD_URL_FALLBACK = 'https://cinepix.top/app';
 
 interface Props {
   killSwitchBlocked?: boolean;
   reason?: string;
 }
 
-type ScreenStatus = 'kill_blocked' | 'checking' | 'update_required' | 'ok' | 'network_error' | 'downloading' | 'download_done';
+type ScreenStatus = 'kill_blocked' | 'checking' | 'update_required' | 'ok' | 'network_error' | 'downloading';
 
 export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
-  const [status, setStatus] = useState<ScreenStatus>(killSwitchBlocked ? 'kill_blocked' : 'checking');
-  const [latestVersion, setLatestVersion] = useState('');
+  const [status, setStatus] = useState<ScreenStatus>(killSwitchBlocked ? 'checking' : 'checking');
   const [downloadUrl, setDownloadUrl] = useState('');
   const [changelog, setChangelog] = useState('');
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloaded, setDownloaded] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
+  const lastNotifRef = useRef(0);
 
   useEffect(() => {
-    if (!killSwitchBlocked) {
-      checkVersion();
-    }
+    fetchUpdateInfo();
     const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
-    return () => {
-      sub.remove();
-      abortRef.current?.abort();
-    };
+    return () => sub.remove();
   }, []);
 
-  const checkVersion = async () => {
+  const fetchUpdateInfo = async () => {
     try {
       const res = await axios.get(`${API}/versioncheck`, {timeout: 10000});
-      const {min_version, latest_version, download_url, changelog: cl, force_update} = res.data;
-      const current = Application.nativeApplicationVersion || '0.0.0';
-      const needsUpdate = compareVersions(current, min_version);
-      if (needsUpdate && force_update) {
-        setStatus('update_required');
-        setLatestVersion(latest_version);
-        setDownloadUrl(download_url);
-        setChangelog(cl);
+      const {download_url, changelog: cl} = res.data;
+      setDownloadUrl(download_url || DOWNLOAD_URL_FALLBACK);
+      setChangelog(cl || '');
+      if (killSwitchBlocked) {
+        setStatus('kill_blocked');
       } else {
-        setStatus('ok');
+        const {min_version, force_update} = res.data;
+        const current = Application.nativeApplicationVersion || '0.0.0';
+        if (compareVersions(current, min_version) && force_update) {
+          setStatus('update_required');
+        } else {
+          setStatus('ok');
+        }
       }
     } catch {
-      setStatus('network_error');
+      setDownloadUrl(DOWNLOAD_URL_FALLBACK);
+      if (killSwitchBlocked) {
+        setStatus('kill_blocked');
+      } else {
+        setStatus('network_error');
+      }
     }
   };
 
-  const onDownloadProgress = async (progress: number) => {
-    setDownloadProgress(progress);
+  const updateNotification = async (progress: number) => {
+    const now = Date.now();
+    if (now - lastNotifRef.current < 1000) return;
+    lastNotifRef.current = now;
     try {
       await notifee.displayNotification({
         id: 'app-update',
@@ -70,6 +75,8 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
   };
 
   const downloadAndInstall = async () => {
+    const url = downloadUrl || DOWNLOAD_URL_FALLBACK;
+
     if (downloaded) {
       openInstall();
       return;
@@ -96,16 +103,16 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
       await RNFS.unlink(filePath).catch(() => {});
 
       const result = await RNFS.downloadFile({
-        fromUrl: downloadUrl,
+        fromUrl: url,
         toFile: filePath,
-        progressInterval: 300,
+        progressInterval: 500,
         progressDivider: 1,
         begin: () => setDownloadProgress(0),
         progress: (res) => {
           if (res.contentLength > 0) {
             const pct = Math.round((res.bytesWritten / res.contentLength) * 100);
             setDownloadProgress(pct);
-            onDownloadProgress(pct);
+            updateNotification(pct);
           }
         },
       }).promise;
@@ -114,24 +121,22 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
         setDownloaded(true);
         setDownloadProgress(100);
         try {
+          await notifee.cancelNotification('app-update');
           await notifee.displayNotification({
             id: 'app-update',
             title: 'Update Ready',
             body: 'Tap to install the update',
-            android: {
-              ongoing: false,
-              smallIcon: 'ic_notification',
-            },
+            android: {smallIcon: 'ic_notification'},
           });
         } catch {}
         openInstall();
       } else {
-        setStatus('update_required');
-        Linking.openURL(downloadUrl);
+        setStatus(killSwitchBlocked ? 'kill_blocked' : 'update_required');
+        Linking.openURL(url);
       }
     } catch {
-      setStatus('update_required');
-      Linking.openURL(downloadUrl);
+      setStatus(killSwitchBlocked ? 'kill_blocked' : 'update_required');
+      Linking.openURL(url);
     }
   };
 
@@ -142,83 +147,71 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
       if (exists) {
         await Linking.openURL(`file://${filePath}`);
       } else {
-        Linking.openURL(downloadUrl);
+        Linking.openURL(downloadUrl || DOWNLOAD_URL_FALLBACK);
       }
     } catch {
-      Linking.openURL(downloadUrl);
+      Linking.openURL(downloadUrl || DOWNLOAD_URL_FALLBACK);
     }
   };
 
   const blockMessage = reason || 'A new version is required to use this app. Please update to continue.';
 
+  if (status === 'ok') return null;
+
+  if (status === 'checking') {
+    return (
+      <View style={styles.container}>
+        <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+        <ActivityIndicator size="large" color="#e11d48" />
+        <Text style={styles.checkingText}>Checking for updates...</Text>
+      </View>
+    );
+  }
+
+  if (status === 'downloading') {
+    return (
+      <View style={styles.container}>
+        <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+        <Text style={styles.title}>Downloading Update</Text>
+        <Text style={styles.subtitle}>Please wait, do not close the app</Text>
+        <View style={styles.progressBox}>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, {width: `${downloadProgress}%`}]} />
+          </View>
+          <Text style={styles.progressText}>{downloadProgress}%</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <Image
-        source={require('../../assets/logo.png')}
-        style={styles.logo}
-        resizeMode="contain"
-      />
+      <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+      <Text style={styles.title}>Update Required</Text>
+      <Text style={styles.subtitle}>{status === 'network_error' ? 'Unable to check for updates. Please connect to the internet.' : blockMessage}</Text>
 
-      {(status === 'kill_blocked' || status === 'update_required' || status === 'network_error') && (
-        <>
-          <Text style={styles.title}>Update Required</Text>
-          <Text style={styles.subtitle}>{blockMessage}</Text>
+      {changelog ? (
+        <View style={styles.changelogBox}>
+          <Text style={styles.changelogTitle}>What's New:</Text>
+          <Text style={styles.changelogText}>{changelog}</Text>
+        </View>
+      ) : null}
 
-          {status === 'network_error' ? (
-            <TouchableOpacity style={styles.btn} onPress={checkVersion} activeOpacity={0.8}>
-              <Text style={styles.btnText}>Retry</Text>
-            </TouchableOpacity>
-          ) : (
-            <>
-              {changelog ? (
-                <View style={styles.changelogBox}>
-                  <Text style={styles.changelogTitle}>What's New:</Text>
-                  <Text style={styles.changelogText}>{changelog}</Text>
-                </View>
-              ) : null}
+      <TouchableOpacity style={styles.btn} onPress={downloadAndInstall} activeOpacity={0.8}>
+        <Text style={styles.btnText}>{downloaded ? 'Install Update' : 'Download & Install'}</Text>
+      </TouchableOpacity>
 
-              <TouchableOpacity style={styles.btn} onPress={downloadAndInstall} activeOpacity={0.8}>
-                <Text style={styles.btnText}>
-                  {downloaded ? 'Install Update' : 'Download & Install'}
-                </Text>
-              </TouchableOpacity>
-
-              {!downloaded && (
-                <TouchableOpacity style={styles.fallbackBtn} onPress={() => Linking.openURL(downloadUrl || 'https://cinepix.top/app')} activeOpacity={0.8}>
-                  <Text style={styles.fallbackBtnText}>Open in Browser</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-        </>
+      {!downloaded && (
+        <TouchableOpacity style={styles.fallbackBtn} onPress={() => Linking.openURL(downloadUrl || DOWNLOAD_URL_FALLBACK)} activeOpacity={0.8}>
+          <Text style={styles.fallbackBtnText}>Open in Browser</Text>
+        </TouchableOpacity>
       )}
-
-      {status === 'checking' && (
-        <>
-          <ActivityIndicator size="large" color="#e11d48" />
-          <Text style={styles.checkingText}>Checking for updates...</Text>
-        </>
-      )}
-
-      {status === 'downloading' && (
-        <>
-          <Text style={styles.title}>Downloading Update</Text>
-          <Text style={styles.subtitle}>Please wait, do not close the app</Text>
-          <View style={styles.progressBox}>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, {width: `${downloadProgress}%`}]} />
-            </View>
-            <Text style={styles.progressText}>{downloadProgress}%</Text>
-          </View>
-        </>
-      )}
-
-      {status === 'ok' && null}
     </View>
   );
 }
 
 function compareVersions(local: string, min: string): boolean {
+  if (!local || !min) return false;
   const l = local.split('.').map(Number);
   const m = min.split('.').map(Number);
   if (l[0] > m[0]) return false;
