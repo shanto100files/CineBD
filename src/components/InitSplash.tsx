@@ -78,7 +78,7 @@ const InitSplash: React.FC<InitSplashProps> = ({progress, status, onForceReady})
         )}
       </View>
 
-      <Text style={styles.footer}>Powered by CineBD</Text>
+      <Text style={styles.footer}>Powered by Cinepix</Text>
     </Animated.View>
   );
 };

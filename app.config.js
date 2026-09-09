@@ -101,9 +101,9 @@ module.exports = () => {
   return {
     expo: {
       backgroundColor: '#000000',
-      name: 'CineBD',
+      name: 'Cinepix',
       scheme: APP_SCHEME,
-      displayName: 'CineBD',
+      displayName: 'Cinepix',
       icon: './assets/icon.png',
       jsEngine: 'hermes',
       newArchEnabled: true,
