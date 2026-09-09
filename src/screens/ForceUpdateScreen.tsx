@@ -1,14 +1,15 @@
 import React, {useEffect, useState} from 'react';
 import {View, StyleSheet, Linking, ActivityIndicator, Image, Text, TouchableOpacity, BackHandler} from 'react-native';
 import * as Application from 'expo-application';
-import * as FileSystem from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
+import {getContentUriAsync} from 'expo-file-system/legacy';
 import axios from 'axios';
+import * as RNFS from '@dr.pogodin/react-native-fs';
 import notifee from '@notifee/react-native';
 
 const API = 'https://cinepix.top/api/app';
 const DOWNLOAD_URL_FALLBACK = 'https://cinepix.top/app';
-const APK_PATH = `${FileSystem.cacheDirectory}cinebd-update.apk`;
+const APK_PATH = `${RNFS.CachesDirectoryPath}/cinebd-update.apk`;
 
 interface Props {
   killSwitchBlocked?: boolean;
@@ -97,24 +98,24 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
     } catch {}
 
     try {
-      await FileSystem.deleteAsync(APK_PATH, {idempotent: true}).catch(() => {});
+      await RNFS.unlink(APK_PATH).catch(() => {});
 
-      const downloadRes = FileSystem.createDownloadResumable(
-        url,
-        APK_PATH,
-        {},
-        (downloadProgress) => {
-          if (downloadProgress.totalBytesWritten > 0 && downloadProgress.totalBytesExpectedToWrite > 0) {
-            const pct = Math.round((downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100);
+      const result = await RNFS.downloadFile({
+        fromUrl: url,
+        toFile: APK_PATH,
+        progressInterval: 500,
+        progressDivider: 1,
+        begin: () => setDownloadProgress(0),
+        progress: (res) => {
+          if (res.contentLength > 0) {
+            const pct = Math.round((res.bytesWritten / res.contentLength) * 100);
             setDownloadProgress(pct);
             updateNotification(pct);
           }
         },
-      );
+      }).promise;
 
-      const result = await downloadRes.downloadAsync();
-
-      if (result && result.uri) {
+      if (result.statusCode === 200) {
         setDownloaded(true);
         setDownloadProgress(100);
         try {
@@ -139,9 +140,9 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
 
   const openInstall = async () => {
     try {
-      const fileInfo = await FileSystem.getInfoAsync(APK_PATH);
-      if (fileInfo.exists) {
-        const contentUri = await FileSystem.getContentUriAsync(APK_PATH);
+      const exists = await RNFS.exists(APK_PATH);
+      if (exists) {
+        const contentUri = await getContentUriAsync(APK_PATH);
         await IntentLauncher.startActivityAsync('android.intent.action.INSTALL_PACKAGE', {
           data: contentUri,
           flags: 1,
@@ -151,9 +152,9 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
       }
     } catch {
       try {
-        const fileInfo = await FileSystem.getInfoAsync(APK_PATH);
-        if (fileInfo.exists) {
-          const contentUri = await FileSystem.getContentUriAsync(APK_PATH);
+        const exists = await RNFS.exists(APK_PATH);
+        if (exists) {
+          const contentUri = await getContentUriAsync(APK_PATH);
           await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
             data: contentUri,
             type: 'application/vnd.android.package-archive',
