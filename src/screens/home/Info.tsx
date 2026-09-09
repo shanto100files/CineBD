@@ -340,7 +340,11 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                 />
                 {appAds.enabled && appAds.top ? (
                   <View style={{marginHorizontal: 18, marginTop: 16, borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
-                    <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:100px;">${appAds.top}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                    {appAds.top.startsWith('http') ? (
+                      <WebView source={{uri: appAds.top}} style={{flex: 1, backgroundColor: '#0a0a0a', minHeight: 100}} scrollEnabled={false} />
+                    ) : (
+                      <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:100px;">${appAds.top}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                    )}
                   </View>
                 ) : null}
                 <View style={{paddingHorizontal: 18, paddingTop: 24}}>
@@ -371,7 +375,11 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                 </View>
                 {appAds.enabled && appAds.bottom ? (
                   <View style={{marginHorizontal: 18, marginTop: 16, marginBottom: 16, borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
-                    <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:100px;">${appAds.bottom}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                    {appAds.bottom.startsWith('http') ? (
+                      <WebView source={{uri: appAds.bottom}} style={{flex: 1, backgroundColor: '#0a0a0a', minHeight: 100}} scrollEnabled={false} />
+                    ) : (
+                      <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:100px;">${appAds.bottom}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                    )}
                   </View>
                 ) : null}
               </>

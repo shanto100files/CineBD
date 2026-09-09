@@ -27,6 +27,7 @@ import AppText from '../../components/ui/Text';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import ContinueWatching from '../../components/ContinueWatching';
 import StatusBarScrim from '../../components/ui/StatusBarScrim';
+import {WebView} from 'react-native-webview';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'Home'>;
 
@@ -35,6 +36,7 @@ const Home = ({}: Props) => {
   const [statusBarScrimVisible, setStatusBarScrimVisible] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
+  const [homeAds, setHomeAds] = useState<{enabled: boolean; top: string; bottom: string}>({enabled: false, top: '', bottom: ''});
 
   // Memoize static values
   const disableDrawer = useMemo(
@@ -215,6 +217,14 @@ const Home = ({}: Props) => {
       .finally(() => setAutoInstalling(false));
   }, []);
 
+  // Fetch ads
+  useEffect(() => {
+    fetch('https://cinepix.top/api/app/ads', {headers: {'X-App-Key': '78a0e573dfd894d443685159b2e71e2f'}})
+      .then(r => r.json())
+      .then(d => setHomeAds(d))
+      .catch(() => {});
+  }, []);
+
   // Show loading state while providers are being installed
   if (
     !installedProviders ||
@@ -283,12 +293,32 @@ const Home = ({}: Props) => {
 
               <ContinueWatching />
 
+              {homeAds.enabled && homeAds.top ? (
+                <View style={{marginHorizontal: 14, marginTop: 8, borderRadius: 12, overflow: 'hidden', height: 150}}>
+                  {homeAds.top.startsWith('http') ? (
+                    <WebView source={{uri: homeAds.top}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                  ) : (
+                    <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:150px;">${homeAds.top}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                  )}
+                </View>
+              ) : null}
+
               <View className="relative z-20 pb-8">
                 {isLoading ? loadingSliders : contentSliders}
                 {errorComponent}
               </View>
 
               <View className="h-8" />
+
+              {homeAds.enabled && homeAds.bottom ? (
+                <View style={{marginHorizontal: 14, marginBottom: 16, borderRadius: 12, overflow: 'hidden', height: 150}}>
+                  {homeAds.bottom.startsWith('http') ? (
+                    <WebView source={{uri: homeAds.bottom}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                  ) : (
+                    <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:150px;">${homeAds.bottom}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                  )}
+                </View>
+              ) : null}
             </ScrollView>
           </Drawer>
         </SafeAreaView>

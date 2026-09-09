@@ -393,7 +393,7 @@ const App = () => {
   if (appShutdown) {
     return (
       <View style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 32}}>
-        <Image source={require('../assets/logo.png')} style={{width: 120, height: 120, marginBottom: 24}} resizeMode="contain" />
+        <Image source={require('../assets/logo.jpg')} style={{width: 120, height: 120, marginBottom: 24}} resizeMode="contain" />
         <AppText role="headlineMedium" style={{color: '#fff', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 12}}>Maintenance</AppText>
         <AppText role="bodyMedium" style={{color: '#999', textAlign: 'center'}}>{shutdownMessage}</AppText>
       </View>

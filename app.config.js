@@ -104,7 +104,7 @@ module.exports = () => {
       name: 'Cinepix',
       scheme: APP_SCHEME,
       displayName: 'Cinepix',
-      icon: './assets/icon.png',
+      icon: './assets/icon.jpg',
       jsEngine: 'hermes',
       newArchEnabled: true,
       autolinking: { exclude: ['expo-splash-screen', 'react-native-fullscreen-chz', 'react-native-worklets', 'react-native-reanimated'] },
@@ -149,7 +149,7 @@ module.exports = () => {
         ],
         allowBackup: true,
         adaptiveIcon: {
-          foregroundImage: './assets/adaptive_icon.png',
+          foregroundImage: './assets/adaptive_icon.jpg',
           backgroundColor: '#0a0a0a',
         },
         launchMode: 'singleTask',
