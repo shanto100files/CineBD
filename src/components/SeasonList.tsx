@@ -388,6 +388,20 @@ const SeasonList: React.FC<SeasonListProps> = ({
       (link: any) => link && link.title && link.link,
     );
 
+    const seasonTitle = (activeSeason?.title || '').toLowerCase();
+    const seasonQMatch = seasonTitle.match(/(2160p|1080p|720p|480p|4k)/i);
+    const seasonQuality = seasonQMatch ? seasonQMatch[1].toLowerCase() : '';
+
+    if (seasonQuality) {
+      const qualityMatched = links.filter((link: any) => {
+        const t = ((link.title || '') + ' ' + (link.description || '')).toLowerCase();
+        return t.includes(seasonQuality);
+      });
+      if (qualityMatched.length > 0) {
+        links = qualityMatched;
+      }
+    }
+
     // Apply search filter
     if (searchText.trim()) {
       links = links.filter(link =>
@@ -737,18 +751,25 @@ const SeasonList: React.FC<SeasonListProps> = ({
         downloadIndex,
       );
       const rawEpTitle = item.title || '';
-      const epSizeM = rawEpTitle.match(/(\d+[\.,]?\d*\s*(?:GB|MB|TB))/i) || (item.description || '').match(/(\d+[\.,]?\d*\s*(?:GB|MB|TB))/i);
+      const rawEpDesc = item.description || '';
+      const rawEpBoth = rawEpTitle + ' ' + rawEpDesc;
+      const epSizeM = rawEpBoth.match(/(\d+[\.,]?\d*\s*(?:GB|MB|TB))/i);
       const epSize = epSizeM ? epSizeM[0] : '';
-      const epLangM = rawEpTitle.match(/(Hindi|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i) || (item.description || '').match(/(Hindi|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i);
+      const epLangM = rawEpBoth.match(/(Hindi\s*(?:&\s*French)?|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i);
       const epLang = epLangM ? epLangM[1] : '';
-      const epQm = rawEpTitle.match(/(2160p|1080p|720p|480p|4K)/i) || (item.description || '').match(/(2160p|1080p|720p|480p|4K)/i);
+      const epQm = rawEpBoth.match(/(2160p|1080p|720p|480p|4K|HD)/i);
       const epQual = epQm ? epQm[1] : '';
-      const epTagM = rawEpTitle.match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX|WEB)/i) || (item.description || '').match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX|WEB)/i);
+      const epTagM = rawEpBoth.match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX)/i);
       const epTag = epTagM ? epTagM[1] : '';
-      const epTitleParts = [epQual, epLang].filter(Boolean);
+      const seasonTitleRaw = activeSeason?.title || '';
+      const sLangM = seasonTitleRaw.match(/(Hindi\s*(?:&\s*French)?|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i);
+      const sQM = seasonTitleRaw.match(/(2160p|1080p|720p|480p|4K)/i);
+      const finalLang = epLang || sLangM?.[1] || '';
+      const finalQual = epQual || sQM?.[1] || '';
+      const epTitleParts = [finalQual, finalLang].filter(Boolean);
       const epDisplayTitle = epTitleParts.length > 0 ? epTitleParts.join(' • ') : (item.title?.trim() || `Episode ${index + 1}`);
       const epDescParts = [epTag, epSize].filter(Boolean);
-      const epSubtitle = epDescParts.length > 0 ? epDescParts.join(' • ') : (item.description || '');
+      const epSubtitle = epDescParts.length > 0 ? epDescParts.join(' • ') : '';
       const handleEpisodePress = () => {
         playHandler({
           linkIndex: index,
@@ -803,7 +824,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
                   (item.description?.trim() || epSubtitle)
                     ? () => {
                         setEpisodeDetails({
-                          title: epSize || item.title,
+                          title: epDisplayTitle || item.title,
                           description: epSubtitle || item.description || '',
                           image: item.image,
                         });
@@ -887,18 +908,20 @@ const SeasonList: React.FC<SeasonListProps> = ({
         downloadIndex,
       );
       const rawTitle = item.title || '';
-      const sizeM = rawTitle.match(/(\d+[\.,]?\d*\s*(?:GB|MB|TB))/i) || (item.description || '').match(/(\d+[\.,]?\d*\s*(?:GB|MB|TB))/i);
+      const rawDesc = item.description || '';
+      const rawBoth = rawTitle + ' ' + rawDesc;
+      const sizeM = rawBoth.match(/(\d+[\.,]?\d*\s*(?:GB|MB|TB))/i);
       const size = sizeM ? sizeM[0] : '';
-      const langM = rawTitle.match(/(Hindi|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i) || (item.description || '').match(/(Hindi|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i);
+      const langM = rawBoth.match(/(Hindi\s*(?:&\s*French)?|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i);
       const lang = langM ? langM[1] : '';
-      const qM = rawTitle.match(/(2160p|1080p|720p|480p|4K)/i) || (item.description || '').match(/(2160p|1080p|720p|480p|4K)/i);
+      const qM = rawBoth.match(/(2160p|1080p|720p|480p|4K|HD)/i);
       const qual = qM ? qM[1] : '';
-      const tagM = rawTitle.match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX|WEB)/i) || (item.description || '').match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX|WEB)/i);
+      const tagM = rawBoth.match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX)/i);
       const tag = tagM ? tagM[1] : '';
       const titleParts = [qual, lang].filter(Boolean);
       const displayTitle = titleParts.length > 0 ? titleParts.join(' • ') : (rawTitle.trim() || (activeSeason?.directLinks?.length && activeSeason.directLinks.length > 1 ? `${activeSeason?.title || 'Episode'} ${index + 1}` : activeSeason?.title && activeSeason.title.toLowerCase() !== 'default' ? activeSeason.title : 'Play'));
       const descParts = [tag, size].filter(Boolean);
-      const displayDesc = descParts.length > 0 ? descParts.join(' • ') : (item.description || '');
+      const displayDesc = descParts.length > 0 ? descParts.join(' • ') : '';
       const handleEpisodePress = () => {
         playHandler({
           linkIndex: index,
