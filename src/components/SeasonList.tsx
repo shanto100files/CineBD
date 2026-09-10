@@ -926,7 +926,12 @@ const SeasonList: React.FC<SeasonListProps> = ({
       const qual = qM ? qM[1] : '';
       const tagM = rawBoth.match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX)/i);
       const tag = tagM ? tagM[1] : '';
-      const titleParts = [qual, lang].filter(Boolean);
+      const seasonTitleRaw2 = activeSeason?.title || '';
+      const sLangM2 = seasonTitleRaw2.match(/(Hindi\s*(?:&\s*French)?|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i);
+      const sQM2 = seasonTitleRaw2.match(/(2160p|1080p|720p|480p|4K)/i);
+      const finalLang2 = lang || sLangM2?.[1] || '';
+      const finalQual2 = qual || sQM2?.[1] || '';
+      const titleParts = [finalQual2, finalLang2].filter(Boolean);
       const displayTitle = titleParts.length > 0 ? titleParts.join(' • ') : (rawTitle.trim() || (activeSeason?.directLinks?.length && activeSeason.directLinks.length > 1 ? `${activeSeason?.title || 'Episode'} ${index + 1}` : activeSeason?.title && activeSeason.title.toLowerCase() !== 'default' ? activeSeason.title : 'Play'));
       const descParts = [tag, size].filter(Boolean);
       const displayDesc = descParts.length > 0 ? descParts.join(' • ') : '';
