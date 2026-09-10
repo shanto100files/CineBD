@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Linking,
+  Share,
 } from 'react-native';
 import React, {useCallback, useMemo, useState} from 'react';
 import {
@@ -531,6 +532,19 @@ const Settings = ({navigation}: Props) => {
               onPress={() => navigation.navigate('Report')}
             />
             <SettingsRow
+              title="Share App"
+              description="Share Cinepix with friends"
+              icon="share-variant-outline"
+              iconBg={'#1A2A3A'}
+              iconColor={'#90CAF9'}
+              onPress={() => {
+                Share.share({
+                  message: 'Check out Cinepix - the best streaming app!\nhttps://cinepix.top/download',
+                  title: 'Share Cinepix',
+                });
+              }}
+            />
+            <SettingsRow
               title="ব্যবহারবিধি"
               description="Terms of Service"
               icon="file-document-outline"
@@ -545,7 +559,7 @@ const Settings = ({navigation}: Props) => {
         <AnimatedSection delay={450}>
           <SettingsSection title="About">
             <SettingsRow
-              title="About CineBD"
+              title="About Cinepix"
               icon="information-outline"
               iconBg={colors.primaryContainer}
               iconColor={colors.onPrimaryContainer}

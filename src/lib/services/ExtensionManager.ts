@@ -35,8 +35,8 @@ export class ExtensionManager {
       return;
     }
 
-    extensionStorage.addProviderSources('CineBD', 'https://cinepix.top/api/app');
-    extensionStorage.setDefaultProviderSource('CineBD');
+    extensionStorage.addProviderSources('Cinepix', 'https://cinepix.top/api/app');
+    extensionStorage.setDefaultProviderSource('Cinepix');
   }
 
   // Test mode configuration

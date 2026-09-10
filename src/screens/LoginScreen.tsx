@@ -38,7 +38,7 @@ export default function LoginScreen({navigation}: any) {
           style={styles.logoImage}
           resizeMode="contain"
         />
-        <Text style={[styles.title, {color: colors.onBackground}]}>CineBD</Text>
+        <Text style={[styles.title, {color: colors.onBackground}]}>Cinepix</Text>
         <Text style={[styles.subtitle, {color: colors.onSurfaceVariant}]}>Login to continue</Text>
 
         {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}

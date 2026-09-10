@@ -69,6 +69,9 @@ export enum SettingsKeys {
 
   // Home provider
   HOME_PROVIDER = 'homeProvider',
+
+  // Onboarding
+  ONBOARDING_COMPLETED = 'onboardingCompleted',
 }
 
 /**
@@ -445,6 +448,14 @@ export class SettingsStorage {
 
   setHomeProvider(provider: string): void {
     mainStorage.setString(SettingsKeys.HOME_PROVIDER, provider);
+  }
+
+  isOnboardingCompleted(): boolean {
+    return mainStorage.getBool(SettingsKeys.ONBOARDING_COMPLETED) || false;
+  }
+
+  setOnboardingCompleted(): void {
+    mainStorage.setBool(SettingsKeys.ONBOARDING_COMPLETED, true);
   }
 }
 

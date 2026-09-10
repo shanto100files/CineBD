@@ -28,6 +28,7 @@ import {useM3Colors} from '../../theme/M3PaletteContext';
 import ContinueWatching from '../../components/ContinueWatching';
 import StatusBarScrim from '../../components/ui/StatusBarScrim';
 import {WebView} from 'react-native-webview';
+import WelcomePopup from '../../components/WelcomePopup';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'Home'>;
 
@@ -252,6 +253,7 @@ const Home = ({}: Props) => {
 
   return (
     <QueryErrorBoundary>
+      <WelcomePopup />
       <GestureHandlerRootView style={{flex: 1}}>
         <StatusBarScrim visible={statusBarScrimVisible} />
         <SafeAreaView className="flex-1 bg-m3-background">

@@ -25,7 +25,7 @@ export default function TermsOfService() {
         <View style={[styles.card, {backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant}]}>
           <MaterialIcons name="info-outline" size={28} color={colors.primary} style={{marginBottom: 12}} />
           <AppText role="titleMedium" style={{color: colors.onBackground, marginBottom: 8}}>
-            CineBD - Terms of Service
+            Cinepix - Terms of Service
           </AppText>
           <AppText role="bodySmall" style={{color: colors.onSurfaceVariant, marginBottom: 16}}>
             Last updated: September 2026
@@ -35,7 +35,7 @@ export default function TermsOfService() {
             1. সেবার বিবরণ
           </AppText>
           <AppText role="bodyMedium" style={styles.bodyText}>
-            CineBD একটি মোবাইল অ্যাপ্লিকেশন যা বিভিন্ন সোর্স থেকে রিয়েল-টাইম কনটেন্ট সংগ্রহ করে এবং দেখায়। আমরা কোনো কনটেন্ট হোস্ট করি না। সমস্ত কনটেন্ট তৃতীয় পক্ষের সাইট থেকে আনা হয়।
+            Cinepix একটি মোবাইল অ্যাপ্লিকেশন যা বিভিন্ন সোর্স থেকে রিয়েল-টাইম কনটেন্ট সংগ্রহ করে এবং দেখায়। আমরা কোনো কনটেন্ট হোস্ট করি না। সমস্ত কনটেন্ট তৃতীয় পক্ষের সাইট থেকে আনা হয়।
           </AppText>
 
           <AppText role="titleSmall" style={{color: colors.primary, marginBottom: 6, marginTop: 16}}>

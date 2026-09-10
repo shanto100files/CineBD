@@ -573,17 +573,17 @@ const App = () => {
       state => state.hideDownloadsTab,
     );
     return (
-      <Tab.Navigator
-        detachInactiveScreens={true}
-        tabBar={props => <StreamingTabBar {...props} />}
-        screenOptions={{
-          animation: 'shift',
-          popToTopOnBlur: false,
-          tabBarPosition: isLargeScreen ? 'left' : 'bottom',
-          headerShown: false,
-          freezeOnBlur: true,
-          tabBarHideOnKeyboard: true,
-        }}>
+        <Tab.Navigator
+          detachInactiveScreens={true}
+          tabBar={props => <StreamingTabBar {...props} />}
+          screenOptions={{
+            animation: 'shift',
+            popToTopOnBlur: false,
+            tabBarPosition: isLargeScreen ? 'left' : 'bottom',
+            headerShown: false,
+            freezeOnBlur: false,
+            tabBarHideOnKeyboard: true,
+          }}>
         <Tab.Screen
           name="HomeStack"
           component={HomeStackScreen}

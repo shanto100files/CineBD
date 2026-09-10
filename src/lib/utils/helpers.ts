@@ -101,7 +101,7 @@ export const createProviderSource = (value: string): ProviderSource => {
 
     if (parsed.hostname === 'cinepix.top') {
       return {
-        author: 'CineBD',
+        author: 'Cinepix',
         url: input,
         isDefault: false,
       };

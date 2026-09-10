@@ -140,7 +140,7 @@ const About = () => {
         <AppText
           role="headlineLargeEmphasized"
           className="text-m3-on-background">
-          About CineBD
+          About Cinepix
         </AppText>
         <AppText role="bodyLarge" className="mt-1 text-m3-on-surface-variant">
           App information and updates
@@ -150,7 +150,7 @@ const About = () => {
       <SettingsSection title="App">
         <SettingsRow
           title="Version"
-          description={`CineBD ${Application.nativeApplicationVersion || ''}`}
+          description={`Cinepix ${Application.nativeApplicationVersion || ''}`}
           icon="information-outline"
           divider={Constants.expoConfig?.extra?.isPlayStore}
         />
@@ -168,7 +168,7 @@ const About = () => {
             />
             <SettingsSwitchRow
               title="Check on startup"
-              description="Look for a new release when CineBD opens"
+              description="Look for a new release when Cinepix opens"
               value={autoCheckUpdate}
               onValueChange={next => {
                 setAutoCheckUpdate(next);
