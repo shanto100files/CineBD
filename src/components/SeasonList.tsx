@@ -280,7 +280,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
 
   useEffect(() => {
     setSelectedQuality('all');
-  }, [activeSeasonNum]);
+  }, [activeSeasonNum, activeSeason?.title]);
 
   useEffect(() => {
     if (refreshing && activeSeason?.episodesLink) {
@@ -400,6 +400,14 @@ const SeasonList: React.FC<SeasonListProps> = ({
       if (qualityMatched.length > 0) {
         links = qualityMatched;
       }
+    }
+
+    if (selectedQuality !== 'all') {
+      const ql = selectedQuality.toLowerCase();
+      links = links.filter((link: any) => {
+        const t = ((link.title || '') + ' ' + (link.description || '') + ' ' + (link.quality || '')).toLowerCase();
+        return t.includes(ql);
+      });
     }
 
     // Apply search filter
@@ -755,7 +763,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
       const rawEpBoth = rawEpTitle + ' ' + rawEpDesc;
       const epSizeM = rawEpBoth.match(/(\d+[\.,]?\d*\s*(?:GB|MB|TB))/i);
       const epSize = epSizeM ? epSizeM[0] : '';
-      const epLangM = rawEpBoth.match(/(Hindi\s*(?:&\s*French)?|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i);
+      const epLangM = rawEpBoth.match(/(Hindi\s*(?:&\s*French)?|English|Bengali|Bangla|Tamil|Telugu|Dual Audio|Dubbed|Multi Audio)/i);
       const epLang = epLangM ? epLangM[1] : '';
       const epQm = rawEpBoth.match(/(2160p|1080p|720p|480p|4K|HD)/i);
       const epQual = epQm ? epQm[1] : '';
@@ -920,18 +928,26 @@ const SeasonList: React.FC<SeasonListProps> = ({
       const rawBoth = rawTitle + ' ' + rawDesc;
       const sizeM = rawBoth.match(/(\d+[\.,]?\d*\s*(?:GB|MB|TB))/i);
       const size = sizeM ? sizeM[0] : '';
-      const langM = rawBoth.match(/(Hindi\s*(?:&\s*French)?|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i);
+      const langM = rawBoth.match(/(Hindi\s*(?:&\s*French)?|English|Bengali|Bangla|Tamil|Telugu|Dual Audio|Dubbed|Multi Audio)/i);
       const lang = langM ? langM[1] : '';
       const qM = rawBoth.match(/(2160p|1080p|720p|480p|4K|HD)/i);
       const qual = qM ? qM[1] : '';
       const tagM = rawBoth.match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX)/i);
       const tag = tagM ? tagM[1] : '';
       const seasonTitleRaw2 = activeSeason?.title || '';
-      const sLangM2 = seasonTitleRaw2.match(/(Hindi\s*(?:&\s*French)?|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i);
+      const sLangM2 = seasonTitleRaw2.match(/(Hindi\s*(?:&\s*French)?|English|Bengali|Bangla|Tamil|Telugu|Dual Audio|Dubbed|Multi Audio)/i);
       const sQM2 = seasonTitleRaw2.match(/(2160p|1080p|720p|480p|4K)/i);
       const finalLang2 = lang || sLangM2?.[1] || '';
       const finalQual2 = qual || sQM2?.[1] || '';
-      const titleParts = [finalQual2, finalLang2].filter(Boolean);
+      const epNum2 = detectEpisodeFromTitle(rawTitle);
+      const sNum2 = detectSeasonFromTitle(rawTitle) || detectSeasonFromTitle(seasonTitleRaw2);
+      let epLabel2 = '';
+      if (sNum2 !== null && epNum2 !== null) {
+        epLabel2 = `S${sNum2} Ep ${epNum2}`;
+      } else if (epNum2 !== null) {
+        epLabel2 = `Ep ${epNum2}`;
+      }
+      const titleParts = [epLabel2, finalQual2, finalLang2].filter(Boolean);
       const displayTitle = titleParts.length > 0 ? titleParts.join(' • ') : (rawTitle.trim() || (activeSeason?.directLinks?.length && activeSeason.directLinks.length > 1 ? `${activeSeason?.title || 'Episode'} ${index + 1}` : activeSeason?.title && activeSeason.title.toLowerCase() !== 'default' ? activeSeason.title : 'Play'));
       const descParts = [tag, size].filter(Boolean);
       const displayDesc = descParts.length > 0 ? descParts.join(' • ') : '';
@@ -1163,7 +1179,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
           )}
           <DropdownField
             options={autoGroupedSeasons.map((g, i) => ({title: `Season ${detectSeasonFromTitle(g[0]?.title || '') || i + 1}`, idx: i})) as any}
-            value={{title: `Season ${detectSeasonFromTitle(autoGroupedSeasons[activeAutoSeason]?.[0]?.title || '') || activeAutoSeason + 1}`} as any}
+            value={{title: `Season ${detectSeasonFromTitle(autoGroupedSeasons[activeAutoSeason]?.[0]?.title || '') || activeAutoSeason + 1}`, idx: activeAutoSeason} as any}
             getKey={item => String((item as any).idx)}
             getLabel={item => (item as any).title}
             onChange={item => setActiveAutoSeason((item as any).idx)}
@@ -1185,9 +1201,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
         <DropdownField
           options={LinkList}
           value={activeSeason}
-          getKey={item =>
-            item.episodesLink || item.directLinks?.[0]?.link || item.title
-          }
+          getKey={item => `${item.title || ''}::${item.episodesLink || item.directLinks?.[0]?.link || ''}`}
           getLabel={item => item.title || 'Unknown'}
           onChange={handleSeasonChange}
           showFullOptionLabels
@@ -1275,6 +1289,46 @@ const SeasonList: React.FC<SeasonListProps> = ({
                 <TouchableOpacity
                   key={type}
                   onPress={() => setActiveEpType(type)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 7,
+                    borderRadius: 20,
+                    backgroundColor: isActive ? colors.primary : colors.surfaceContainerHigh,
+                    borderWidth: 1,
+                    borderColor: isActive ? colors.primary : colors.outlineVariant,
+                  }}>
+                  <Text style={{color: isActive ? colors.onPrimary : colors.onSurface, fontSize: 13, fontWeight: isActive ? '700' : '500'}}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        );
+      })()}
+
+      {/* Quality Filter for DirectLinks */}
+      {!autoGroupedSeasons && seasonGroups.length <= 1 && (() => {
+        const allQualities = new Set<string>();
+        allQualities.add('all');
+        if (activeSeason?.directLinks) {
+          activeSeason.directLinks.forEach((l: any) => {
+            const t = ((l.title || '') + ' ' + (l.description || '') + ' ' + (l.quality || '')).toLowerCase();
+            const qm = t.match(/(2160p|1080p|720p|480p|4k|hd)/i);
+            if (qm) allQualities.add(qm[1].toLowerCase());
+          });
+        }
+        LinkList.forEach((item: any) => {
+          if (item.quality) allQualities.add(item.quality.toLowerCase());
+        });
+        if (allQualities.size <= 2) return null;
+        return (
+          <View style={{flexDirection: 'row', gap: 8, marginTop: 12, paddingHorizontal: 4, flexWrap: 'wrap'}}>
+            {Array.from(allQualities).map(quality => {
+              const label = quality === 'all' ? 'All' : quality.toUpperCase();
+              const isActive = selectedQuality === quality;
+              return (
+                <TouchableOpacity
+                  key={quality}
+                  onPress={() => setSelectedQuality(quality)}
                   style={{
                     paddingHorizontal: 14,
                     paddingVertical: 7,
