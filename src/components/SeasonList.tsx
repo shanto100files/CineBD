@@ -766,8 +766,16 @@ const SeasonList: React.FC<SeasonListProps> = ({
       const sQM = seasonTitleRaw.match(/(2160p|1080p|720p|480p|4K)/i);
       const finalLang = epLang || sLangM?.[1] || '';
       const finalQual = epQual || sQM?.[1] || '';
+      const epNum = detectEpisodeFromTitle(rawEpTitle);
+      const sNum = detectSeasonFromTitle(rawEpTitle);
+      let niceLabel = '';
+      if (sNum !== null && epNum !== null) {
+        niceLabel = `S${sNum} Ep ${epNum}`;
+      } else if (epNum !== null) {
+        niceLabel = `Ep ${epNum}`;
+      }
       const epTitleParts = [finalQual, finalLang].filter(Boolean);
-      const epDisplayTitle = epTitleParts.length > 0 ? epTitleParts.join(' • ') : (item.title?.trim() || `Episode ${index + 1}`);
+      const epDisplayTitle = epTitleParts.length > 0 ? `${niceLabel ? niceLabel + ' • ' : ''}${epTitleParts.join(' • ')}` : (niceLabel || item.title?.trim() || `Ep ${index + 1}`);
       const epDescParts = [epTag, epSize].filter(Boolean);
       const epSubtitle = epDescParts.length > 0 ? epDescParts.join(' • ') : '';
       const handleEpisodePress = () => {
@@ -918,9 +926,26 @@ const SeasonList: React.FC<SeasonListProps> = ({
       const qual = qM ? qM[1] : '';
       const tagM = rawBoth.match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX)/i);
       const tag = tagM ? tagM[1] : '';
+      const totalLinks = activeSeason?.directLinks?.length || 0;
+      const isLangOnly = totalLinks > 1 && /^(hindi|english|bengali|tamil|telugu|dubbed|dual audio|original|telugu dubbed|hindi dubbed)$/i.test(rawTitle.trim());
+      const epNum = detectEpisodeFromTitle(rawTitle);
+      const sNum = detectSeasonFromTitle(rawTitle);
+      let niceLabel = '';
+      if (sNum !== null && epNum !== null) {
+        niceLabel = `S${sNum} Ep ${epNum}`;
+      } else if (epNum !== null) {
+        niceLabel = `Ep ${epNum}`;
+      } else if (isLangOnly) {
+        niceLabel = `Ep ${index + 1}`;
+      }
       const titleParts = [qual, lang].filter(Boolean);
-      const displayTitle = titleParts.length > 0 ? titleParts.join(' • ') : (rawTitle.trim() || (activeSeason?.directLinks?.length && activeSeason.directLinks.length > 1 ? `${activeSeason?.title || 'Episode'} ${index + 1}` : activeSeason?.title && activeSeason.title.toLowerCase() !== 'default' ? activeSeason.title : 'Play'));
-      const descParts = [tag, size].filter(Boolean);
+      let displayTitle = '';
+      if (titleParts.length > 0) {
+        displayTitle = `${niceLabel ? niceLabel + ' • ' : ''}${titleParts.join(' • ')}`;
+      } else {
+        displayTitle = niceLabel || rawTitle.trim() || (totalLinks > 1 ? `Ep ${index + 1}` : activeSeason?.title || 'Play');
+      }
+      const descParts = [tag || (isLangOnly ? rawTitle.trim() : ''), size].filter(Boolean);
       const displayDesc = descParts.length > 0 ? descParts.join(' • ') : '';
       const handleEpisodePress = () => {
         playHandler({

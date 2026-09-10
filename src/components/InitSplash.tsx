@@ -46,7 +46,7 @@ const InitSplash: React.FC<InitSplashProps> = ({progress, status, onForceReady})
       <View style={styles.content}>
         {/* Restored Large Logo */}
         <Image
-          source={require('../../assets/logo.png')}
+          source={require('../../assets/splash2.jpg')}
           style={styles.logoImage}
           resizeMode="contain"
         />
