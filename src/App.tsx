@@ -379,15 +379,13 @@ const App = () => {
     return () => clearInterval(interval);
   }, [appReady]);
 
-  // Hide native splash screen when app is ready or update is needed
+  // Hide native splash ASAP so InitSplash becomes visible
   useEffect(() => {
-    if ((appReady || forceUpdateNeeded) && !isLoading) {
-      const timer = setTimeout(() => {
-        RNBootSplash.hide({fade: true}).catch(() => {});
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [appReady, forceUpdateNeeded, isLoading]);
+    const timer = setTimeout(() => {
+      RNBootSplash.hide({fade: true}).catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Priority Rendering Logic
   if (appShutdown) {
