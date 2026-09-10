@@ -7,6 +7,7 @@ import {mainStorage, settingsStorage} from '../../lib/storage';
 import useContentStore from '../../lib/zustand/contentStore';
 import useHeroStore from '../../lib/zustand/herostore';
 import {syncFromSharedFolder} from '../../lib/sync/syncService';
+import {useAuthStore} from '../../lib/zustand/authStore';
 import {
   useHomePageData,
   getRandomHeroPost,
@@ -34,6 +35,7 @@ type Props = NativeStackScreenProps<HomeStackParamList, 'Home'>;
 
 const Home = ({}: Props) => {
   const colors = useM3Colors();
+  const {isPremium} = useAuthStore();
   const [statusBarScrimVisible, setStatusBarScrimVisible] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
@@ -295,7 +297,7 @@ const Home = ({}: Props) => {
 
               <ContinueWatching />
 
-              {homeAds.enabled && homeAds.top ? (
+              {!isPremium && homeAds.enabled && homeAds.top ? (
                 <View style={{marginHorizontal: 14, marginTop: 8, borderRadius: 12, overflow: 'hidden', height: 150}}>
                   {homeAds.top.startsWith('http') ? (
                     <WebView source={{uri: homeAds.top}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
@@ -312,7 +314,7 @@ const Home = ({}: Props) => {
 
               <View className="h-8" />
 
-              {homeAds.enabled && homeAds.bottom ? (
+              {!isPremium && homeAds.enabled && homeAds.bottom ? (
                 <View style={{marginHorizontal: 14, marginBottom: 16, borderRadius: 12, overflow: 'hidden', height: 150}}>
                   {homeAds.bottom.startsWith('http') ? (
                     <WebView source={{uri: homeAds.bottom}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />

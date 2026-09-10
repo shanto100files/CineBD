@@ -20,6 +20,7 @@ import type {Link} from '../../lib/providers/types';
 import {settingsStorage, watchListStorage} from '../../lib/storage';
 import useContentStore from '../../lib/zustand/contentStore';
 import useWatchListStore from '../../lib/zustand/watchListStore';
+import {useAuthStore} from '../../lib/zustand/authStore';
 import {M3PaletteContext, useM3Colors} from '../../theme/M3PaletteContext';
 import type {MaterialColors} from '../../theme/colors';
 import {mixHex} from '../../theme/seeds';
@@ -38,6 +39,7 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   const installedProviders = useContentStore(state => state.installedProviders);
   const addItem = useWatchListStore(state => state.addItem);
   const removeItem = useWatchListStore(state => state.removeItem);
+  const {isPremium} = useAuthStore();
   const providerValue = route.params.provider || provider.value;
   const {
     info,
@@ -338,7 +340,7 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                   trailerUrl={info?.trailerUrl?.trim()}
                   year={meta?.year}
                 />
-                {appAds.enabled && appAds.top ? (
+                {!isPremium && appAds.enabled && appAds.top ? (
                   <View style={{marginHorizontal: 18, marginTop: 16, borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
                     {appAds.top.startsWith('http') ? (
                       <WebView source={{uri: appAds.top}} style={{flex: 1, backgroundColor: '#0a0a0a', minHeight: 100}} scrollEnabled={false} />
@@ -373,7 +375,7 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                     />
                   )}
                 </View>
-                {appAds.enabled && appAds.bottom ? (
+                {!isPremium && appAds.enabled && appAds.bottom ? (
                   <View style={{marginHorizontal: 18, marginTop: 16, marginBottom: 16, borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
                     {appAds.bottom.startsWith('http') ? (
                       <WebView source={{uri: appAds.bottom}} style={{flex: 1, backgroundColor: '#0a0a0a', minHeight: 100}} scrollEnabled={false} />
