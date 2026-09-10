@@ -362,8 +362,15 @@ const SeasonList: React.FC<SeasonListProps> = ({
       );
     }
 
+    // Natural sort by episode number
+    episodes = [...episodes].sort((a, b) => {
+      const numA = detectEpisodeFromTitle(a.title) ?? 9999;
+      const numB = detectEpisodeFromTitle(b.title) ?? 9999;
+      return numA - numB;
+    });
+
     if (sortOrder === 'desc') {
-      episodes = [...episodes].reverse();
+      episodes = episodes.reverse();
     }
 
     return episodes;
@@ -374,8 +381,6 @@ const SeasonList: React.FC<SeasonListProps> = ({
     let baseLinks: any[] = [];
     if (activeSeason?.directLinks && Array.isArray(activeSeason.directLinks) && activeSeason.directLinks.length > 0) {
       baseLinks = activeSeason.directLinks;
-    } else if (activeSeasonGroup && activeSeasonGroup.links.length > 1) {
-      baseLinks = activeSeasonGroup.links.flatMap((l: any) => l.directLinks || []);
     } else {
       return [];
     }
@@ -399,9 +404,15 @@ const SeasonList: React.FC<SeasonListProps> = ({
 
 
 
-    // Apply sorting
+    // Natural sort by episode number
+    links = [...links].sort((a, b) => {
+      const numA = detectEpisodeFromTitle(a.title) ?? 9999;
+      const numB = detectEpisodeFromTitle(b.title) ?? 9999;
+      return numA - numB;
+    });
+
     if (sortOrder === 'desc') {
-      links = [...links].reverse();
+      links = links.reverse();
     }
 
     return links;
@@ -725,11 +736,19 @@ const SeasonList: React.FC<SeasonListProps> = ({
         activeSeason.title,
         downloadIndex,
       );
-      const epSizeM = item.title.match(/\[.*?GB.*?\]/i) || (item.description || '').match(/\[.*?GB.*?\]/i);
-      const epLangM = item.title.match(/\[([^\]]*(?:Hindi|English|Bengali|Tamil|Telugu|Dual|Dubbed)[^\]]*)\]/i) || (item.description || '').match(/\[([^\]]*(?:Hindi|English|Bengali|Tamil|Telugu|Dual|Dubbed)[^\]]*)\]/i);
-      const epQm = item.title.match(/\d+\s*p/i) || (item.description || '').match(/\d+\s*p/i);
+      const rawEpTitle = item.title || '';
+      const epSizeM = rawEpTitle.match(/(\d+[\.,]?\d*\s*(?:GB|MB|TB))/i) || (item.description || '').match(/(\d+[\.,]?\d*\s*(?:GB|MB|TB))/i);
       const epSize = epSizeM ? epSizeM[0] : '';
-      const epSubtitle = [epLangM?.[1], epQm?.[0]].filter(Boolean).join(' • ');
+      const epLangM = rawEpTitle.match(/(Hindi|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i) || (item.description || '').match(/(Hindi|English|Bengali|Tamil|Telugu|Dual Audio|Dubbed)/i);
+      const epLang = epLangM ? epLangM[1] : '';
+      const epQm = rawEpTitle.match(/(2160p|1080p|720p|480p|4K)/i) || (item.description || '').match(/(2160p|1080p|720p|480p|4K)/i);
+      const epQual = epQm ? epQm[1] : '';
+      const epTagM = rawEpTitle.match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX|WEB)/i) || (item.description || '').match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX|WEB)/i);
+      const epTag = epTagM ? epTagM[1] : '';
+      const epTitleParts = [epQual, epLang].filter(Boolean);
+      const epDisplayTitle = epTitleParts.length > 0 ? epTitleParts.join(' • ') : (item.title?.trim() || `Episode ${index + 1}`);
+      const epDescParts = [epTag, epSize].filter(Boolean);
+      const epSubtitle = epDescParts.length > 0 ? epDescParts.join(' • ') : (item.description || '');
       const handleEpisodePress = () => {
         playHandler({
           linkIndex: index,
@@ -771,7 +790,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
                 onLongPressHandler(true, item.link, 'series')
               }>
               <EpisodeRowContent
-                title={epSize || item.title}
+                title={epDisplayTitle || item.title}
                 description={epSubtitle || item.description}
                 image={item.image}
                 accentColor={primary}
