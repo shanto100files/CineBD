@@ -766,7 +766,15 @@ const SeasonList: React.FC<SeasonListProps> = ({
       const sQM = seasonTitleRaw.match(/(2160p|1080p|720p|480p|4K)/i);
       const finalLang = epLang || sLangM?.[1] || '';
       const finalQual = epQual || sQM?.[1] || '';
-      const epTitleParts = [finalQual, finalLang].filter(Boolean);
+      const epNum = detectEpisodeFromTitle(rawEpTitle);
+      const sNum = detectSeasonFromTitle(rawEpTitle);
+      let epLabel = '';
+      if (sNum !== null && epNum !== null) {
+        epLabel = `S${sNum} Ep ${epNum}`;
+      } else if (epNum !== null) {
+        epLabel = `Ep ${epNum}`;
+      }
+      const epTitleParts = [epLabel, finalQual, finalLang].filter(Boolean);
       const epDisplayTitle = epTitleParts.length > 0 ? epTitleParts.join(' • ') : (item.title?.trim() || `Episode ${index + 1}`);
       const epDescParts = [epTag, epSize].filter(Boolean);
       const epSubtitle = epDescParts.length > 0 ? epDescParts.join(' • ') : '';
