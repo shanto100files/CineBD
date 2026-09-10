@@ -876,9 +876,10 @@ const SeasonList: React.FC<SeasonListProps> = ({
       const qual = qM ? qM[1] : '';
       const tagM = rawTitle.match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX|WEB)/i) || (item.description || '').match(/(BluRay|WEB-?DL|WEBRip|HDRip|DVDRip|REMUX|WEB)/i);
       const tag = tagM ? tagM[1] : '';
-      const parts = [qual, tag, lang, size].filter(Boolean);
-      const displayTitle = parts.length > 0 ? parts.join(' • ') : (rawTitle.trim() || (activeSeason?.directLinks?.length && activeSeason.directLinks.length > 1 ? `${activeSeason?.title || 'Episode'} ${index + 1}` : activeSeason?.title && activeSeason.title.toLowerCase() !== 'default' ? activeSeason.title : 'Play'));
-      const displayDesc = size || item.description || '';
+      const titleParts = [qual, lang].filter(Boolean);
+      const displayTitle = titleParts.length > 0 ? titleParts.join(' • ') : (rawTitle.trim() || (activeSeason?.directLinks?.length && activeSeason.directLinks.length > 1 ? `${activeSeason?.title || 'Episode'} ${index + 1}` : activeSeason?.title && activeSeason.title.toLowerCase() !== 'default' ? activeSeason.title : 'Play'));
+      const descParts = [tag, size].filter(Boolean);
+      const displayDesc = descParts.length > 0 ? descParts.join(' • ') : (item.description || '');
       const handleEpisodePress = () => {
         playHandler({
           linkIndex: index,
