@@ -388,20 +388,6 @@ const SeasonList: React.FC<SeasonListProps> = ({
       (link: any) => link && link.title && link.link,
     );
 
-    const seasonTitle = (activeSeason?.title || '').toLowerCase();
-    const seasonQMatch = seasonTitle.match(/(2160p|1080p|720p|480p|4k)/i);
-    const seasonQuality = seasonQMatch ? seasonQMatch[1].toLowerCase() : '';
-
-    if (seasonQuality) {
-      const qualityMatched = links.filter((link: any) => {
-        const t = ((link.title || '') + ' ' + (link.description || '')).toLowerCase();
-        return t.includes(seasonQuality);
-      });
-      if (qualityMatched.length > 0) {
-        links = qualityMatched;
-      }
-    }
-
     // Apply search filter
     if (searchText.trim()) {
       links = links.filter(link =>
