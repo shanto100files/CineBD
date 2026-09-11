@@ -73,6 +73,7 @@ import {useAuthStore} from './lib/zustand/authStore';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import PremiumScreen from './screens/settings/PremiumScreen';
 import ForceUpdateScreen from './screens/ForceUpdateScreen';
 import AppText from './components/ui/Text';
 import InitSplash from './components/InitSplash';
@@ -156,6 +157,7 @@ export type SettingsStackParamList = {
   Login: undefined;
   Register: undefined;
   Profile: undefined;
+  Premium: undefined;
   TermsOfService: undefined;
   Report: undefined;
 };
@@ -535,6 +537,11 @@ const App = () => {
         <SettingsStack.Screen
           name="Profile"
           component={ProfileScreen}
+          options={subpageOptions}
+        />
+        <SettingsStack.Screen
+          name="Premium"
+          component={PremiumScreen}
           options={subpageOptions}
         />
         <SettingsStack.Screen

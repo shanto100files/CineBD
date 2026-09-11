@@ -283,6 +283,14 @@ const Settings = ({navigation}: Props) => {
                 onPress={() => navigation.navigate('Profile')}
               />
               <SettingsRow
+                title={isPremium ? '★ Premium Active' : 'Upgrade to Premium'}
+                description={isPremium ? 'Manage subscription' : 'Ad-free, all providers'}
+                icon="workspace_premium"
+                iconBg={isPremium ? '#f59e0b22' : '#f59e0b15'}
+                iconColor={isPremium ? '#f59e0b' : '#f59e0b'}
+                onPress={() => navigation.navigate('Premium')}
+              />
+              <SettingsRow
                 title="Logout"
                 icon="logout"
                 iconBg={colors.errorContainer}
