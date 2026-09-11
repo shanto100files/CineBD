@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image} from 'react-native';
+import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image, ToastAndroid} from 'react-native';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
 
@@ -24,8 +24,8 @@ export default function RegisterScreen({navigation}: any) {
     if (result.success) {
       ToastAndroid.show('Registration successful!', ToastAndroid.SHORT);
       setTimeout(() => {
-        navigation.reset({index: 0, routes: [{name: 'Settings'}]});
-      }, 100);
+        navigation.navigate('Settings');
+      }, 500);
     } else {
       setError(result.error || 'Registration failed');
     }
