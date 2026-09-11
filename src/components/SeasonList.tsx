@@ -402,14 +402,6 @@ const SeasonList: React.FC<SeasonListProps> = ({
       }
     }
 
-    if (selectedQuality !== 'all') {
-      const ql = selectedQuality.toLowerCase();
-      links = links.filter((link: any) => {
-        const t = ((link.title || '') + ' ' + (link.description || '') + ' ' + (link.quality || '')).toLowerCase();
-        return t.includes(ql);
-      });
-    }
-
     // Apply search filter
     if (searchText.trim()) {
       links = links.filter(link =>
@@ -438,7 +430,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
     }
 
     return links;
-  }, [activeSeason?.directLinks, activeSeasonGroup, searchText, sortOrder, activeEpType, selectedQuality]);
+  }, [activeSeason?.directLinks, activeSeasonGroup, searchText, sortOrder, activeEpType]);
 
   // Memoized completion checker
   const isCompleted = useCallback((link: string) => {
@@ -1197,45 +1189,17 @@ const SeasonList: React.FC<SeasonListProps> = ({
           showFullOptionLabels
           style={{marginBottom: 8}}
         />
-      ) : (() => {
-        const hasMultipleQualities = LinkList.length > 1 && LinkList.some((item: any) => item.quality || /480p|720p|1080p|2160p|4k/i.test(item.title || ''));
-        if (hasMultipleQualities) {
-          const allDirectLinks = LinkList.flatMap((item: any) => (item.directLinks || []).map((dl: any) => ({...dl, _quality: item.quality || item.title})));
-          const allOption = {title: 'All', quality: 'all', directLinks: allDirectLinks, episodesLink: undefined};
-          const dropdownOptions = [allOption, ...LinkList];
-          const currentIsAll = !activeSeason?.quality || activeSeason?.quality === 'all' || !LinkList.some((item: any) => item.title === activeSeason?.title);
-          const currentValue = currentIsAll ? allOption : activeSeason;
-          return (
-            <DropdownField
-              options={dropdownOptions as any}
-              value={currentValue as any}
-              getKey={item => (item as any).quality || (item as any).title || ''}
-              getLabel={item => (item as any).title || 'Unknown'}
-              onChange={(item: any) => {
-                if (item.quality === 'all') {
-                  setActiveSeason(allOption);
-                  cacheStorage.setString(`ActiveSeason${metaTitle + providerValue}`, JSON.stringify(allOption));
-                } else {
-                  handleSeasonChange(item);
-                }
-              }}
-              showFullOptionLabels
-              style={{marginBottom: 8}}
-            />
-          );
-        }
-        return (
-          <DropdownField
-            options={LinkList}
-            value={activeSeason}
-            getKey={item => `${item.title || ''}::${item.episodesLink || item.directLinks?.[0]?.link || ''}`}
-            getLabel={item => item.title || 'Unknown'}
-            onChange={handleSeasonChange}
-            showFullOptionLabels
-            style={{marginBottom: 8}}
-          />
-        );
-      })()}
+      ) : (
+        <DropdownField
+          options={LinkList}
+          value={activeSeason}
+          getKey={item => `${item.title || ''}::${item.episodesLink || item.directLinks?.[0]?.link || ''}`}
+          getLabel={item => item.title || 'Unknown'}
+          onChange={handleSeasonChange}
+          showFullOptionLabels
+          style={{marginBottom: 8}}
+        />
+      )}
 
       {/* Search and Sort Controls */}
       {(episodeList.length > 2 ||
