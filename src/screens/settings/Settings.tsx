@@ -46,8 +46,7 @@ const AnimatedSection = ({
   children: React.ReactNode;
 }) => (
   <Animated.View
-    entering={FadeInDown.duration(200).delay(delay)}
-    layout={Layout.duration(150)}>
+    entering={FadeInDown.duration(200).delay(delay)}>
     {children}
   </Animated.View>
 );
