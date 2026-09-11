@@ -1197,17 +1197,45 @@ const SeasonList: React.FC<SeasonListProps> = ({
           showFullOptionLabels
           style={{marginBottom: 8}}
         />
-      ) : (
-        <DropdownField
-          options={LinkList}
-          value={activeSeason}
-          getKey={item => `${item.title || ''}::${item.episodesLink || item.directLinks?.[0]?.link || ''}`}
-          getLabel={item => item.title || 'Unknown'}
-          onChange={handleSeasonChange}
-          showFullOptionLabels
-          style={{marginBottom: 8}}
-        />
-      )}
+      ) : (() => {
+        const hasMultipleQualities = LinkList.length > 1 && LinkList.some((item: any) => item.quality || /480p|720p|1080p|2160p|4k/i.test(item.title || ''));
+        if (hasMultipleQualities) {
+          const allDirectLinks = LinkList.flatMap((item: any) => (item.directLinks || []).map((dl: any) => ({...dl, _quality: item.quality || item.title})));
+          const allOption = {title: 'All', quality: 'all', directLinks: allDirectLinks, episodesLink: undefined};
+          const dropdownOptions = [allOption, ...LinkList];
+          const currentIsAll = !activeSeason?.quality || activeSeason?.quality === 'all' || !LinkList.some((item: any) => item.title === activeSeason?.title);
+          const currentValue = currentIsAll ? allOption : activeSeason;
+          return (
+            <DropdownField
+              options={dropdownOptions as any}
+              value={currentValue as any}
+              getKey={item => (item as any).quality || (item as any).title || ''}
+              getLabel={item => (item as any).title || 'Unknown'}
+              onChange={(item: any) => {
+                if (item.quality === 'all') {
+                  setActiveSeason(allOption);
+                  cacheStorage.setString(`ActiveSeason${metaTitle + providerValue}`, JSON.stringify(allOption));
+                } else {
+                  handleSeasonChange(item);
+                }
+              }}
+              showFullOptionLabels
+              style={{marginBottom: 8}}
+            />
+          );
+        }
+        return (
+          <DropdownField
+            options={LinkList}
+            value={activeSeason}
+            getKey={item => `${item.title || ''}::${item.episodesLink || item.directLinks?.[0]?.link || ''}`}
+            getLabel={item => item.title || 'Unknown'}
+            onChange={handleSeasonChange}
+            showFullOptionLabels
+            style={{marginBottom: 8}}
+          />
+        );
+      })()}
 
       {/* Search and Sort Controls */}
       {(episodeList.length > 2 ||
@@ -1289,46 +1317,6 @@ const SeasonList: React.FC<SeasonListProps> = ({
                 <TouchableOpacity
                   key={type}
                   onPress={() => setActiveEpType(type)}
-                  style={{
-                    paddingHorizontal: 14,
-                    paddingVertical: 7,
-                    borderRadius: 20,
-                    backgroundColor: isActive ? colors.primary : colors.surfaceContainerHigh,
-                    borderWidth: 1,
-                    borderColor: isActive ? colors.primary : colors.outlineVariant,
-                  }}>
-                  <Text style={{color: isActive ? colors.onPrimary : colors.onSurface, fontSize: 13, fontWeight: isActive ? '700' : '500'}}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        );
-      })()}
-
-      {/* Quality Filter for DirectLinks */}
-      {!autoGroupedSeasons && seasonGroups.length <= 1 && (() => {
-        const allQualities = new Set<string>();
-        allQualities.add('all');
-        if (activeSeason?.directLinks) {
-          activeSeason.directLinks.forEach((l: any) => {
-            const t = ((l.title || '') + ' ' + (l.description || '') + ' ' + (l.quality || '')).toLowerCase();
-            const qm = t.match(/(2160p|1080p|720p|480p|4k|hd)/i);
-            if (qm) allQualities.add(qm[1].toLowerCase());
-          });
-        }
-        LinkList.forEach((item: any) => {
-          if (item.quality) allQualities.add(item.quality.toLowerCase());
-        });
-        if (allQualities.size <= 2) return null;
-        return (
-          <View style={{flexDirection: 'row', gap: 8, marginTop: 12, paddingHorizontal: 4, flexWrap: 'wrap'}}>
-            {Array.from(allQualities).map(quality => {
-              const label = quality === 'all' ? 'All' : quality.toUpperCase();
-              const isActive = selectedQuality === quality;
-              return (
-                <TouchableOpacity
-                  key={quality}
-                  onPress={() => setSelectedQuality(quality)}
                   style={{
                     paddingHorizontal: 14,
                     paddingVertical: 7,
