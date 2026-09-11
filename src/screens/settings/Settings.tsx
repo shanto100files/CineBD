@@ -550,7 +550,7 @@ const Settings = ({navigation}: Props) => {
               iconColor={'#90CAF9'}
               onPress={() => {
                 Share.share({
-                  message: 'Check out Cinepix - the best streaming app!\nhttps://cinepix.top/download',
+                  message: 'Check out Cinepix - the best streaming app!\nhttps://www.cinepix.top/app',
                   title: 'Share Cinepix',
                 });
               }}
