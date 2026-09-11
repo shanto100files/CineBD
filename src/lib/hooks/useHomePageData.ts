@@ -59,8 +59,11 @@ export const useHomePageData = ({
   const providersToFetch = React.useMemo(() => {
     if (!installedProviders || installedProviders.length === 0) return [provider];
     if (homeProviderValue) {
-      const single = installedProviders.find((p: any) => p.value === homeProviderValue);
-      if (single) return [single];
+      const vals = homeProviderValue.split(',').filter(Boolean);
+      if (vals.length > 0) {
+        const matched = installedProviders.filter((p: any) => vals.includes(p.value));
+        if (matched.length > 0) return matched;
+      }
     }
     const homeProviders = installedProviders.filter((p: any) => p.show_on_home !== false);
     if (homeProviders.length === 0) return installedProviders;

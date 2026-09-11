@@ -434,8 +434,11 @@ const Settings = ({navigation}: Props) => {
             <SettingsRow
               title="Home Provider"
               description={
-                installedProviders.find(p => p.value === homeProviderValue)
-                  ?.display_name || 'All providers (aggregated)'
+                homeProviderValue
+                  ? homeProviderValue.split(',').length > 1
+                    ? `${homeProviderValue.split(',').length} providers selected`
+                    : installedProviders.find(p => p.value === homeProviderValue)?.display_name || homeProviderValue
+                  : 'All providers (aggregated)'
               }
               icon="home-outline"
               iconBg={colors.primaryContainer}
