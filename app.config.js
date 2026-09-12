@@ -88,13 +88,6 @@ module.exports = () => {
         ios: {},
       },
     ],
-
-    [
-      'expo-dev-client',
-      {
-        launchMode: 'most-recent',
-      },
-    ],
     'expo-font',
     'expo-status-bar',
   ];
