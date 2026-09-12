@@ -80,6 +80,19 @@ function detectEpisodeFromTitle(title: string): number | null {
   return null;
 }
 
+function detectEpisodeRange(title: string): string | null {
+  const patterns = [
+    /(?:e|ep|episode)\s*(\d{1,4})\s*[-–]\s*(\d{1,4})/i,
+    /\bE(\d{1,4})\s*[-–]\s*(\d{1,4})\b/i,
+    /\b(\d{1,4})\s*[-–]\s*(\d{1,4})\b/,
+  ];
+  for (const p of patterns) {
+    const m = title.match(p);
+    if (m) return `${m[1]}-${m[2]}`;
+  }
+  return null;
+}
+
 function autoGroupEpisodesBySeason(
   episodes: EpisodeLink[],
 ): EpisodeLink[][] {
@@ -280,6 +293,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
 
   useEffect(() => {
     setSelectedQuality('all');
+    setAllQualitiesSelected(true);
   }, [activeSeasonNum, activeSeason?.title]);
 
   useEffect(() => {
@@ -298,9 +312,36 @@ const SeasonList: React.FC<SeasonListProps> = ({
   const [searchText, setSearchText] = useState<string>('');
   const [activeEpType, setActiveEpType] = useState<'all' | 'single' | 'combo'>('all');
   const [selectedQuality, setSelectedQuality] = useState<string>('all');
+  const [allQualitiesSelected, setAllQualitiesSelected] = useState(true);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() =>
     mainStorage.getString(episodeSortOrderKey) === 'desc' ? 'desc' : 'asc',
   );
+
+  const isMovieQualityMode = useMemo(() => {
+    if (!LinkList || LinkList.length <= 1) return false;
+    const hasSeasons = LinkList.some(l => detectSeasonFromTitle(l.title || ''));
+    if (hasSeasons) return false;
+    return LinkList.some(l => l.directLinks && l.directLinks.length > 0);
+  }, [LinkList]);
+
+  const qualityOptions = useMemo(() => {
+    if (!isMovieQualityMode) return [];
+    const seen = new Set<string>();
+    const unique: Link[] = [];
+    for (const link of LinkList) {
+      const qual = link.title || 'Unknown';
+      if (!seen.has(qual)) {
+        seen.add(qual);
+        unique.push(link);
+      }
+    }
+    return unique;
+  }, [isMovieQualityMode, LinkList]);
+
+  const allMergedDirectLinks = useMemo(() => {
+    if (!isMovieQualityMode || !LinkList) return [];
+    return LinkList.flatMap(l => l.directLinks || []);
+  }, [isMovieQualityMode, LinkList]);
 
   useEffect(() => {
     setSortOrder(
@@ -379,7 +420,9 @@ const SeasonList: React.FC<SeasonListProps> = ({
   // Memoized direct links processing
   const filteredAndSortedDirectLinks = useMemo(() => {
     let baseLinks: any[] = [];
-    if (activeSeason?.directLinks && Array.isArray(activeSeason.directLinks) && activeSeason.directLinks.length > 0) {
+    if (isMovieQualityMode && allQualitiesSelected) {
+      baseLinks = allMergedDirectLinks;
+    } else if (activeSeason?.directLinks && Array.isArray(activeSeason.directLinks) && activeSeason.directLinks.length > 0) {
       baseLinks = activeSeason.directLinks;
     } else {
       return [];
@@ -416,7 +459,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
     }
 
     return links;
-  }, [activeSeason?.directLinks, activeSeasonGroup, searchText, sortOrder, activeEpType]);
+  }, [isMovieQualityMode, allQualitiesSelected, allMergedDirectLinks, activeSeason?.directLinks, activeSeasonGroup, searchText, sortOrder, activeEpType]);
 
   // Memoized completion checker
   const isCompleted = useCallback((link: string) => {
@@ -754,9 +797,14 @@ const SeasonList: React.FC<SeasonListProps> = ({
       const finalQual = epQual || sQM?.[1] || '';
       const epNum = detectEpisodeFromTitle(rawEpTitle);
       const sNum = detectSeasonFromTitle(rawEpTitle);
+      const epRange = detectEpisodeRange(rawEpTitle);
       let epLabel = '';
-      if (sNum !== null && epNum !== null) {
+      if (sNum !== null && epRange) {
+        epLabel = `S${sNum} Ep ${epRange}`;
+      } else if (sNum !== null && epNum !== null) {
         epLabel = `S${sNum} Ep ${epNum}`;
+      } else if (epRange) {
+        epLabel = `Ep ${epRange}`;
       } else if (epNum !== null) {
         epLabel = `Ep ${epNum}`;
       }
@@ -919,9 +967,14 @@ const SeasonList: React.FC<SeasonListProps> = ({
       const finalQual2 = qual || sQM2?.[1] || '';
       const epNum2 = detectEpisodeFromTitle(rawTitle);
       const sNum2 = detectSeasonFromTitle(rawTitle) || detectSeasonFromTitle(seasonTitleRaw2);
+      const epRange2 = detectEpisodeRange(rawTitle);
       let epLabel2 = '';
-      if (sNum2 !== null && epNum2 !== null) {
+      if (sNum2 !== null && epRange2) {
+        epLabel2 = `S${sNum2} Ep ${epRange2}`;
+      } else if (sNum2 !== null && epNum2 !== null) {
         epLabel2 = `S${sNum2} Ep ${epNum2}`;
+      } else if (epRange2) {
+        epLabel2 = `Ep ${epRange2}`;
       } else if (epNum2 !== null) {
         epLabel2 = `Ep ${epNum2}`;
       }
@@ -1096,13 +1149,20 @@ const SeasonList: React.FC<SeasonListProps> = ({
       <View>
         {LinkList.length > 1 && (
           <DropdownField
-            options={LinkList}
-            value={activeSeason}
+            options={isMovieQualityMode ? [{title: 'সব কোয়ালিটি'} as any, ...LinkList] : LinkList}
+            value={isMovieQualityMode ? {title: 'সব কোয়ালিটি'} as any : activeSeason}
             getKey={item =>
               item.episodesLink || item.directLinks?.[0]?.link || item.title
             }
             getLabel={item => item.title || 'Unknown'}
-            onChange={handleSeasonChange}
+            onChange={item => {
+              if (isMovieQualityMode) {
+                setAllQualitiesSelected(item.title === 'সব কোয়ালিটি');
+                if (item.title !== 'সব কোয়ালিটি') handleSeasonChange(item);
+              } else {
+                handleSeasonChange(item);
+              }
+            }}
             showFullOptionLabels
           />
         )}
@@ -1172,6 +1232,23 @@ const SeasonList: React.FC<SeasonListProps> = ({
           getKey={item => String((item as any).seasonNum)}
           getLabel={item => (item as any).title}
           onChange={item => setActiveSeasonNum((item as any).seasonNum)}
+          showFullOptionLabels
+          style={{marginBottom: 8}}
+        />
+      ) : isMovieQualityMode ? (
+        <DropdownField
+          options={[{title: 'সব কোয়ালিটি', episodesLink: '', directLinks: []} as any, ...LinkList]}
+          value={allQualitiesSelected ? {title: 'সব কোয়ালিটি'} as any : activeSeason}
+          getKey={item => `${item.title || ''}::${item.episodesLink || item.directLinks?.[0]?.link || ''}`}
+          getLabel={item => item.title || 'Unknown'}
+          onChange={(item: any) => {
+            if (item.title === 'সব কোয়ালিটি') {
+              setAllQualitiesSelected(true);
+            } else {
+              setAllQualitiesSelected(false);
+              handleSeasonChange(item);
+            }
+          }}
           showFullOptionLabels
           style={{marginBottom: 8}}
         />

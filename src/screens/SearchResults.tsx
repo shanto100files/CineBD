@@ -21,7 +21,10 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   const provider = useContentStore(state => state.provider);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [completedProviders, setCompletedProviders] = useState(0);
   const abortController = useRef<AbortController | null>(null);
+  const resultsRef = useRef<Post[]>([]);
+  const seenRef = useRef<Set<string>>(new Set());
 
   const screenWidth = Dimensions.get('window').width;
   const cardWidth = (screenWidth - 48) / 3;
@@ -34,11 +37,12 @@ const SearchResults = ({route}: Props): React.ReactElement => {
     const signal = abortController.current.signal;
     setAllPosts([]);
     setLoading(true);
-
-    const seen = new Set<string>();
-    const results: Post[] = [];
+    setCompletedProviders(0);
+    resultsRef.current = [];
+    seenRef.current = new Set();
 
     const fetchAll = async () => {
+      let done = 0;
       const promises = installedProviders.map(async item => {
         try {
           const data = await providerManager.getSearchPosts({
@@ -49,19 +53,34 @@ const SearchResults = ({route}: Props): React.ReactElement => {
           });
           if (signal.aborted) return;
           if (data && data.length > 0) {
+            const providerResults: Post[] = [];
             for (const p of data) {
               const key = p.title + '|' + p.link;
-              if (!seen.has(key)) {
-                seen.add(key);
-                results.push({...p, provider: item.value});
+              if (!seenRef.current.has(key)) {
+                seenRef.current.add(key);
+                const post = {...p, provider: item.value};
+                providerResults.push(post);
+                resultsRef.current.push(post);
               }
             }
+            if (providerResults.length > 0) {
+              setAllPosts([...resultsRef.current]);
+            }
           }
-        } catch {}
+        } catch (e) {
+          console.log(`[Search] ${item.value} failed:`, e?.message || e);
+        } finally {
+          done++;
+          setCompletedProviders(done);
+          if (done >= installedProviders.length) {
+            setAllPosts([...resultsRef.current]);
+            setLoading(false);
+          }
+        }
       });
       await Promise.allSettled(promises);
       if (!signal.aborted) {
-        setAllPosts(results);
+        setAllPosts([...resultsRef.current]);
         setLoading(false);
       }
     };

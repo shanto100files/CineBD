@@ -1,6 +1,6 @@
 {
   "name": "vega-custom",
-  "version": "5.5.7",
+  "version": "5.5.9",
   "private": true,
   "scripts": {
     "android": "npm run build:sandbox && expo run:android",

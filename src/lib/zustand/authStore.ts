@@ -18,11 +18,13 @@ interface AuthState {
   isLoading: boolean;
   isLoggedIn: boolean;
   isPremium: boolean;
+  premiumJustActivated: boolean;
   login: (username: string, password: string) => Promise<{success: boolean; error?: string}>;
   register: (username: string, email: string, password: string) => Promise<{success: boolean; error?: string}>;
   logout: () => void;
   loadToken: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  dismissPremiumAlert: () => void;
 }
 
 const authStorage = {
@@ -37,6 +39,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
   isLoggedIn: false,
   isPremium: false,
+  premiumJustActivated: false,
 
   login: async (username, password) => {
     try {
@@ -50,6 +53,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isLoggedIn: true,
           isPremium: res.data.user.premium,
         });
+        setTimeout(() => get().refreshProfile(), 2000);
         return {success: true};
       }
       return {success: false, error: res.data.error || 'Login failed'};
@@ -81,7 +85,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: () => {
     authStorage.delete('token');
     authStorage.delete('user');
-    set({token: null, user: null, isLoggedIn: false, isPremium: false});
+    set({token: null, user: null, isLoggedIn: false, isPremium: false, premiumJustActivated: false});
+  },
+
+  dismissPremiumAlert: () => {
+    set({premiumJustActivated: false});
   },
 
   loadToken: async () => {
@@ -115,8 +123,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       if (res.data.id) {
         const user = res.data;
+        const wasPremium = get().isPremium;
         authStorage.setString('user', JSON.stringify(user));
         set({user, isPremium: user.premium});
+        if (!wasPremium && user.premium) {
+          set({premiumJustActivated: true});
+        }
       }
     } catch {}
   },

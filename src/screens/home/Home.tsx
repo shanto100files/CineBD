@@ -159,23 +159,27 @@ const Home = ({}: Props) => {
 
   const preferredLang = settingsStorage.getPreferredLanguage();
   const contentSliders = useMemo(() => {
-    return homeData.map((item, index) => {
-      let posts = item.Posts;
-      if (preferredLang && preferredLang !== 'All') {
-        const lower = preferredLang.toLowerCase();
-        const filtered = posts.filter((p: any) => p.title && p.title.toLowerCase().includes(lower));
-        if (filtered.length > 0) posts = filtered;
-      }
-      return (
-        <Slider
-          isLoading={false}
-          key={`content-${item.filter}-${index}`}
-          title={item.title}
-          posts={posts}
-          filter={item.filter}
-        />
-      );
-    });
+    return homeData
+      .filter(item => item.Posts && item.Posts.length > 0)
+      .map((item, index) => {
+        let posts = item.Posts;
+        if (preferredLang && preferredLang !== 'All') {
+          const lower = preferredLang.toLowerCase();
+          const filtered = posts.filter((p: any) => p.title && p.title.toLowerCase().includes(lower));
+          if (filtered.length > 0) posts = filtered;
+        }
+        if (posts.length === 0) return null;
+        return (
+          <Slider
+            isLoading={false}
+            key={`content-${item.filter}-${index}`}
+            title={item.title}
+            posts={posts}
+            filter={item.filter}
+          />
+        );
+      })
+      .filter(Boolean);
   }, [homeData, preferredLang]);
 
   // Memoized error message - only show if there is no cached data and an error occurred

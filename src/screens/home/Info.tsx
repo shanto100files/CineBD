@@ -6,6 +6,7 @@ import {
 import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {FlatList, RefreshControl, View, Linking} from 'react-native';
+import {trackContent} from '../../lib/services/analyticsService';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import {WebView} from 'react-native-webview';
 import {HomeStackParamList, TabStackParamList} from '../../App';
@@ -57,6 +58,12 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   const [storyVisible, setStoryVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshVersion, setRefreshVersion] = useState(0);
+
+  useEffect(() => {
+    if (info?.title) {
+      trackContent(info.title, route.params.link, providerValue);
+    }
+  }, [info?.title]);
   const initialPoster = route.params.poster;
   const initialCacheKey = initialPoster
     ? `detail-bg-accent-v1:${initialPoster}`

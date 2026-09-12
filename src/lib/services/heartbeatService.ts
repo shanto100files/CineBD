@@ -2,7 +2,7 @@ import {Platform} from 'react-native';
 import {Application} from 'expo-application';
 import * as ApplicationExpo from 'expo-application';
 import {mainStorage as storage} from '../storage/StorageService';
-import useAuthStore from '../zustand/authStore';
+import {useAuthStore} from '../zustand/authStore';
 
 const API = 'https://cinepix.top/api/app';
 const LAST_HEARTBEAT_KEY = '@last_heartbeat';
@@ -45,5 +45,14 @@ export async function sendHeartbeat() {
       body: JSON.stringify({}),
     });
     storage.setNumber(LAST_HEARTBEAT_KEY, Date.now());
+
+    if (token) {
+      const wasPremium = useAuthStore.getState().isPremium;
+      await useAuthStore.getState().refreshProfile();
+      const isPremium = useAuthStore.getState().isPremium;
+      if (!wasPremium && isPremium) {
+        useAuthStore.setState({premiumJustActivated: true});
+      }
+    }
   } catch {}
 }

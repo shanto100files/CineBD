@@ -5,22 +5,15 @@ interface InitSplashProps {
   progress: number;
   status: string;
   onForceReady?: () => void;
+  onMounted?: () => void;
 }
 
-const InitSplash: React.FC<InitSplashProps> = ({progress, status, onForceReady}) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+const InitSplash: React.FC<InitSplashProps> = ({progress, status, onForceReady, onMounted}) => {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const [showTroubleshoot, setShowTroubleshoot] = useState(false);
 
   useEffect(() => {
-    // 1. Visible effect for JS splash
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-
-    // 2. Safety timer
+    onMounted?.();
     const troubleTimer = setTimeout(() => {
       setShowTroubleshoot(true);
     }, 6000);
@@ -42,7 +35,7 @@ const InitSplash: React.FC<InitSplashProps> = ({progress, status, onForceReady})
   });
 
   return (
-    <Animated.View style={[styles.container, {opacity: fadeAnim}]}>
+    <View style={styles.container}>
       <View style={styles.content}>
         {/* Restored Large Logo */}
         <Image
@@ -79,7 +72,7 @@ const InitSplash: React.FC<InitSplashProps> = ({progress, status, onForceReady})
       </View>
 
       <Text style={styles.footer}>Powered by Cinepix</Text>
-    </Animated.View>
+    </View>
   );
 };
 

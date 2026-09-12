@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import {Pressable, View} from 'react-native';
+import {Pressable, useWindowDimensions, View} from 'react-native';
 import {FlatList} from 'react-native-gesture-handler';
 import React, {memo, useCallback} from 'react';
 import type {Post} from '../lib/providers/types';
@@ -33,9 +33,14 @@ const Slider = ({
 }): React.ReactElement => {
   const provider = useContentStore(state => state.provider);
   const colors = useM3Colors();
+  const {width: screenWidth} = useWindowDimensions();
   const navigation =
     useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
   const [isSelected, setSelected] = React.useState('');
+  const ITEM_WIDTH = 124;
+  const ITEM_GAP = 14;
+  const contentWidth = posts.length * ITEM_WIDTH + (posts.length - 1) * ITEM_GAP + 40;
+  const canScroll = contentWidth > screenWidth;
 
   const handleMorePress = useCallback(() => {
     navigation.navigate('ScrollList', {
@@ -152,6 +157,12 @@ const Slider = ({
           showsHorizontalScrollIndicator={false}
           data={posts}
           horizontal
+          scrollEnabled={canScroll}
+          bounces={false}
+          overScrollMode="never"
+          snapToInterval={276}
+          snapToAlignment="start"
+          disableIntervalMomentum={true}
           contentContainerStyle={{
             paddingBottom: 4,
             paddingHorizontal: 20,

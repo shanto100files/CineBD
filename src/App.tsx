@@ -26,8 +26,9 @@ import {enableFreeze, enableScreens} from 'react-native-screens';
 import Preferences from './screens/settings/Preference';
 import Appearance from './screens/settings/Appearance';
 import {M3ThemeProvider} from './theme/M3ThemeProvider';
-import {AppState, LogBox, useWindowDimensions, View, Image} from 'react-native';
+import {AppState, LogBox, useWindowDimensions, View, Image, Modal, Pressable, Text} from 'react-native';
 import {sendHeartbeat} from './lib/services/heartbeatService';
+import {initAnalytics, resumeAnalytics, pauseAnalytics, flushBatch, trackScreen} from './lib/services/analyticsService';
 import {EpisodeLink} from './lib/providers/types';
 import {
   SafeAreaProvider,
@@ -246,9 +247,12 @@ const App = () => {
 
     if (useDownloadsStore.persist.hasHydrated()) {
       reconcile();
-      return;
     }
     return useDownloadsStore.persist.onFinishHydration(reconcile);
+  }, []);
+
+  useEffect(() => {
+    initAnalytics();
   }, []);
 
   // Strict foreground check: check update every time user comes back to app
@@ -261,8 +265,10 @@ const App = () => {
         reconcileCompletedDownloadOutputs().catch(() => {});
         syncFromSharedFolder().catch(() => {});
         sendHeartbeat();
+        resumeAnalytics();
       } else if (state === 'background' || state === 'inactive') {
         publishSyncManifest().catch(() => {});
+        pauseAnalytics();
       }
     });
     return () => subscription.remove();
@@ -381,13 +387,14 @@ const App = () => {
     return () => clearInterval(interval);
   }, [appReady]);
 
-  // Hide native splash ASAP so InitSplash becomes visible
-  useEffect(() => {
-    const timer = setTimeout(() => {
+  // Hide native splash after React has mounted InitSplash
+  const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
+  const hideNativeSplash = useCallback(() => {
+    if (!nativeSplashHidden) {
+      setNativeSplashHidden(true);
       RNBootSplash.hide({fade: true}).catch(() => {});
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  }, [nativeSplashHidden]);
 
   // Priority Rendering Logic
   if (appShutdown) {
@@ -420,6 +427,7 @@ const App = () => {
         progress={isLoading ? 100 : initProgress.progress}
         status={isLoading ? 'Loading profile...' : initProgress.status}
         onForceReady={() => setAppReady(true)}
+        onMounted={hideNativeSplash}
       />
     );
   }
@@ -712,6 +720,12 @@ const App = () => {
                       }
                     } catch {}
                   }
+                  try {
+                    const route = navigationRef.getCurrentRoute();
+                    if (route?.name) {
+                      trackScreen(route.name);
+                    }
+                  } catch {}
                 }}
                 theme={{
                   fonts: {
@@ -746,6 +760,7 @@ const App = () => {
               </NavigationContainer>
               <WafWebViewDialog />
               <ProviderSandboxHost />
+              <PremiumActivatedAlert />
             </View>
           </QueryClientProvider>
         </GlobalErrorBoundary>
@@ -755,3 +770,27 @@ const App = () => {
 };
 
 export default App;
+
+function PremiumActivatedAlert() {
+  const premiumJustActivated = useAuthStore(s => s.premiumJustActivated);
+  const dismissPremiumAlert = useAuthStore(s => s.dismissPremiumAlert);
+  const user = useAuthStore(s => s.user);
+
+  return (
+    <Modal visible={premiumJustActivated} transparent animationType="fade">
+      <Pressable style={{flex:1, backgroundColor:'rgba(0,0,0,0.85)', justifyContent:'center', alignItems:'center', padding:32}} onPress={dismissPremiumAlert}>
+        <Pressable style={{backgroundColor:'#1a1d27', borderRadius:20, padding:32, alignItems:'center', maxWidth:340, width:'100%', borderWidth:1, borderColor:'#fbbf24'}}>
+          <Text style={{fontSize:48, marginBottom:12}}>🎉</Text>
+          <Text style={{color:'#fbbf24', fontSize:22, fontWeight:'800', marginBottom:8}}>Welcome Premium!</Text>
+          <Text style={{color:'#fff', fontSize:15, fontWeight:'600', marginBottom:4}}>Hi {user?.username || 'there'}!</Text>
+          <Text style={{color:'#9ca3af', fontSize:13, textAlign:'center', marginBottom:20}}>
+            Your account has been upgraded to Premium. Enjoy ad-free streaming, all providers and more!
+          </Text>
+          <Pressable onPress={dismissPremiumAlert} style={{backgroundColor:'#fbbf24', borderRadius:12, paddingVertical:12, paddingHorizontal:32}}>
+            <Text style={{color:'#000', fontSize:15, fontWeight:'700'}}>Awesome!</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}

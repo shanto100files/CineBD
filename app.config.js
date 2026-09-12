@@ -110,7 +110,7 @@ module.exports = () => {
       autolinking: { exclude: ['expo-splash-screen', 'react-native-fullscreen-chz', 'react-native-worklets', 'react-native-reanimated'] },
       plugins,
       slug: 'vega',
-      version: '5.5.7',
+      version: '5.5.9',
       userInterfaceStyle: 'dark',
       experiments: {
         reactCompiler: true,
@@ -121,7 +121,7 @@ module.exports = () => {
           : {}),
         minSdkVersion: 28,
         package: PACKAGE_NAME,
-        versionCode: 192,
+        versionCode: 194,
         permissions: [
           'FOREGROUND_SERVICE',
           'FOREGROUND_SERVICE_DATA_SYNC',
