@@ -86,6 +86,17 @@ const withLauncherManifest = config =>
 const withLauncherStyles = config =>
   withAndroidStyles(config, stylesConfig => {
     const styles = stylesConfig.modResults.resources.style || [];
+    const baseBootTheme = styles.find(s => s?.$?.name === 'BootTheme');
+    const parentTheme = baseBootTheme?.$?.parent || 'Theme.BootSplash';
+    for (const variant of variants) {
+      upsertStyle(styles, `BootTheme_${variant.id}`, parentTheme, [
+        ['android:windowBackground', variant.color],
+        ['android:windowSplashScreenBackground', variant.color],
+        ['android:windowSplashScreenAnimatedIcon', '@mipmap/ic_launcher_foreground'],
+        ['android:windowSplashScreenIconBackgroundColor', '@android:color/transparent'],
+        ['android:windowSplashScreenBrandingImage', '@null'],
+      ]);
+    }
     stylesConfig.modResults.resources.style = styles;
     return stylesConfig;
   });
