@@ -9,7 +9,6 @@ export interface HomePageData {
   error?: string;
 }
 
-// Optimized version with better error handling
 export const getHomePageDataOptimized = async (
   activeProvider: Content['provider'],
   signal: AbortSignal,
@@ -20,8 +19,9 @@ export const getHomePageDataOptimized = async (
     providerValue: activeProvider.value,
   });
 
-  // Use Promise.allSettled for partial success
-  const fetchPromises = catalogs.map(async item => {
+  if (signal.aborted) throw new Error('Request aborted');
+
+  const fetchSingle = async (item: {title: string; filter: string}) => {
     try {
       const data = await providerManager.getPosts({
         filter: item.filter,
@@ -29,22 +29,9 @@ export const getHomePageDataOptimized = async (
         providerValue: activeProvider.value,
         signal,
       });
-
-      if (signal.aborted) {
-        throw new Error('Request aborted');
-      }
-
-      console.log(`✅ Fetched ${data?.length || 0} posts for: ${item.title}`);
-
-      return {
-        title: item.title,
-        Posts: data || [],
-        filter: item.filter,
-      };
+      if (signal.aborted) throw new Error('Request aborted');
+      return {title: item.title, Posts: data || [], filter: item.filter};
     } catch (error) {
-      console.error(`❌ Failed to fetch ${item.title}:`, error);
-
-      // Return partial data with error info instead of failing completely
       return {
         title: item.title,
         Posts: [],
@@ -52,49 +39,31 @@ export const getHomePageDataOptimized = async (
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
-  });
+  };
 
-  const results = await Promise.allSettled(fetchPromises);
-
-  // Extract successful results and log failures
   const homePageData: HomePageData[] = [];
   let successCount = 0;
-  let failureCount = 0;
 
-  results.forEach((result, index) => {
-    if (result.status === 'fulfilled') {
-      homePageData.push(result.value);
-      if (result.value.Posts.length > 0) {
-        successCount++;
-      }
-    } else {
-      failureCount++;
-      console.error(
-        `Failed to process catalog ${catalogs[index].title}:`,
-        result.reason,
-      );
+  // Load first catalog ("home") immediately for fast initial render
+  if (catalogs.length > 0) {
+    const first = await fetchSingle(catalogs[0]);
+    homePageData.push(first);
+    if (first.Posts.length > 0) successCount++;
+  }
 
-      // Add empty category to maintain layout
-      homePageData.push({
-        title: catalogs[index].title,
-        Posts: [],
-        filter: catalogs[index].filter,
-        error: result.reason?.message || 'Failed to load',
-      });
-    }
-  });
+  // Load remaining catalogs sequentially to avoid worker overload
+  for (let i = 1; i < catalogs.length; i++) {
+    if (signal.aborted) break;
+    const result = await fetchSingle(catalogs[i]);
+    homePageData.push(result);
+    if (result.Posts.length > 0) successCount++;
+  }
 
-  console.log(
-    `📊 Results: ${successCount} successful, ${failureCount} failed categories`,
-  );
-
-  // Ensure we have at least some data
-  if (successCount === 0) {
+  if (successCount === 0 && homePageData.length === 0) {
     throw new Error('Failed to load any content categories');
   }
 
   return homePageData;
 };
 
-// Keep original for backward compatibility
 export const getHomePageData = getHomePageDataOptimized;

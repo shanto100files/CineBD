@@ -41,9 +41,37 @@ const SearchResults = ({route}: Props): React.ReactElement => {
     resultsRef.current = [];
     seenRef.current = new Set();
 
+    let updateTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingUpdate = false;
+
+    const flushUpdate = () => {
+      updateTimer = null;
+      if (!signal.aborted && resultsRef.current.length > 0) {
+        setAllPosts([...resultsRef.current]);
+      }
+    };
+
+    const throttledUpdate = () => {
+      if (updateTimer) {
+        pendingUpdate = true;
+        return;
+      }
+      flushUpdate();
+      updateTimer = setTimeout(() => {
+        updateTimer = null;
+        if (pendingUpdate) {
+          pendingUpdate = false;
+          flushUpdate();
+        }
+      }, 500);
+    };
+
     const fetchAll = async () => {
       let done = 0;
-      const promises = installedProviders.map(async item => {
+      // Stagger provider searches to avoid sandbox worker overload
+      for (let i = 0; i < installedProviders.length; i++) {
+        if (signal.aborted) break;
+        const item = installedProviders[i];
         try {
           const data = await providerManager.getSearchPosts({
             searchQuery: route.params.filter,
@@ -53,32 +81,26 @@ const SearchResults = ({route}: Props): React.ReactElement => {
           });
           if (signal.aborted) return;
           if (data && data.length > 0) {
-            const providerResults: Post[] = [];
             for (const p of data) {
               const key = p.title + '|' + p.link;
               if (!seenRef.current.has(key)) {
                 seenRef.current.add(key);
-                const post = {...p, provider: item.value};
-                providerResults.push(post);
-                resultsRef.current.push(post);
+                resultsRef.current.push({...p, provider: item.value});
               }
             }
-            if (providerResults.length > 0) {
-              setAllPosts([...resultsRef.current]);
-            }
+            throttledUpdate();
           }
         } catch (e) {
           console.log(`[Search] ${item.value} failed:`, e?.message || e);
         } finally {
           done++;
           setCompletedProviders(done);
-          if (done >= installedProviders.length) {
-            setAllPosts([...resultsRef.current]);
-            setLoading(false);
-          }
         }
-      });
-      await Promise.allSettled(promises);
+      }
+      if (updateTimer) {
+        clearTimeout(updateTimer);
+        updateTimer = null;
+      }
       if (!signal.aborted) {
         setAllPosts([...resultsRef.current]);
         setLoading(false);
@@ -88,6 +110,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
     fetchAll();
 
     return () => {
+      if (updateTimer) clearTimeout(updateTimer);
       if (abortController.current) {
         abortController.current.abort();
         abortController.current = null;

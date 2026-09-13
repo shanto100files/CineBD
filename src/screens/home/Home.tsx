@@ -302,11 +302,11 @@ const Home = ({}: Props) => {
               <ContinueWatching />
 
               {!isPremium && homeAds.enabled && homeAds.top ? (
-                <View style={{marginHorizontal: 14, marginTop: 8, borderRadius: 12, overflow: 'hidden', height: 150}}>
+                <View style={{marginHorizontal: 14, marginTop: 8, borderRadius: 12, overflow: 'hidden', height: 80}}>
                   {homeAds.top.startsWith('http') ? (
                     <WebView source={{uri: homeAds.top}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
                   ) : (
-                    <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:150px;">${homeAds.top}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                    <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:80px;">${homeAds.top}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
                   )}
                 </View>
               ) : null}

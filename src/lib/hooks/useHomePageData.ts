@@ -77,10 +77,12 @@ export const useHomePageData = ({
     queryFn: async ({signal}) => {
       const allData: HomePageData[] = [];
 
-      const fetches = providersToFetch.map(async prov => {
+      // Load providers sequentially to avoid sandbox worker overload
+      for (const prov of providersToFetch) {
+        if (signal.aborted) break;
         try {
           const data = await getHomePageData(prov, signal);
-          return data.map(section => ({
+          const tagged = data.map(section => ({
             ...section,
             title: section.title,
             Posts: (section.Posts || []).map(post => ({
@@ -88,17 +90,13 @@ export const useHomePageData = ({
               provider: prov.value,
             })),
           }));
+          if (tagged.length > 0) {
+            allData.push(...tagged);
+          }
         } catch {
-          return [];
+          // skip failed provider
         }
-      });
-
-      const results = await Promise.allSettled(fetches);
-      results.forEach(result => {
-        if (result.status === 'fulfilled' && result.value.length > 0) {
-          allData.push(...result.value);
-        }
-      });
+      }
 
       if (allData.length > 0) {
         syncToServer(provider.value, allData).catch(() => {});
