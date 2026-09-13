@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   withAndroidManifest,
+  withAndroidColors,
   withAndroidStyles,
   withDangerousMod,
 } = require('expo/config-plugins');
@@ -101,6 +102,19 @@ const withLauncherStyles = config =>
     return stylesConfig;
   });
 
+const withLauncherColors = config =>
+  withAndroidColors(config, colorsConfig => {
+    const resources = colorsConfig.modResults.resources;
+    if (!resources.color) resources.color = [];
+    const existing = resources.color.find(c => c?.$?.name === 'iconBackground');
+    if (existing) {
+      existing._ = '#0a0a0a';
+    } else {
+      resources.color.push({$: {name: 'iconBackground'}, _: '#0a0a0a'});
+    }
+    return colorsConfig;
+  });
+
 const writeLauncherResources = resRoot => {
   const drawable = path.join(resRoot, 'drawable');
   const drawableV26 = path.join(resRoot, 'drawable-v26');
@@ -113,9 +127,7 @@ const writeLauncherResources = resRoot => {
       path.join(drawable, `ic_launcher_foreground_${id}.xml`),
       `<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
     android:gravity="center"
-    android:src="@mipmap/ic_launcher_foreground"
-    android:tint="${variant.color}"
-    android:tintMode="src_in" />\n`,
+    android:src="@mipmap/ic_launcher_foreground" />\n`,
     );
     fs.writeFileSync(
       path.join(drawableV26, `ic_launcher_${id}.xml`),
@@ -148,5 +160,6 @@ const withLauncherResources = config =>
 module.exports = function withDynamicLauncherSplash(config) {
   config = withLauncherManifest(config);
   config = withLauncherStyles(config);
+  config = withLauncherColors(config);
   return withLauncherResources(config);
 };
