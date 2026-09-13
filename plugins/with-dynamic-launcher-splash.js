@@ -8,7 +8,7 @@ const {
 } = require('expo/config-plugins');
 
 const variants = [
-  {id: 'White', color: '#FFFFFFFF', enabled: true},
+  {id: 'White', color: '#080C18', enabled: true},
   {id: 'Tomato', color: '#FFFF6347', enabled: false},
   {id: 'Gray', color: '#FF9E9E9E', enabled: false},
   {id: 'Blue', color: '#FF2196F3', enabled: false},

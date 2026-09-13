@@ -44,7 +44,7 @@ const InitSplash: React.FC<InitSplashProps> = ({progress, status, onForceReady, 
           resizeMode="contain"
         />
 
-        <ActivityIndicator size="large" color="#e11d48" style={styles.loader} />
+        <ActivityIndicator size="large" color="#6366f1" style={styles.loader} />
 
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
@@ -91,9 +91,9 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   logoImage: {
-    width: 220,
-    height: 220,
-    marginBottom: 20,
+    width: 340,
+    height: 340,
+    marginBottom: 30,
   },
   loader: {
     marginBottom: 40,
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#e11d48',
+    backgroundColor: '#6366f1',
     borderRadius: 2,
   },
   row: {
@@ -137,21 +137,21 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   skipButton: {
-    backgroundColor: '#e11d4815',
+    backgroundColor: '#6366f115',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#e11d48',
+    borderColor: '#6366f1',
   },
   skipButtonText: {
-    color: '#e11d48',
+    color: '#6366f1',
     fontSize: 12,
     fontWeight: 'bold',
   },
   footer: {
     fontSize: 11,
-    color: '#333',
+    color: '#444',
     marginBottom: 40,
   },
 });
