@@ -23,27 +23,25 @@ class LauncherIconModule(reactContext: ReactApplicationContext) : ReactContextBa
             "blue" to "LauncherBlue",
             "lavender" to "LauncherLavender",
         )
-        val splashThemes = mapOf(
-            "white" to R.style.BootTheme_White,
-            "tomato" to R.style.BootTheme_Tomato,
-            "gray" to R.style.BootTheme_Gray,
-            "blue" to R.style.BootTheme_Blue,
-            "lavender" to R.style.BootTheme_Lavender,
-        )
         val selectedAlias = aliases[icon]
-        val selectedSplashTheme = splashThemes[icon]
-        if (selectedAlias == null || selectedSplashTheme == null) {
+        if (selectedAlias == null) {
             promise.reject("LAUNCHER_ICON_ERROR", "Unknown launcher icon: $icon")
             return
         }
 
+        val themeResId = reactApplicationContext.resources.getIdentifier(
+            "BootTheme_${icon.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}",
+            "style",
+            reactApplicationContext.packageName
+        )
+
         try {
             // Android 12+ creates the first splash frame before MainActivity.onCreate.
             // Persist its native theme now so it matches RNBootSplash on the next launch.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && themeResId != 0) {
                 reactApplicationContext.currentActivity
                     ?.splashScreen
-                    ?.setSplashScreenTheme(selectedSplashTheme)
+                    ?.setSplashScreenTheme(themeResId)
             }
             reactApplicationContext
                 .getSharedPreferences("vega_launcher", Context.MODE_PRIVATE)
