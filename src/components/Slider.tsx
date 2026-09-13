@@ -163,6 +163,11 @@ const Slider = ({
           snapToInterval={276}
           snapToAlignment="start"
           disableIntervalMomentum={true}
+          nestedScrollEnabled={true}
+          panGestureHandlerProps={{
+            activeOffsetX: [-15, 15],
+            failOffsetY: [-10, 10],
+          }}
           contentContainerStyle={{
             paddingBottom: 4,
             paddingHorizontal: 20,
@@ -170,8 +175,8 @@ const Slider = ({
           ItemSeparatorComponent={() => <View style={{width: 14}} />}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
-          initialNumToRender={8}
-          maxToRenderPerBatch={8}
+          initialNumToRender={4}
+          maxToRenderPerBatch={4}
           windowSize={3}
           removeClippedSubviews={true}
           getItemLayout={(_, index) => ({length: 262, offset: 262 * index, index})}
