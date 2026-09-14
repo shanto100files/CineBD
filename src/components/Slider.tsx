@@ -160,9 +160,6 @@ const Slider = ({
           scrollEnabled={canScroll}
           bounces={false}
           overScrollMode="never"
-          snapToInterval={276}
-          snapToAlignment="start"
-          disableIntervalMomentum={true}
           nestedScrollEnabled={true}
           panGestureHandlerProps={{
             activeOffsetX: [-15, 15],
@@ -172,14 +169,14 @@ const Slider = ({
             paddingBottom: 4,
             paddingHorizontal: 20,
           }}
-          ItemSeparatorComponent={() => <View style={{width: 14}} />}
+          ItemSeparatorComponent={() => <View style={{width: ITEM_GAP}} />}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
-          initialNumToRender={4}
-          maxToRenderPerBatch={4}
-          windowSize={3}
+          initialNumToRender={6}
+          maxToRenderPerBatch={8}
+          windowSize={5}
           removeClippedSubviews={true}
-          getItemLayout={(_, index) => ({length: 262, offset: 262 * index, index})}
+          getItemLayout={(_, index) => ({length: ITEM_WIDTH + ITEM_GAP, offset: (ITEM_WIDTH + ITEM_GAP) * index, index})}
           ListFooterComponent={
             !isLoading && error ? (
               <View className="flex flex-row w-96 justify-center h-10 items-center">
