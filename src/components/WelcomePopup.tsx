@@ -103,8 +103,8 @@ const WelcomePopup = () => {
               <AppText role="bodySmall" style={{color: colors.onSurfaceVariant, lineHeight: 20}}>
                 {'\u2022'} Use the Search tab to find content across all providers{'\n'}
                 {'\u2022'} Long-press episodes to mark as watched{'\n'}
-                {'\u2022'} Enable dark mode in Settings > Appearance{'\n'}
-                {'\u2022'} Report bugs from Settings > Report Bug
+                {'\u2022'} Enable dark mode in Settings{' > '}Appearance{'\n'}
+                {'\u2022'} Report bugs from Settings{' > '}Report Bug
               </AppText>
             </View>
           </ScrollView>

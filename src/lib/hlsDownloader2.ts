@@ -60,7 +60,7 @@ const parseM3U8Playlist = async (
     });
 
     const content = typeof response.data === 'string' ? response.data : String(response.data);
-'M3U8 content preview:', content.substring(0, 300));
+    console.log('M3U8 content preview:', content.substring(0, 300));
     const lines = content.split('\n').map((line: string) => line.trim());
 
     const segments: SegmentInfo[] = [];
@@ -152,6 +152,7 @@ const parseM3U8Playlist = async (
       }
     }
 
+    console.log(
       `Parsed ${segments.length} segments, total duration: ${totalDuration}s, hasInit: ${Boolean(initSegmentUrl)}`,
     );
 
@@ -303,6 +304,7 @@ export const hlsDownloader2 = async ({
           const progress =
             (downloadedSegments / m3u8Data.segments.length) * 100;
 
+          console.log(
             `Downloaded segment ${segment.index + 1}/${
               m3u8Data.segments.length
             } (${progress.toFixed(1)}%)`,
