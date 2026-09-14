@@ -172,9 +172,9 @@ const Slider = ({
           ItemSeparatorComponent={() => <View style={{width: ITEM_GAP}} />}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
-          initialNumToRender={6}
-          maxToRenderPerBatch={8}
-          windowSize={5}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={8}
           removeClippedSubviews={true}
           getItemLayout={(_, index) => ({length: ITEM_WIDTH + ITEM_GAP, offset: (ITEM_WIDTH + ITEM_GAP) * index, index})}
           ListFooterComponent={
