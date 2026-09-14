@@ -377,7 +377,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
   useEffect(() => {
     let mounted = true;
     syncFromSharedFolder()
-      .catch(error => console.warn('[VegaSync] Player sync failed:', error))
+      .catch(() => {})
       .finally(() => {
         if (mounted) {
           setSyncReady(true);
@@ -1002,7 +1002,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
             switchToNextStream();
             return;
           }
-          console.log('Adding torrent link:', selectedStream.link);
           setTorrentState('Fetching Metadata...');
           setTorrentDownloaded(0);
           setTorrentDownloadSpeed(0);
@@ -1040,7 +1039,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
               infoHash,
               videoFileIndex,
             );
-            console.log('Torrent stream URL:', streamUrl);
             setProcessedStreamUrl(streamUrl);
             setIsResolvingStream(false);
             await preparation;
@@ -1447,15 +1445,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
   );
 
   useEffect(() => {
-    Orientation.lockToLandscape();
-    goFullScreen();
-    return () => {
-      Orientation.unlockAllOrientations();
-      exitFullScreen();
-    };
-  }, []);
-
-  useEffect(() => {
     isFullScreenRef.current = isFullScreen;
   }, [isFullScreen]);
 
@@ -1790,15 +1779,15 @@ const Player = ({ route }: Props): React.JSX.Element => {
             ? processedStreamUrl
             : selectedStream.link) || '',
         bufferConfig: {
-          minBufferMs: 8000,
-          maxBufferMs: 20000,
+          minBufferMs: 15000,
+          maxBufferMs: 50000,
           bufferForPlaybackMs: 1500,
-          bufferForPlaybackAfterRebufferMs: 3000,
-          backBufferDurationMs: 0,
-          maxHeapAllocationPercent: 0.18,
-          minBufferMemoryReservePercent: 0.2,
-          minBackBufferMemoryReservePercent: 0.25,
-          cacheSizeMB: 0,
+          bufferForPlaybackAfterRebufferMs: 2500,
+          backBufferDurationMs: 5000,
+          maxHeapAllocationPercent: 0.25,
+          minBufferMemoryReservePercent: 0.15,
+          minBackBufferMemoryReservePercent: 0.15,
+          cacheSizeMB: 50,
         },
         shouldCache: true,
         ...(selectedStream?.type === 'm3u8' && { type: 'm3u8' }),

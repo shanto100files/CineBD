@@ -13,8 +13,6 @@ export const getHomePageDataOptimized = async (
   activeProvider: Content['provider'],
   signal: AbortSignal,
 ): Promise<HomePageData[]> => {
-  console.log('Fetching data for provider:', activeProvider.display_name);
-
   const catalogs = await providerManager.getCatalog({
     providerValue: activeProvider.value,
   });

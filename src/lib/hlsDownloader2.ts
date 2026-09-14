@@ -53,7 +53,6 @@ const parseM3U8Playlist = async (
   headers: Record<string, string> = {},
 ): Promise<M3U8Data> => {
   try {
-    console.log('Fetching M3U8 playlist:', url);
     const reqHeaders = normalizeHeaders(headers);
     const response = await axios.get(url, {
       headers: reqHeaders,
@@ -61,7 +60,7 @@ const parseM3U8Playlist = async (
     });
 
     const content = typeof response.data === 'string' ? response.data : String(response.data);
-    console.log('M3U8 content preview:', content.substring(0, 300));
+'M3U8 content preview:', content.substring(0, 300));
     const lines = content.split('\n').map((line: string) => line.trim());
 
     const segments: SegmentInfo[] = [];
@@ -76,9 +75,6 @@ const parseM3U8Playlist = async (
     );
 
     if (hasMasterPlaylist) {
-      console.log(
-        'Detected master playlist, looking for best quality stream...',
-      );
 
       let bestQualityUrl: string | null = null;
       let highestBandwidth = 0;
@@ -113,12 +109,6 @@ const parseM3U8Playlist = async (
       }
 
       if (bestQualityUrl) {
-        console.log(
-          'Found best quality stream:',
-          bestQualityUrl,
-          'with bandwidth:',
-          highestBandwidth,
-        );
         return await parseM3U8Playlist(bestQualityUrl, headers);
       } else {
         throw new Error('No valid stream found in master playlist');
@@ -162,7 +152,6 @@ const parseM3U8Playlist = async (
       }
     }
 
-    console.log(
       `Parsed ${segments.length} segments, total duration: ${totalDuration}s, hasInit: ${Boolean(initSegmentUrl)}`,
     );
 
@@ -275,23 +264,19 @@ export const hlsDownloader2 = async ({
     }
 
     // Parse the M3U8 playlist
-    console.log('Parsing M3U8 playlist...');
+
     const m3u8Data = await parseM3U8Playlist(videoUrl, headers);
 
     if (m3u8Data.segments.length === 0) {
       throw new Error('No segments found in playlist');
     }
 
-    console.log(
-      `Found ${m3u8Data.segments.length} segments, total duration: ${m3u8Data.totalDuration}s`,
-    );
-
     const segmentPaths: string[] = [];
 
     // Download init segment (fMP4 EXT-X-MAP) if present
     if (m3u8Data.initSegmentUrl) {
       const initPath = `${tempDir}/init_segment.mp4`;
-      console.log('Downloading fMP4 init segment...');
+
       await downloadSegment(downloadId, m3u8Data.initSegmentUrl, initPath, headers);
       segmentPaths.push(initPath);
     }
@@ -318,7 +303,6 @@ export const hlsDownloader2 = async ({
           const progress =
             (downloadedSegments / m3u8Data.segments.length) * 100;
 
-          console.log(
             `Downloaded segment ${segment.index + 1}/${
               m3u8Data.segments.length
             } (${progress.toFixed(1)}%)`,
@@ -342,7 +326,7 @@ export const hlsDownloader2 = async ({
     }
 
     // Merge all segments into final file
-    console.log('Merging segments...');
+
     await mergeSegments(segmentPaths, path);
 
     // Clean up temp directory
@@ -358,7 +342,7 @@ export const hlsDownloader2 = async ({
     }
 
     // Success
-    console.log('Download completed successfully');
+
     await onCompleted?.(path);
   } catch (error) {
     console.error('HLS download failed:', error);
@@ -389,7 +373,7 @@ export const hlsDownloader2 = async ({
 export const cancelHlsDownload = (downloadId: string) => {
   if (activeDownloads.has(downloadId)) {
     cancelledDownloads.add(downloadId);
-    console.log(`Cancelling HLS download: ${downloadId}`);
+
   }
 };
 

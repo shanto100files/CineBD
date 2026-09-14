@@ -91,10 +91,6 @@ const ScrollList = ({route}: Props): React.ReactElement => {
 
         setIsLoading(true);
 
-        // Simulate network delay to reduce rapid API calls
-        // Remove this in production if not needed
-        await new Promise(resolve => setTimeout(resolve, 300));
-
         // Skip if component unmounted or request was aborted
         if (!isMounted.current || signal.aborted) return;
 
