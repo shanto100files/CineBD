@@ -5,6 +5,7 @@ import { providerManager } from '../services/ProviderManager';
 import { settingsStorage } from '../storage';
 import { ifExists } from '../file/ifExists';
 import { Stream } from '../providers/types';
+import { fetchAndSanitizeSubtitle } from '../utils/subtitleSanitizer';
 import { getEpisodeIdentity } from '../utils/episodeIdentity';
 import useDownloadsStore, {
   isSubtitleDownloadItem,
@@ -467,43 +468,61 @@ export const useStream = ({
 
   // Extract downloaded and online external subtitles
   useEffect(() => {
-    const downloadedSubs = getDownloadedSubtitlesForMedia(
-      activeEpisode,
-      routeParams,
-    );
+    let cancelled = false;
 
-    const onlineSubs: any[] = [];
-    if (streamData && streamData.length > 0) {
-      streamData.forEach(track => {
-        if (track?.subtitles?.length && track.subtitles.length > 0) {
-          onlineSubs.push(...track.subtitles);
-        }
-      });
-    }
+    const loadSubs = async () => {
+      const downloadedSubs = getDownloadedSubtitlesForMedia(
+        activeEpisode,
+        routeParams,
+      );
 
-    const mergedSubs = [...downloadedSubs];
-    onlineSubs.forEach(online => {
-      const trimmedUri = typeof online?.uri === 'string' ? online.uri.trim() : '';
-      if (
-        trimmedUri &&
-        (trimmedUri.startsWith('http://') ||
-          trimmedUri.startsWith('https://') ||
-          trimmedUri.startsWith('file://') ||
-          trimmedUri.startsWith('content://')) &&
-        !mergedSubs.some(existing => existing.uri === trimmedUri)
-      ) {
-        mergedSubs.push({
-          ...online,
-          uri: trimmedUri,
+      const onlineSubs: any[] = [];
+      if (streamData && streamData.length > 0) {
+        streamData.forEach(track => {
+          if (track?.subtitles?.length && track.subtitles.length > 0) {
+            onlineSubs.push(...track.subtitles);
+          }
         });
       }
-    });
 
-    setExternalSubs(prev => {
-      const prevKey = prev.map((s: any) => s.uri || '').join('|');
-      const nextKey = mergedSubs.map((s: any) => s.uri || '').join('|');
-      return prevKey === nextKey ? prev : mergedSubs;
-    });
+      const mergedSubs = [...downloadedSubs];
+
+      const sanitizePromises = onlineSubs.map(async (online) => {
+        const trimmedUri = typeof online?.uri === 'string' ? online.uri.trim() : '';
+        if (
+          trimmedUri &&
+          (trimmedUri.startsWith('http://') ||
+            trimmedUri.startsWith('https://') ||
+            trimmedUri.startsWith('file://') ||
+            trimmedUri.startsWith('content://')) &&
+          !mergedSubs.some(existing => existing.uri === trimmedUri)
+        ) {
+          const cleanUri = await fetchAndSanitizeSubtitle(trimmedUri);
+          return { ...online, uri: cleanUri };
+        }
+        return null;
+      });
+
+      const sanitizedSubs = (await Promise.all(sanitizePromises)).filter(Boolean);
+
+      for (const sub of sanitizedSubs) {
+        if (sub && !mergedSubs.some(existing => existing.uri === sub.uri)) {
+          mergedSubs.push(sub);
+        }
+      }
+
+      if (!cancelled) {
+        setExternalSubs(prev => {
+          const prevKey = prev.map((s: any) => s.uri || '').join('|');
+          const nextKey = mergedSubs.map((s: any) => s.uri || '').join('|');
+          return prevKey === nextKey ? prev : mergedSubs;
+        });
+      }
+    };
+
+    loadSubs();
+
+    return () => { cancelled = true; };
   }, [streamData, activeEpisodeKey]);
 
   // Handle errors
