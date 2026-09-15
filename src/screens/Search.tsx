@@ -8,25 +8,32 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {MMKV} from '../lib/Mmkv';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Animated, {FadeInDown} from 'react-native-reanimated';
-import {searchOMDB} from '../lib/services/omdb';
 import debounce from 'lodash/debounce';
-import {OMDBResult} from '../types/omdb';
 import Button from '../components/ui/Button';
 import IconButton from '../components/ui/IconButton';
 import AppText from '../components/ui/Text';
 import SearchField, {type SearchFieldRef} from '../components/ui/SearchField';
 import {useM3Colors} from '../theme/M3PaletteContext';
+import {
+  fetchIMDbSuggestions,
+  type IMDbSuggestion,
+} from '../lib/services/imdbSuggestions';
 
-const MAX_VISIBLE_RESULTS = 15; // Limit number of animated items to prevent excessive callbacks
-const MAX_HISTORY_ITEMS = 30; // Maximum number of history items to store
+const MAX_VISIBLE_RESULTS = 15;
+const MAX_HISTORY_ITEMS = 30;
 
-// Memoized search result item to prevent unnecessary re-renders
 const SearchResultItem = memo(
-  ({item, onPress}: {item: OMDBResult; onPress: (title: string) => void}) => {
+  ({
+    item,
+    onPress,
+  }: {
+    item: IMDbSuggestion;
+    onPress: (title: string) => void;
+  }) => {
     const colors = useM3Colors();
     const handlePress = useCallback(() => {
-      onPress(item.Title);
-    }, [item.Title, onPress]);
+      onPress(item.title);
+    }, [item.title, onPress]);
 
     return (
       <View style={{paddingHorizontal: 16, paddingVertical: 5}}>
@@ -51,21 +58,22 @@ const SearchResultItem = memo(
                 width: 44,
               }}>
               <MaterialCommunityIcons
-                name={item.Type === 'series' ? 'television' : 'movie-open'}
+                name={item.type === 'tv' ? 'television' : 'movie-open'}
                 size={22}
                 color={colors.onSecondaryContainer}
               />
             </View>
-            <View className="flex-1">
+            <View style={{flex: 1}}>
               <AppText
                 role="bodyLargeEmphasized"
                 style={{color: colors.onSurface}}>
-                {item.Title}
+                {item.title}
               </AppText>
               <AppText
                 role="bodySmall"
                 style={{color: colors.onSurfaceVariant, marginTop: 2}}>
-                {item.Type === 'series' ? 'TV Show' : 'Movie'} • {item.Year}
+                {item.type === 'tv' ? 'TV Show' : 'Movie'}
+                {item.year ? ` \u2022 ${item.year}` : ''}
               </AppText>
             </View>
             <MaterialCommunityIcons
@@ -80,7 +88,6 @@ const SearchResultItem = memo(
   },
 );
 
-// Memoized history item component
 const HistoryItem = memo(
   ({
     search,
@@ -146,7 +153,7 @@ const Search = () => {
   const [searchHistory, setSearchHistory] = useState<string[]>(
     MMKV.getArray<string>('searchHistory') || [],
   );
-  const [searchResults, setSearchResults] = useState<OMDBResult[]>([]);
+  const [searchResults, setSearchResults] = useState<IMDbSuggestion[]>([]);
   const searchFieldRef = useRef<SearchFieldRef>(null);
   const focusAfterTabResetRef = useRef(false);
 
@@ -189,28 +196,13 @@ const Search = () => {
   const debouncedSearch = useCallback(
     debounce(async (text: string) => {
       if (text.length >= 2) {
-        setSearchResults([]); // Clear previous results
-        const results = await searchOMDB(text);
-        if (results.length > 0) {
-          // Remove duplicates based on imdbID
-          const uniqueResults = results.reduce((acc, current) => {
-            const x = acc.find(
-              (item: OMDBResult) => item.imdbID === current.imdbID,
-            );
-            if (!x) {
-              return acc.concat([current]);
-            } else {
-              return acc;
-            }
-          }, [] as OMDBResult[]);
-
-          // Limit the number of results to prevent excessive animations
-          setSearchResults(uniqueResults.slice(0, MAX_VISIBLE_RESULTS));
-        }
+        const controller = new AbortController();
+        const results = await fetchIMDbSuggestions(text, controller.signal);
+        setSearchResults(results.slice(0, MAX_VISIBLE_RESULTS));
       } else {
         setSearchResults([]);
       }
-    }, 300), // Reduced debounce time for better responsiveness
+    }, 250),
     [],
   );
 
@@ -224,7 +216,6 @@ const Search = () => {
   const handleSearch = useCallback(
     (text: string) => {
       if (text.trim()) {
-        // Save to search history
         const prevSearches = MMKV.getArray<string>('searchHistory') || [];
         if (!prevSearches.includes(text.trim())) {
           const newSearches = [text.trim(), ...prevSearches].slice(
@@ -259,7 +250,6 @@ const Search = () => {
 
   const handleResultPress = useCallback(
     (title: string) => {
-      // Save to search history
       const prevSearches = MMKV.getArray<string>('searchHistory') || [];
       if (!prevSearches.includes(title)) {
         const newSearches = [title, ...prevSearches].slice(
@@ -276,15 +266,13 @@ const Search = () => {
     [navigation],
   );
 
-  // Memoized render function for search results
   const renderSearchResult = useCallback(
-    ({item}: {item: OMDBResult}) => (
+    ({item}: {item: IMDbSuggestion}) => (
       <SearchResultItem item={item} onPress={handleResultPress} />
     ),
     [handleResultPress],
   );
 
-  // Memoized render function for history items
   const renderHistoryItem = useCallback(
     ({item}: {item: string}) => (
       <HistoryItem
@@ -296,9 +284,8 @@ const Search = () => {
     [handleSearch, removeHistoryItem],
   );
 
-  // Memoized key extractors
   const searchResultKeyExtractor = useCallback(
-    (item: OMDBResult) => item.imdbID.toString(),
+    (item: IMDbSuggestion, index: number) => `${item.title}-${index}`,
     [],
   );
   const historyKeyExtractor = useCallback(
@@ -306,19 +293,19 @@ const Search = () => {
     [],
   );
 
-  // Conditionally render animations based on state
   const AnimatedContainer = Animated.View;
 
   return (
-      <SafeAreaView className="flex-1 bg-m3-background">
+    <SafeAreaView className="flex-1 bg-m3-background">
       <AnimatedContainer
         entering={FadeInDown.duration(300)}
         className="px-4 pt-3">
-        {/* <AppText
-          role="headlineLargeEmphasized"
-          className="mb-1 text-m3-on-background"></AppText> */}
         <AppText
-          style={{color: colors.onSurfaceVariant, fontSize: 13, marginBottom: 14}}>
+          style={{
+            color: colors.onSurfaceVariant,
+            fontSize: 13,
+            marginBottom: 14,
+          }}>
           Search across all providers
         </AppText>
         <View className="flex-row items-center space-x-3 mb-3">
@@ -342,7 +329,6 @@ const Search = () => {
         </View>
       </AnimatedContainer>
 
-      {/* Search Results */}
       <View className="flex-1">
         {searchResults.length > 0 ? (
           <FlatList
@@ -386,7 +372,6 @@ const Search = () => {
             />
           </AnimatedContainer>
         ) : (
-          // Empty State - Only show when no history and no results
           <AnimatedContainer
             entering={FadeInDown.duration(300)}
             className="items-center justify-center flex-1 px-8">
