@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import React, {useEffect, useState, useCallback} from 'react';
+import React, {useEffect, useState, useCallback, memo} from 'react';
 import './global.css';
 import Home from './screens/home/Home';
 import Info from './screens/home/Info';
@@ -180,6 +180,76 @@ const Tab = createBottomTabNavigator<TabStackParamList>();
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 let pendingDownloadsNavigation = false;
 
+const HomeStackNav = createNativeStackNavigator<HomeStackParamList>();
+const RootStackNav = createNativeStackNavigator<RootStackParamList>();
+const SearchStackNav = createNativeStackNavigator<SearchStackParamList>();
+const WatchListStackNav = createNativeStackNavigator<WatchListStackParamList>();
+const DownloadsStackNav = createNativeStackNavigator<DownloadsStackParamList>();
+const SettingsStackNav = createNativeStackNavigator<SettingsStackParamList>();
+
+const stackScreenOptions = {
+  headerShown: false,
+  animation: 'ios_from_right' as const,
+  animationDuration: 200,
+  freezeOnBlur: true,
+};
+
+const HomeStackScreen = React.memo(() => (
+  <HomeStackNav.Navigator screenOptions={stackScreenOptions}>
+    <HomeStackNav.Screen name="Home" component={Home} />
+    <HomeStackNav.Screen name="Info" component={Info} />
+    <HomeStackNav.Screen name="ScrollList" component={ScrollList} />
+    <HomeStackNav.Screen name="Webview" component={WebView} />
+  </HomeStackNav.Navigator>
+));
+
+const SearchStackScreen = React.memo(() => (
+  <SearchStackNav.Navigator screenOptions={stackScreenOptions}>
+    <SearchStackNav.Screen name="Search" component={Search} />
+    <SearchStackNav.Screen name="ScrollList" component={ScrollList} />
+    <SearchStackNav.Screen name="Info" component={Info} />
+    <SearchStackNav.Screen name="SearchResults" component={SearchResults} />
+    <SearchStackNav.Screen name="Webview" component={WebView} />
+  </SearchStackNav.Navigator>
+));
+
+const WatchListStackScreen = React.memo(() => (
+  <WatchListStackNav.Navigator screenOptions={stackScreenOptions}>
+    <WatchListStackNav.Screen name="WatchList" component={WatchList} />
+    <WatchListStackNav.Screen name="Info" component={Info} />
+  </WatchListStackNav.Navigator>
+));
+
+const DownloadsStackScreen = React.memo(() => (
+  <DownloadsStackNav.Navigator screenOptions={stackScreenOptions}>
+    <DownloadsStackNav.Screen name="Downloads" component={Downloads} />
+    <DownloadsStackNav.Screen name="DownloadedDetails" component={DownloadedDetails} />
+  </DownloadsStackNav.Navigator>
+));
+
+const SettingsStackScreen = React.memo(() => {
+  const insets = useSafeAreaInsets();
+  const subpageOptions = {contentStyle: {paddingTop: insets.top}};
+  return (
+    <SettingsStackNav.Navigator screenOptions={stackScreenOptions}>
+      <SettingsStackNav.Screen name="Settings" component={Settings} />
+      <SettingsStackNav.Screen name="Appearance" component={Appearance} options={subpageOptions} />
+      <SettingsStackNav.Screen name="About" component={About} options={subpageOptions} />
+      <SettingsStackNav.Screen name="Preferences" component={Preferences} options={subpageOptions} />
+      <SettingsStackNav.Screen name="Extensions" component={Extensions} options={subpageOptions} />
+      <SettingsStackNav.Screen name="DownloadsStack" component={DownloadsStackScreen} options={subpageOptions} />
+      <SettingsStackNav.Screen name="SubTitlesPreferences" component={SubtitlePreference} options={subpageOptions} />
+      <SettingsStackNav.Screen name="ProviderSelect" component={ProviderSelect} options={subpageOptions} />
+      <SettingsStackNav.Screen name="Login" component={LoginScreen} options={subpageOptions} />
+      <SettingsStackNav.Screen name="Register" component={RegisterScreen} options={subpageOptions} />
+      <SettingsStackNav.Screen name="Profile" component={ProfileScreen} options={subpageOptions} />
+      <SettingsStackNav.Screen name="Premium" component={PremiumScreen} options={subpageOptions} />
+      <SettingsStackNav.Screen name="TermsOfService" component={TermsOfService} options={{headerShown: false}} />
+      <SettingsStackNav.Screen name="Report" component={ReportScreen} options={{headerShown: false}} />
+    </SettingsStackNav.Navigator>
+  );
+});
+
 export const openDownloadsScreen = (): void => {
   if (!navigationRef.isReady()) {
     pendingDownloadsNavigation = true;
@@ -212,14 +282,6 @@ const App = () => {
     'You have passed a style to FlashList',
     'new NativeEventEmitter()',
   ]);
-
-  const HomeStack = createNativeStackNavigator<HomeStackParamList>();
-  const Stack = createNativeStackNavigator<RootStackParamList>();
-  const SearchStack = createNativeStackNavigator<SearchStackParamList>();
-  const WatchListStack = createNativeStackNavigator<WatchListStackParamList>();
-  const DownloadsStack = createNativeStackNavigator<DownloadsStackParamList>();
-  const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
-  const hasFirebase = Boolean(Constants?.expoConfig?.extra?.hasFirebase) && isFirebaseNativeReady();
 
   // Function to perform update check only
   const runUpdateCheck = useCallback(async () => {
@@ -432,248 +494,76 @@ const App = () => {
     );
   }
 
-  function HomeStackScreen() {
-    return (
-      <HomeStack.Navigator
-        screenOptions={{
-          headerShown: false,
-          animation: 'ios_from_right',
-          animationDuration: 200,
-          freezeOnBlur: true,
-        }}>
-        <HomeStack.Screen name="Home" component={Home} />
-        <HomeStack.Screen name="Info" component={Info} />
-        <HomeStack.Screen name="ScrollList" component={ScrollList} />
-        <HomeStack.Screen name="Webview" component={WebView} />
-      </HomeStack.Navigator>
-    );
-  }
+  const hasFirebase = Boolean(Constants?.expoConfig?.extra?.hasFirebase) && isFirebaseNativeReady();
 
-  function SearchStackScreen() {
-    return (
-      <SearchStack.Navigator
-        screenOptions={{
-          headerShown: false,
-          animation: 'ios_from_right',
-          animationDuration: 200,
-          freezeOnBlur: true,
-        }}>
-        <SearchStack.Screen name="Search" component={Search} />
-        <SearchStack.Screen name="ScrollList" component={ScrollList} />
-        <SearchStack.Screen name="Info" component={Info} />
-        <SearchStack.Screen name="SearchResults" component={SearchResults} />
-        <SearchStack.Screen name="Webview" component={WebView} />
-      </SearchStack.Navigator>
-    );
-  }
+  const hideDownloadsTab = useNavigationPreferencesStore(state => state.hideDownloadsTab);
 
-  function WatchListStackScreen() {
-    return (
-      <WatchListStack.Navigator
-        screenOptions={{
-          headerShown: false,
-          animation: 'ios_from_right',
-          animationDuration: 200,
-          freezeOnBlur: true,
-        }}>
-        <WatchListStack.Screen name="WatchList" component={WatchList} />
-        <WatchListStack.Screen name="Info" component={Info} />
-      </WatchListStack.Navigator>
-    );
-  }
-
-  function SettingsStackScreen() {
-    const insets = useSafeAreaInsets();
-    const subpageOptions = {
-      contentStyle: {paddingTop: insets.top},
-    };
-
-    return (
-      <SettingsStack.Navigator
-        screenOptions={{
-          headerShown: false,
-          animation: 'ios_from_right',
-          animationDuration: 200,
-          freezeOnBlur: true,
-        }}>
-        <SettingsStack.Screen name="Settings" component={Settings} />
-        <SettingsStack.Screen
-          name="Appearance"
-          component={Appearance}
-          options={subpageOptions}
-        />
-        <SettingsStack.Screen
-          name="About"
-          component={About}
-          options={subpageOptions}
-        />
-        <SettingsStack.Screen
-          name="Preferences"
-          component={Preferences}
-          options={subpageOptions}
-        />
-        <SettingsStack.Screen
-          name="Extensions"
-          component={Extensions}
-          options={subpageOptions}
-        />
-        <SettingsStack.Screen
+  const TabStack = React.memo(() => (
+    <Tab.Navigator
+      detachInactiveScreens={true}
+      tabBar={props => <StreamingTabBar {...props} />}
+      screenOptions={{
+        animation: 'shift',
+        popToTopOnBlur: false,
+        tabBarPosition: isLargeScreen ? 'left' : 'bottom',
+        headerShown: false,
+        freezeOnBlur: true,
+        tabBarHideOnKeyboard: true,
+      }}>
+      <Tab.Screen
+        name="HomeStack"
+        component={HomeStackScreen}
+        options={{
+          title: 'Home',
+          tabBarIcon: ({focused, color, size}) => (
+            <MaterialCommunityIcons name={focused ? 'home-variant' : 'home-variant-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="SearchStack"
+        component={SearchStackScreen}
+        options={{
+          title: 'Search',
+          tabBarIcon: ({focused, color, size}) => (
+            <MaterialCommunityIcons name="magnify" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="WatchListStack"
+        component={WatchListStackScreen}
+        options={{
+          title: 'Watch List',
+          tabBarIcon: ({focused, color, size}) => (
+            <MaterialCommunityIcons name={focused ? 'bookmark' : 'bookmark-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+      {!hideDownloadsTab && (
+        <Tab.Screen
           name="DownloadsStack"
           component={DownloadsStackScreen}
-          options={subpageOptions}
-        />
-        <SettingsStack.Screen
-          name="SubTitlesPreferences"
-          component={SubtitlePreference}
-          options={subpageOptions}
-        />
-        <SettingsStack.Screen
-          name="ProviderSelect"
-          component={ProviderSelect}
-          options={subpageOptions}
-        />
-        <SettingsStack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={subpageOptions}
-        />
-        <SettingsStack.Screen
-          name="Register"
-          component={RegisterScreen}
-          options={subpageOptions}
-        />
-        <SettingsStack.Screen
-          name="Profile"
-          component={ProfileScreen}
-          options={subpageOptions}
-        />
-        <SettingsStack.Screen
-          name="Premium"
-          component={PremiumScreen}
-          options={subpageOptions}
-        />
-        <SettingsStack.Screen
-          name="TermsOfService"
-          component={TermsOfService}
-          options={{headerShown: false}}
-        />
-        <SettingsStack.Screen
-          name="Report"
-          component={ReportScreen}
-          options={{headerShown: false}}
-        />
-      </SettingsStack.Navigator>
-    );
-  }
-
-  function DownloadsStackScreen() {
-    return (
-      <DownloadsStack.Navigator
-        screenOptions={{
-          headerShown: false,
-          animation: 'ios_from_right',
-          animationDuration: 200,
-          freezeOnBlur: true,
-        }}>
-        <DownloadsStack.Screen name="Downloads" component={Downloads} />
-        <DownloadsStack.Screen
-          name="DownloadedDetails"
-          component={DownloadedDetails}
-        />
-      </DownloadsStack.Navigator>
-    );
-  }
-  function TabStack() {
-    const hideDownloadsTab = useNavigationPreferencesStore(
-      state => state.hideDownloadsTab,
-    );
-    return (
-        <Tab.Navigator
-          detachInactiveScreens={true}
-          tabBar={props => <StreamingTabBar {...props} />}
-          screenOptions={{
-            animation: 'shift',
-            popToTopOnBlur: false,
-            tabBarPosition: isLargeScreen ? 'left' : 'bottom',
-            headerShown: false,
-            freezeOnBlur: false,
-            tabBarHideOnKeyboard: true,
-          }}>
-        <Tab.Screen
-          name="HomeStack"
-          component={HomeStackScreen}
           options={{
-            title: 'Home',
+            title: 'Downloads',
             tabBarIcon: ({focused, color, size}) => (
-              <MaterialCommunityIcons
-                name={focused ? 'home-variant' : 'home-variant-outline'}
-                color={color}
-                size={size}
-              />
+              <MaterialCommunityIcons name={focused ? 'download' : 'download-outline'} color={color} size={size} />
             ),
           }}
         />
-        <Tab.Screen
-          name="SearchStack"
-          component={SearchStackScreen}
-          options={{
-            title: 'Search',
-            tabBarIcon: ({focused, color, size}) => (
-              <MaterialCommunityIcons
-                name={focused ? 'magnify' : 'magnify'}
-                color={color}
-                size={size}
-              />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="WatchListStack"
-          component={WatchListStackScreen}
-          options={{
-            title: 'Watch List',
-            tabBarIcon: ({focused, color, size}) => (
-              <MaterialCommunityIcons
-                name={focused ? 'bookmark' : 'bookmark-outline'}
-                color={color}
-                size={size}
-              />
-            ),
-          }}
-        />
-        {!hideDownloadsTab && (
-          <Tab.Screen
-            name="DownloadsStack"
-            component={DownloadsStackScreen}
-            options={{
-              title: 'Downloads',
-              tabBarIcon: ({focused, color, size}) => (
-                <MaterialCommunityIcons
-                  name={focused ? 'download' : 'download-outline'}
-                  color={color}
-                  size={size}
-                />
-              ),
-            }}
-          />
-        )}
-        <Tab.Screen
-          name="SettingsStack"
-          component={SettingsStackScreen}
-          options={{
-            title: 'Settings',
-            tabBarIcon: ({focused, color, size}) => (
-              <MaterialCommunityIcons
-                name={focused ? 'cog' : 'cog-outline'}
-                color={color}
-                size={size}
-              />
-            ),
-          }}
-        />
-      </Tab.Navigator>
-    );
-  }
+      )}
+      <Tab.Screen
+        name="SettingsStack"
+        component={SettingsStackScreen}
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({focused, color, size}) => (
+            <MaterialCommunityIcons name={focused ? 'cog' : 'cog-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  ));
 
   return (
     <SafeAreaProvider>
@@ -705,21 +595,7 @@ const App = () => {
                     } catch {}
                   }
                 }}
-                onStateChange={async () => {
-                  if (hasFirebase) {
-                    try {
-                      const route = navigationRef.getCurrentRoute();
-                      if (route?.name) {
-                        const analytics = getAnalytics();
-                        if (analytics) {
-                          await analytics().logScreenView({
-                            screen_name: route.name,
-                            screen_class: 'Navigation',
-                          });
-                        }
-                      }
-                    } catch {}
-                  }
+                onStateChange={() => {
                   try {
                     const route = navigationRef.getCurrentRoute();
                     if (route?.name) {
@@ -737,7 +613,7 @@ const App = () => {
                   dark: true,
                   colors: {background: 'transparent', card: 'black', primary: '#E4E4E4', text: 'white', border: 'black', notification: '#E4E4E4'},
                 }}>
-                <Stack.Navigator
+                <RootStackNav.Navigator
                   screenOptions={{
                     headerShown: false,
                     animation: 'ios_from_right',
@@ -745,8 +621,8 @@ const App = () => {
                     freezeOnBlur: true,
                     contentStyle: {backgroundColor: 'transparent'},
                   }}>
-                  <Stack.Screen name="TabStack" component={TabStack} />
-                  <Stack.Screen
+                  <RootStackNav.Screen name="TabStack" component={TabStack} />
+                  <RootStackNav.Screen
                     name="Player"
                     component={Player}
                     options={{
@@ -756,7 +632,7 @@ const App = () => {
                       autoHideHomeIndicator: true,
                     }}
                   />
-                </Stack.Navigator>
+                </RootStackNav.Navigator>
               </NavigationContainer>
               <WafWebViewDialog />
               <ProviderSandboxHost />
