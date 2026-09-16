@@ -100,13 +100,17 @@ const NSFW_REGEX = /\b(porn|xxx|sex|nude|naked|erotic|adult|18\+|uncensored|hent
 
 function splitResults(posts: Post[], query: string): {exact: Post[]; similar: Post[]} {
   if (!query.trim()) return {exact: posts, similar: []};
-  const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const q = query.toLowerCase().trim();
+  const words = q.split(/\s+/).filter(Boolean);
   const exact: Post[] = [];
   const similar: Post[] = [];
   for (const post of posts) {
     const title = (post.title || '').toLowerCase();
-    if (words.some(w => title.includes(w))) exact.push(post);
-    else similar.push(post);
+    const fullMatch = title.includes(q);
+    const wordMatches = words.filter(w => w.length > 2 && title.includes(w)).length;
+    const closeToFull = wordMatches >= Math.ceil(words.length * 0.6);
+    if (fullMatch || closeToFull) exact.push(post);
+    else if (wordMatches > 0) similar.push(post);
   }
   return {exact, similar};
 }
