@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React from 'react';
-import {Image, Pressable, View} from 'react-native';
+import {Pressable, View} from 'react-native';
+import {Image} from 'expo-image';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import AppText from './ui/Text';
 
@@ -145,8 +146,9 @@ const MediaPosterCard = ({
 
           {poster ? (
             <Image
-              source={{uri: poster}}
-              resizeMode="cover"
+              source={poster}
+              contentFit="cover"
+              transition={200}
               style={{aspectRatio: 2 / 3, width: selected ? width - 8 : width}}
             />
           ) : (

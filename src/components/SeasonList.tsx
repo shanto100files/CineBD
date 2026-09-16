@@ -11,10 +11,10 @@ import {
   ToastAndroid,
   FlatList,
   ActivityIndicator,
-  Image,
   ScrollView,
   TextInput,
 } from 'react-native';
+import {Image} from 'expo-image';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useNavigation} from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -1423,8 +1423,9 @@ const SeasonList: React.FC<SeasonListProps> = ({
             {getValidImageUri(episodeDetails.image) &&
             !episodeDetailsImageFailed ? (
               <Image
-                source={{uri: getValidImageUri(episodeDetails.image)}}
-                resizeMode="cover"
+                source={getValidImageUri(episodeDetails.image)}
+                contentFit="cover"
+                transition={200}
                 onError={() => setEpisodeDetailsImageFailed(true)}
                 style={{aspectRatio: 16 / 9, width: '100%'}}
               />

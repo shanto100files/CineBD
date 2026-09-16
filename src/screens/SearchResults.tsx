@@ -1,6 +1,6 @@
-import {SafeAreaView, View, FlatList, Dimensions} from 'react-native';
+import {SafeAreaView, View, ScrollView, Dimensions, Pressable} from 'react-native';
 import MediaPosterCard from '../components/MediaPosterCard';
-import React, {useEffect, useState, useRef, useCallback} from 'react';
+import React, {useEffect, useState, useRef, useCallback, useMemo} from 'react';
 import {NativeStackScreenProps, NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {SearchStackParamList, HomeStackParamList} from '../App';
 import {providerManager} from '../lib/services/ProviderManager';
@@ -12,6 +12,7 @@ import {useNavigation} from '@react-navigation/native';
 import {getPostBadge, getProviderBadge} from '../lib/utils/helpers';
 import {Post} from '../lib/providers/types';
 import {MMKV} from '../lib/Mmkv';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 type Props = NativeStackScreenProps<SearchStackParamList, 'SearchResults'>;
 
@@ -95,6 +96,25 @@ async function searchProvidersConcurrently(
   await Promise.allSettled(workers);
 }
 
+const NSFW_REGEX = /\b(porn|xxx|sex|nude|naked|erotic|adult|18\+|uncensored|hentai|leaked|mms|scandal|bf|gf|hot|sexy|desi\s*mms)\b/i;
+
+function splitResults(posts: Post[], query: string): {exact: Post[]; similar: Post[]} {
+  if (!query.trim()) return {exact: posts, similar: []};
+  const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const exact: Post[] = [];
+  const similar: Post[] = [];
+  for (const post of posts) {
+    const title = (post.title || '').toLowerCase();
+    if (words.some(w => title.includes(w))) exact.push(post);
+    else similar.push(post);
+  }
+  return {exact, similar};
+}
+
+function filterNSFW(posts: Post[]): Post[] {
+  return posts.filter(p => !NSFW_REGEX.test(p.title));
+}
+
 const SearchResults = ({route}: Props): React.ReactElement => {
   const colors = useM3Colors();
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
@@ -102,12 +122,22 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   const provider = useContentStore(state => state.provider);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hideNSFW, setHideNSFW] = useState(true);
   const abortController = useRef<AbortController | null>(null);
   const resultsRef = useRef<Post[]>([]);
   const seenRef = useRef<Set<string>>(new Set());
 
   const screenWidth = Dimensions.get('window').width;
   const cardWidth = (screenWidth - 48) / 3;
+  const query = route.params.filter;
+
+  const {exactPosts, similarPosts} = useMemo(() => {
+    const {exact, similar} = splitResults(allPosts, query);
+    return {
+      exactPosts: hideNSFW ? filterNSFW(exact) : exact,
+      similarPosts: hideNSFW ? filterNSFW(similar) : similar,
+    };
+  }, [allPosts, query, hideNSFW]);
 
   useEffect(() => {
     if (abortController.current) {
@@ -115,7 +145,6 @@ const SearchResults = ({route}: Props): React.ReactElement => {
     }
     abortController.current = new AbortController();
     const signal = abortController.current.signal;
-    const query = route.params.filter;
 
     resultsRef.current = [];
     seenRef.current = new Set();
@@ -222,36 +251,67 @@ const SearchResults = ({route}: Props): React.ReactElement => {
     [navigation, provider?.value],
   );
 
-  const renderItem = useCallback(
-    ({item}: {item: Post}) => (
-      <MediaPosterCard
-        title={item.title}
-        poster={item.image}
-        width={cardWidth}
-        badge={getPostBadge(item)}
-        providerBadge={getProviderBadge(item)}
-        onPress={() => handleItemPress(item)}
-      />
-    ),
-    [handleItemPress, cardWidth],
-  );
-
   const keyExtractor = useCallback((item: Post, index: number) => `${item.link}-${index}`, []);
+
+  const totalVisible = exactPosts.length + similarPosts.length;
+
+  const renderGrid = (posts: Post[]) => (
+    <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 12}}>
+      {posts.map((item, index) => (
+        <MediaPosterCard
+          key={keyExtractor(item, index)}
+          title={item.title}
+          poster={item.image}
+          width={cardWidth}
+          badge={getPostBadge(item)}
+          providerBadge={getProviderBadge(item)}
+          onPress={() => handleItemPress(item)}
+        />
+      ))}
+    </View>
+  );
 
   return (
     <SafeAreaView className="h-full w-full bg-m3-background">
-      <View className="mt-6 px-4 flex flex-row justify-between items-center gap-x-3">
-        <AppText
-          style={{color: colors.onBackground, flex: 1, fontSize: 18, fontWeight: '600', letterSpacing: 0.15}}>
-          {loading ? 'Searching for' : 'Searched for'}{' '}
-          <AppText style={{color: colors.primary, fontSize: 18, fontWeight: '600'}}>
-            "{route?.params?.filter}"
+      <View className="mt-6 px-4">
+        <View className="flex flex-row justify-between items-center gap-x-3 mb-2">
+          <AppText
+            style={{color: colors.onBackground, flex: 1, fontSize: 18, fontWeight: '600', letterSpacing: 0.15}}>
+            {loading ? 'Searching for' : 'Searched for'}{' '}
+            <AppText style={{color: colors.primary, fontSize: 18, fontWeight: '600'}}>
+              "{route?.params?.filter}"
+            </AppText>
           </AppText>
-        </AppText>
+          {!loading && (
+            <AppText style={{color: colors.onSurfaceVariant, fontSize: 13}}>
+              {totalVisible} results
+            </AppText>
+          )}
+        </View>
         {!loading && (
-          <AppText style={{color: colors.onSurfaceVariant, fontSize: 13}}>
-            {allPosts.length} results
-          </AppText>
+          <Pressable
+            onPress={() => setHideNSFW(v => !v)}
+            style={({pressed}) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              alignSelf: 'flex-start',
+              backgroundColor: hideNSFW ? colors.primaryContainer : colors.surfaceContainerHigh,
+              borderRadius: 20,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              marginBottom: 8,
+              opacity: pressed ? 0.8 : 1,
+            })}>
+            <MaterialCommunityIcons
+              name={hideNSFW ? 'eye-off' : 'eye'}
+              size={16}
+              color={hideNSFW ? colors.onPrimaryContainer : colors.onSurfaceVariant}
+              style={{marginRight: 6}}
+            />
+            <AppText style={{fontSize: 13, color: hideNSFW ? colors.onPrimaryContainer : colors.onSurfaceVariant}}>
+              18+ {hideNSFW ? 'hidden' : 'shown'}
+            </AppText>
+          </Pressable>
         )}
         {loading && allPosts.length === 0 && (
           <View className="flex justify-center items-center h-20">
@@ -264,27 +324,33 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         <View className="flex-1 items-center justify-center">
           <LoadingIndicator size={40} />
         </View>
-      ) : allPosts.length === 0 ? (
+      ) : totalVisible === 0 ? (
         <View className="flex-1 items-center justify-center px-8">
           <AppText role="bodyLarge" style={{color: colors.onSurfaceVariant}}>
             No content found
           </AppText>
         </View>
       ) : (
-        <FlatList
-          data={allPosts}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          numColumns={3}
-          contentContainerStyle={{paddingHorizontal: 16, paddingTop: 12, paddingBottom: 64}}
-          columnWrapperStyle={{gap: 12, marginBottom: 12}}
-          showsVerticalScrollIndicator={false}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={18}
-          updateCellsBatchingPeriod={50}
-          windowSize={10}
-          initialNumToRender={18}
-        />
+        <ScrollView
+          contentContainerStyle={{paddingHorizontal: 16, paddingTop: 8, paddingBottom: 64}}
+          showsVerticalScrollIndicator={false}>
+          {exactPosts.length > 0 && (
+            <View style={{marginBottom: 16}}>
+              <AppText style={{fontSize: 15, fontWeight: '700', color: colors.onSurface, marginBottom: 10}}>
+                Results for "{query}"
+              </AppText>
+              {renderGrid(exactPosts)}
+            </View>
+          )}
+          {similarPosts.length > 0 && (
+            <View style={{marginBottom: 16}}>
+              <AppText style={{fontSize: 15, fontWeight: '700', color: colors.onSurface, marginBottom: 10}}>
+                Similar Results
+              </AppText>
+              {renderGrid(similarPosts)}
+            </View>
+          )}
+        </ScrollView>
       )}
     </SafeAreaView>
   );

@@ -156,6 +156,7 @@ const Search = () => {
   const [searchResults, setSearchResults] = useState<IMDbSuggestion[]>([]);
   const searchFieldRef = useRef<SearchFieldRef>(null);
   const focusAfterTabResetRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const tabNavigation =
@@ -195,10 +196,16 @@ const Search = () => {
 
   const debouncedSearch = useCallback(
     debounce(async (text: string) => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
       if (text.length >= 2) {
         const controller = new AbortController();
+        abortControllerRef.current = controller;
         const results = await fetchIMDbSuggestions(text, controller.signal);
-        setSearchResults(results.slice(0, MAX_VISIBLE_RESULTS));
+        if (!controller.signal.aborted) {
+          setSearchResults(results.slice(0, MAX_VISIBLE_RESULTS));
+        }
       } else {
         setSearchResults([]);
       }
@@ -210,6 +217,9 @@ const Search = () => {
     debouncedSearch(searchText);
     return () => {
       debouncedSearch.cancel();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     };
   }, [searchText, debouncedSearch]);
 

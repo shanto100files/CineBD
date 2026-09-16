@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, {useEffect, useState} from 'react';
-import {Image, TouchableOpacity, View} from 'react-native';
+import {TouchableOpacity, View} from 'react-native';
+import {Image} from 'expo-image';
 import Text from './ui/Text';
 
 type EpisodeRowContentProps = {
@@ -88,8 +89,9 @@ const EpisodeRowContent = ({
     <>
       {imageUri && !imageFailed ? (
         <Image
-          source={{uri: imageUri}}
-          resizeMode="cover"
+          source={imageUri}
+          contentFit="cover"
+          transition={200}
           onError={() => setImageFailed(true)}
           style={{borderRadius: 4, height: 56, width: 88}}
         />
