@@ -96,27 +96,20 @@ async function searchProvidersConcurrently(
   await Promise.allSettled(workers);
 }
 
-const NSFW_REGEX = /\b(porn|xxx|sex|nude|naked|erotic|adult|18\+|uncensored|hentai|leaked|mms|scandal|bf|gf|hot|sexy|desi\s*mms)\b/i;
+const NSFW_REGEX = /\b(porn|xxx|sex|nude|naked|erotic|adult|18\+|uncensored|hentai|leaked|mms|scandal|bf|gf|hot|sexy|desi\s*mms|dirty|lust|seduce|stepmom|stepsis|massage|creampie|blowjob|handjob|gangbang|threesome|milf|camgirl|onlyfans|playboy|penthouse)\b/i;
 
-function splitResults(posts: Post[], query: string): {exact: Post[]; similar: Post[]} {
-  if (!query.trim()) return {exact: posts, similar: []};
+function filterPosts(posts: Post[], query: string, hideNSFWFlag: boolean): Post[] {
   const q = query.toLowerCase().trim();
   const words = q.split(/\s+/).filter(Boolean);
-  const exact: Post[] = [];
-  const similar: Post[] = [];
-  for (const post of posts) {
-    const title = (post.title || '').toLowerCase();
+  return posts.filter(p => {
+    if (hideNSFWFlag && NSFW_REGEX.test(p.title)) return false;
+    if (!q) return true;
+    const title = (p.title || '').toLowerCase();
     const fullMatch = title.includes(q);
+    if (fullMatch) return true;
     const wordMatches = words.filter(w => w.length > 2 && title.includes(w)).length;
-    const closeToFull = wordMatches >= Math.ceil(words.length * 0.6);
-    if (fullMatch || closeToFull) exact.push(post);
-    else if (wordMatches > 0) similar.push(post);
-  }
-  return {exact, similar};
-}
-
-function filterNSFW(posts: Post[]): Post[] {
-  return posts.filter(p => !NSFW_REGEX.test(p.title));
+    return wordMatches >= Math.ceil(words.length * 0.6);
+  });
 }
 
 const SearchResults = ({route}: Props): React.ReactElement => {
@@ -132,16 +125,13 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   const seenRef = useRef<Set<string>>(new Set());
 
   const screenWidth = Dimensions.get('window').width;
-  const cardWidth = (screenWidth - 48) / 3;
+  const cardWidth = (screenWidth - 56) / 3;
   const query = route.params.filter;
 
-  const {exactPosts, similarPosts} = useMemo(() => {
-    const {exact, similar} = splitResults(allPosts, query);
-    return {
-      exactPosts: hideNSFW ? filterNSFW(exact) : exact,
-      similarPosts: hideNSFW ? filterNSFW(similar) : similar,
-    };
-  }, [allPosts, query, hideNSFW]);
+  const filteredPosts = useMemo(
+    () => filterPosts(allPosts, query, hideNSFW),
+    [allPosts, query, hideNSFW],
+  );
 
   useEffect(() => {
     if (abortController.current) {
@@ -257,7 +247,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
 
   const keyExtractor = useCallback((item: Post, index: number) => `${item.link}-${index}`, []);
 
-  const totalVisible = exactPosts.length + similarPosts.length;
+  const totalVisible = filteredPosts.length;
 
   const renderGrid = (posts: Post[]) => (
     <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 12}}>
@@ -317,11 +307,6 @@ const SearchResults = ({route}: Props): React.ReactElement => {
             </AppText>
           </Pressable>
         )}
-        {loading && allPosts.length === 0 && (
-          <View className="flex justify-center items-center h-20">
-            <LoadingIndicator size={32} />
-          </View>
-        )}
       </View>
 
       {loading && allPosts.length === 0 ? (
@@ -338,22 +323,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         <ScrollView
           contentContainerStyle={{paddingHorizontal: 16, paddingTop: 8, paddingBottom: 64}}
           showsVerticalScrollIndicator={false}>
-          {exactPosts.length > 0 && (
-            <View style={{marginBottom: 16}}>
-              <AppText style={{fontSize: 15, fontWeight: '700', color: colors.onSurface, marginBottom: 10}}>
-                Results for "{query}"
-              </AppText>
-              {renderGrid(exactPosts)}
-            </View>
-          )}
-          {similarPosts.length > 0 && (
-            <View style={{marginBottom: 16}}>
-              <AppText style={{fontSize: 15, fontWeight: '700', color: colors.onSurface, marginBottom: 10}}>
-                Similar Results
-              </AppText>
-              {renderGrid(similarPosts)}
-            </View>
-          )}
+          {renderGrid(filteredPosts)}
         </ScrollView>
       )}
     </SafeAreaView>
