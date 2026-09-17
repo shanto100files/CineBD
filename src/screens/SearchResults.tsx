@@ -1,4 +1,4 @@
-import {SafeAreaView, View, ScrollView, Dimensions, Pressable} from 'react-native';
+import {SafeAreaView, View, ScrollView, Dimensions} from 'react-native';
 import MediaPosterCard from '../components/MediaPosterCard';
 import React, {useEffect, useState, useRef, useCallback, useMemo} from 'react';
 import {NativeStackScreenProps, NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -119,7 +119,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   const provider = useContentStore(state => state.provider);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hideNSFW, setHideNSFW] = useState(true);
+  const [hideNSFW] = useState(true);
   const abortController = useRef<AbortController | null>(null);
   const resultsRef = useRef<Post[]>([]);
   const seenRef = useRef<Set<string>>(new Set());
@@ -282,31 +282,6 @@ const SearchResults = ({route}: Props): React.ReactElement => {
             </AppText>
           )}
         </View>
-        {!loading && (
-          <Pressable
-            onPress={() => setHideNSFW(v => !v)}
-            style={({pressed}) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              alignSelf: 'flex-start',
-              backgroundColor: hideNSFW ? colors.primaryContainer : colors.surfaceContainerHigh,
-              borderRadius: 20,
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              marginBottom: 8,
-              opacity: pressed ? 0.8 : 1,
-            })}>
-            <MaterialCommunityIcons
-              name={hideNSFW ? 'eye-off' : 'eye'}
-              size={16}
-              color={hideNSFW ? colors.onPrimaryContainer : colors.onSurfaceVariant}
-              style={{marginRight: 6}}
-            />
-            <AppText style={{fontSize: 13, color: hideNSFW ? colors.onPrimaryContainer : colors.onSurfaceVariant}}>
-              18+ {hideNSFW ? 'hidden' : 'shown'}
-            </AppText>
-          </Pressable>
-        )}
       </View>
 
       {loading && allPosts.length === 0 ? (
