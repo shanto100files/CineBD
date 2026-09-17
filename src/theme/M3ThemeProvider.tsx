@@ -1,7 +1,6 @@
 import React, {useMemo} from 'react';
 import {View} from 'react-native';
 import {vars} from 'nativewind';
-import {getMaterialColors} from '@expo/ui/jetpack-compose';
 import {M3_COLOR_ROLES, roleToCssVar} from './colors';
 import {
   createCoherentAccentRoles,
@@ -14,6 +13,32 @@ import useThemeStore from '../lib/zustand/themeStore';
 
 export const FIXED_THEME_PRIMARY = '#E4E4E4';
 
+let getMaterialColors: (opts: any) => any;
+try {
+  getMaterialColors = require('@expo/ui/jetpack-compose').getMaterialColors;
+} catch {
+  getMaterialColors = (_opts: any) => ({
+    primary: '#E4E4E4', onPrimary: '#000000', primaryContainer: '#333333',
+    onPrimaryContainer: '#E4E4E4', inversePrimary: '#6366F1', secondary: '#BB86FC',
+    onSecondary: '#000000', secondaryContainer: '#333333', onSecondaryContainer: '#E4E4E4',
+    tertiary: '#03DAC6', onTertiary: '#000000', tertiaryContainer: '#333333',
+    onTertiaryContainer: '#E4E4E4', background: '#000000', onBackground: '#F2F2F2',
+    surface: '#121212', onSurface: '#F2F2F2', surfaceVariant: '#1E1E1E',
+    onSurfaceVariant: '#C4C4C4', surfaceTint: '#E4E4E4', inverseSurface: '#F2F2F2',
+    inverseOnSurface: '#121212', error: '#CF6679', onError: '#000000',
+    errorContainer: '#333333', onErrorContainer: '#F2F2F2', outline: '#909090',
+    outlineVariant: '#454545', scrim: '#000000', surfaceBright: '#1A1A1A',
+    surfaceDim: '#0A0A0A', surfaceContainer: '#1A1A1A', surfaceContainerHigh: '#222222',
+    surfaceContainerHighest: '#2A2A2A', surfaceContainerLow: '#141414',
+    surfaceContainerLowest: '#080808', primaryFixed: '#6366F1', primaryFixedDim: '#4338CA',
+    onPrimaryFixed: '#E4E4E4', onPrimaryFixedVariant: '#C4C4C4',
+    secondaryFixed: '#BB86FC', secondaryFixedDim: '#9B59B6',
+    onSecondaryFixed: '#E4E4E4', onSecondaryFixedVariant: '#C4C4C4',
+    tertiaryFixed: '#03DAC6', tertiaryFixedDim: '#018786',
+    onTertiaryFixed: '#E4E4E4', onTertiaryFixedVariant: '#C4C4C4',
+  });
+}
+
 export const M3ThemeProvider = ({children}: {children: React.ReactNode}) => {
   const primary = useThemeStore(state => state.primary);
   const source = useThemeStore(state => state.source);
@@ -22,10 +47,16 @@ export const M3ThemeProvider = ({children}: {children: React.ReactNode}) => {
     primary.toUpperCase() === NETFLIX_SEED.toUpperCase();
 
   const palette = useMemo(() => {
-    const generatedPalette = getMaterialColors({
-      scheme: 'dark',
-      ...(source === 'custom' ? {seedColor: primary} : {}),
-    });
+    let generatedPalette: any;
+    try {
+      generatedPalette = getMaterialColors({
+        scheme: 'dark',
+        ...(source === 'custom' ? {seedColor: primary} : {}),
+      });
+    } catch (e) {
+      console.warn('[M3Theme] getMaterialColors failed, using fallback:', e);
+      generatedPalette = {};
+    }
     const customAccentRoles =
       source === 'custom' && primary.toUpperCase() === DEFAULT_SEED
         ? createCoherentAccentRoles(DEFAULT_SEED)

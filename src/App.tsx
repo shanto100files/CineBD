@@ -449,6 +449,8 @@ const App = () => {
     return () => clearInterval(interval);
   }, [appReady]);
 
+  const hideDownloadsTab = useNavigationPreferencesStore(state => state.hideDownloadsTab);
+
   // Hide native splash after React has mounted InitSplash
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
   const hideNativeSplash = useCallback(() => {
@@ -495,8 +497,6 @@ const App = () => {
   }
 
   const hasFirebase = Boolean(Constants?.expoConfig?.extra?.hasFirebase) && isFirebaseNativeReady();
-
-  const hideDownloadsTab = useNavigationPreferencesStore(state => state.hideDownloadsTab);
 
   const TabStack = React.memo(() => (
     <Tab.Navigator
