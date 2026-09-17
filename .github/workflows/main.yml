@@ -40,7 +40,7 @@ jobs:
         run: npm ci --include=dev
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -80,10 +80,6 @@ jobs:
           cd android
           if [ -f app/release.keystore ] && [ -s app/release.keystore ]; then
             echo "Building signed release APK..."
-            # Copy keystore to app folder where with-signing.gradle expects it if relative to android/app
-            # The with-signing script does file(envStoreFile) inside android/app context? 
-            # No, standard Gradle file() is relative to the project/module directory.
-            # with-signing.gradle is applied in app/build.gradle, so it's relative to android/app.
             ./gradlew assembleRelease \
               -Pandroid.injected.signing.store.file=$(realpath app/release.keystore) \
               -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
@@ -153,12 +149,12 @@ jobs:
           ls -la apks/
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: 'Custom Build v${{ env.APP_VERSION }} (${{ env.BUILD_DATE }})'
           body: |
-            > ⚠️ **CUSTOM BUILD** ⚠️  
+            > **CUSTOM BUILD**
             > This is a custom build, not official release.
 
             **Version:** v${{ env.APP_VERSION }}
