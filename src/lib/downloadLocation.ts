@@ -51,6 +51,7 @@ export const parseDownloadLocation = (
       return parsed;
     }
 
+    // Android uses SAF only — path type not supported without storage permission
     if (parsed.type === 'path' && parsed.path && Platform.OS !== 'android') {
       return {
         type: 'path',
@@ -140,6 +141,7 @@ export const validateDownloadLocationAccess = async (
       return true;
     }
     if (Platform.OS === 'android') {
+      // Android requires SAF — path type not supported without storage permission
       return false;
     }
     if (!(await RNFS.exists(location.path))) {

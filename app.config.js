@@ -103,7 +103,7 @@ module.exports = () => {
       autolinking: { exclude: ['expo-splash-screen', 'react-native-fullscreen-chz', 'react-native-worklets', 'react-native-reanimated'] },
       plugins,
       slug: 'vega',
-      version: '5.6.0',
+       version: '5.6.1',
       userInterfaceStyle: 'dark',
       experiments: {
         reactCompiler: true,

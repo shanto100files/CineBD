@@ -98,11 +98,10 @@ async function searchProvidersConcurrently(
 
 const NSFW_REGEX = /\b(porn|xxx|sex|nude|naked|erotic|adult|18\+|uncensored|hentai|leaked|mms|scandal|bf|gf|hot|sexy|desi\s*mms|dirty|lust|seduce|stepmom|stepsis|massage|creampie|blowjob|handjob|gangbang|threesome|milf|camgirl|onlyfans|playboy|penthouse)\b/i;
 
-function filterPosts(posts: Post[], query: string, hideNSFWFlag: boolean): Post[] {
+function filterPosts(posts: Post[], query: string): Post[] {
   const q = query.toLowerCase().trim();
   const words = q.split(/\s+/).filter(Boolean);
   return posts.filter(p => {
-    if (hideNSFWFlag && NSFW_REGEX.test(p.title)) return false;
     if (!q) return true;
     const title = (p.title || '').toLowerCase();
     const fullMatch = title.includes(q);
@@ -119,7 +118,6 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   const provider = useContentStore(state => state.provider);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hideNSFW] = useState(true);
   const abortController = useRef<AbortController | null>(null);
   const resultsRef = useRef<Post[]>([]);
   const seenRef = useRef<Set<string>>(new Set());
@@ -129,8 +127,8 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   const query = route.params.filter;
 
   const filteredPosts = useMemo(
-    () => filterPosts(allPosts, query, hideNSFW),
-    [allPosts, query, hideNSFW],
+    () => filterPosts(allPosts, query),
+    [allPosts, query],
   );
 
   useEffect(() => {
@@ -166,7 +164,6 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         return;
       }
 
-      setAllPosts([]);
       setLoading(true);
 
       const instantResults = await fetchInstantResults(query, signal);
@@ -288,6 +285,12 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         <View className="flex-1 items-center justify-center">
           <LoadingIndicator size={40} />
         </View>
+      ) : loading && allPosts.length > 0 ? (
+        <ScrollView
+          contentContainerStyle={{paddingHorizontal: 16, paddingTop: 8, paddingBottom: 64}}
+          showsVerticalScrollIndicator={false}>
+          {renderGrid(filteredPosts)}
+        </ScrollView>
       ) : totalVisible === 0 ? (
         <View className="flex-1 items-center justify-center px-8">
           <AppText role="bodyLarge" style={{color: colors.onSurfaceVariant}}>

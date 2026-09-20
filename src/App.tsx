@@ -26,7 +26,7 @@ import {enableFreeze, enableScreens} from 'react-native-screens';
 import Preferences from './screens/settings/Preference';
 import Appearance from './screens/settings/Appearance';
 import {M3ThemeProvider} from './theme/M3ThemeProvider';
-import {AppState, LogBox, useWindowDimensions, View, Image, Modal, Pressable, Text} from 'react-native';
+import {AppState, LogBox, useWindowDimensions, View, Image, Modal, Pressable, Text, Platform} from 'react-native';
 import {sendHeartbeat} from './lib/services/heartbeatService';
 import {initAnalytics, resumeAnalytics, pauseAnalytics, flushBatch, trackScreen} from './lib/services/analyticsService';
 import {EpisodeLink} from './lib/providers/types';
@@ -65,6 +65,12 @@ import {
 } from './lib/sync/syncService';
 import StreamingTabBar from './components/navigation/StreamingTabBar';
 import AppDialogHost from './components/AppDialogHost';
+import DownloadLocationDialog from './components/DownloadLocationDialog';
+import {
+  getDownloadLocationDisplayValue,
+  selectDownloadLocation,
+} from './lib/downloadLocation';
+import {settingsStorage} from './lib/storage';
 import {
   getAnalytics,
   getCrashlytics,
@@ -277,6 +283,8 @@ const App = () => {
   const [securityBlocked, setSecurityBlocked] = useState(false);
   const [appShutdown, setAppShutdown] = useState(false);
   const [shutdownMessage, setShutdownMessage] = useState('');
+  const [showDownloadSetup, setShowDownloadSetup] = useState(false);
+  const [isPickingFolder, setIsPickingFolder] = useState(false);
 
   LogBox.ignoreLogs([
     'You have passed a style to FlashList',
@@ -449,6 +457,32 @@ const App = () => {
     return () => clearInterval(interval);
   }, [appReady]);
 
+  // Check download location on app start — show setup dialog if not configured
+  useEffect(() => {
+    if (!appReady) return;
+    const config = settingsStorage.getDownloadLocationConfig();
+    if (!config && Platform.OS === 'android') {
+      // Small delay to let app fully render
+      const timer = setTimeout(() => setShowDownloadSetup(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [appReady]);
+
+  const handleSelectDownloadFolder = async () => {
+    setIsPickingFolder(true);
+    setShowDownloadSetup(false);
+    try {
+      const pickedLocation = await selectDownloadLocation();
+      if (pickedLocation) {
+        settingsStorage.setDownloadLocation(pickedLocation);
+      }
+    } catch (error) {
+      console.log('Error picking download folder:', error);
+    } finally {
+      setIsPickingFolder(false);
+    }
+  };
+
   const hideDownloadsTab = useNavigationPreferencesStore(state => state.hideDownloadsTab);
 
   // Hide native splash after React has mounted InitSplash
@@ -570,6 +604,13 @@ const App = () => {
       <SystemBars style="light" />
       <M3ThemeProvider>
         <AppDialogHost />
+        <DownloadLocationDialog
+          visible={showDownloadSetup}
+          primary=""
+          selecting={isPickingFolder}
+          onCancel={() => setShowDownloadSetup(false)}
+          onSelectFolder={handleSelectDownloadFolder}
+        />
         <GlobalErrorBoundary>
           <QueryClientProvider client={queryClient}>
             <View className="flex-1 bg-black">

@@ -18,13 +18,20 @@ const DownloadLocationDialog = ({
   return (
     <AppDialog
       visible={visible}
-      title="Select download location"
-      message="Choose the folder where Vega should save downloaded movies and episodes. Android will open its folder picker after you continue."
+      title="ডাউনলোড ফোল্ডার নির্বাচন করুন"
+      message={`📁 ডাউনলোড ফোল্ডার সেট করার নিয়ম:
+
+১. নিচের "ফোল্ডার নির্বাচন করুন" বাটনে ট্যাপ করুন
+২. অ্যান্ড্রয়েড ফোল্ডার পিকার খুলবে
+৩. "Downloads" ফোল্ডারে ট্যাপ করুন
+৪. উপরে ডানদিকে "এই ফোল্ডারে ব্যবহার করুন" (Use this folder) বাটনে ট্যাপ করুন
+
+এটি একবার মাত্র করতে হবে।`}
       primary=""
       actions={[
-        {label: 'Cancel'},
+        {label: 'বাতিল'},
         {
-          label: selecting ? 'Opening...' : 'Choose folder',
+          label: selecting ? 'খুলছে...' : 'ফোল্ডার নির্বাচন করুন',
           variant: 'primary',
           disabled: selecting,
           dismissOnPress: false,
