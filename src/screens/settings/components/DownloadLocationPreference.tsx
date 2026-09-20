@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {ToastAndroid, View} from 'react-native';
+import {ToastAndroid, View, Platform} from 'react-native';
 import {
   getDownloadLocationDisplayValue,
   selectDownloadLocation,

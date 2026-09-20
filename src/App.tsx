@@ -53,25 +53,6 @@ import WafWebViewDialog from './components/WafWebViewDialog';
 import ProviderSandboxHost from './components/ProviderSandboxHost';
 import {syncDohSettings} from './lib/services/dohService';
 import {
-  reconcileCompletedDownloadOutputs,
-  reconcileDownloadState,
-} from './lib/downloadReconciliation';
-import useDownloadsStore from './lib/zustand/downloadsStore';
-import useNavigationPreferencesStore from './lib/zustand/navigationPreferencesStore';
-import {
-  initializeSyncService,
-  publishSyncManifest,
-  syncFromSharedFolder,
-} from './lib/sync/syncService';
-import StreamingTabBar from './components/navigation/StreamingTabBar';
-import AppDialogHost from './components/AppDialogHost';
-import DownloadLocationDialog from './components/DownloadLocationDialog';
-import {
-  getDownloadLocationDisplayValue,
-  selectDownloadLocation,
-} from './lib/downloadLocation';
-import {settingsStorage} from './lib/storage';
-import {
   getAnalytics,
   getCrashlytics,
   isFirebaseNativeReady,
