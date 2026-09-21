@@ -13,7 +13,7 @@ import SkeletonLoader from '../components/Skeleton';
 import {providerManager} from '../lib/services/ProviderManager';
 import IconButton from '../components/ui/IconButton';
 import AppText from '../components/ui/Text';
-import {getPostBadge} from '../lib/utils/helpers';
+import {getPostBadge, getSeasonBadge} from '../lib/utils/helpers';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'ScrollList'>;
 
@@ -224,6 +224,7 @@ const ScrollList = ({route}: Props): React.ReactElement => {
             }
 
             const badge = getPostBadge(item);
+            const seasonBadge = getSeasonBadge(item);
 
             return (
               <TouchableOpacity
@@ -282,6 +283,33 @@ const ScrollList = ({route}: Props): React.ReactElement => {
                           includeFontPadding: false,
                         }}>
                         {badge}
+                      </AppText>
+                    </View>
+                  ) : null}
+                  {seasonBadge ? (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: badge ? 26 : 4,
+                        left: 4,
+                        backgroundColor: 'rgba(0,0,0,0.75)',
+                        borderRadius: 4,
+                        paddingHorizontal: 6,
+                        paddingVertical: 1,
+                        zIndex: 9,
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.25)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                      <AppText
+                        style={{
+                          color: '#FFFFFF',
+                          fontWeight: '900',
+                          fontSize: 9,
+                          includeFontPadding: false,
+                        }}>
+                        {seasonBadge}
                       </AppText>
                     </View>
                   ) : null}

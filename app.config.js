@@ -103,7 +103,7 @@ module.exports = () => {
       autolinking: { exclude: ['expo-splash-screen', 'react-native-fullscreen-chz', 'react-native-worklets', 'react-native-reanimated'] },
       plugins,
       slug: 'vega',
-       version: '5.6.1',
+       version: '5.6.2',
       userInterfaceStyle: 'dark',
       experiments: {
         reactCompiler: true,
@@ -114,7 +114,7 @@ module.exports = () => {
           : {}),
         minSdkVersion: 28,
         package: PACKAGE_NAME,
-        versionCode: 195,
+        versionCode: 196,
         permissions: [
           'FOREGROUND_SERVICE',
           'FOREGROUND_SERVICE_DATA_SYNC',
@@ -128,9 +128,13 @@ module.exports = () => {
           'android.permission.READ_EXTERNAL_STORAGE',
           'android.permission.READ_MEDIA_VIDEO',
           'android.permission.WRITE_EXTERNAL_STORAGE',
+          // Play Protect flags APKs requesting install rights / overlay / secure settings.
+          // Updates are delivered via the browser + package installer UI instead.
+          'android.permission.REQUEST_INSTALL_PACKAGES',
+          'android.permission.SYSTEM_ALERT_WINDOW',
+          'android.permission.WRITE_SETTINGS',
           ...(IS_PLAYSTORE
             ? [
-              'android.permission.REQUEST_INSTALL_PACKAGES',
               'com.google.android.gms.permission.AD_ID',
             ]
             : []),

@@ -11,6 +11,7 @@ interface MediaPosterCardProps {
   width: number;
   subtitle?: string;
   badge?: number | string;
+  seasonBadge?: string;
   providerBadge?: string;
   selected?: boolean;
   selectionMode?: boolean;
@@ -24,6 +25,7 @@ const MediaPosterCard = ({
   width,
   subtitle,
   badge,
+  seasonBadge,
   providerBadge,
   selected = false,
   selectionMode = false,
@@ -89,6 +91,35 @@ const MediaPosterCard = ({
                   includeFontPadding: false,
                 }}>
                 {badge}
+              </AppText>
+            </View>
+          ) : null}
+
+          {seasonBadge ? (
+            <View
+              style={{
+                position: 'absolute',
+                top: badge != null ? 32 : 6,
+                left: 6,
+                backgroundColor: 'rgba(0,0,0,0.75)',
+                borderRadius: 8,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                zIndex: 9,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.25)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <AppText
+                role="labelSmallEmphasized"
+                style={{
+                  color: '#FFFFFF',
+                  fontWeight: '900',
+                  fontSize: 10,
+                  includeFontPadding: false,
+                }}>
+                {seasonBadge}
               </AppText>
             </View>
           ) : null}

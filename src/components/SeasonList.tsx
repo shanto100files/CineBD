@@ -71,7 +71,10 @@ function detectEpisodeFromTitle(title: string): number | null {
   const patterns = [
     /(?:e|ep|episode)\s*(\d{1,4})/i,
     /\bE(\d{1,4})\b/i,
-    /[-–]\s*(\d{1,4})\b/,
+    // Bare `NNN` after a dash can only be an episode if it is NOT a file size
+    // (e.g. "720p - 1.1GB" must not match "1"), so require no `.`/digit right
+    // after and a size unit not following.
+    /[-–]\s*(\d{1,4})(?!\.?\d*\s*(?:GB|MB|KB|TB)\b)(?!\w)/,
   ];
   for (const p of patterns) {
     const m = title.match(p);
@@ -84,7 +87,9 @@ function detectEpisodeRange(title: string): string | null {
   const patterns = [
     /(?:e|ep|episode)\s*(\d{1,4})\s*[-–]\s*(\d{1,4})/i,
     /\bE(\d{1,4})\s*[-–]\s*(\d{1,4})\b/i,
-    /\b(\d{1,4})\s*[-–]\s*(\d{1,4})\b/,
+    // Same file-size guard as detectEpisodeFromTitle: "480p - 380MB" or
+    // "720p - 1.1GB" sizes must not be read as episode ranges.
+    /\b(\d{1,4})\s*[-–]\s*(\d{1,4})(?!\.?\d*\s*(?:GB|MB|KB|TB)\b)(?!\w)/,
   ];
   for (const p of patterns) {
     const m = title.match(p);

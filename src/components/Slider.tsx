@@ -10,7 +10,7 @@ import useContentStore from '../lib/zustand/contentStore';
 import SkeletonLoader from './Skeleton';
 import MediaPosterCard from './MediaPosterCard';
 import {useM3Colors} from '../theme/M3PaletteContext';
-import {getPostBadge, getProviderBadge} from '../lib/utils/helpers';
+import {getPostBadge, getSeasonBadge, getProviderBadge} from '../lib/utils/helpers';
 
 import AppText from './ui/Text';
 
@@ -70,6 +70,7 @@ const Slider = ({
         poster={item.image}
         width={124}
         badge={getPostBadge(item)}
+        seasonBadge={getSeasonBadge(item)}
         providerBadge={getProviderBadge(item)}
         onPress={() => handleItemPress(item)}
       />

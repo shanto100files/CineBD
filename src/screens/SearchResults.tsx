@@ -9,7 +9,7 @@ import AppText from '../components/ui/Text';
 import LoadingIndicator from '../components/ui/LoadingIndicator';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import {useNavigation} from '@react-navigation/native';
-import {getPostBadge, getProviderBadge} from '../lib/utils/helpers';
+import {getPostBadge, getSeasonBadge, getProviderBadge} from '../lib/utils/helpers';
 import {Post} from '../lib/providers/types';
 import {MMKV} from '../lib/Mmkv';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -255,6 +255,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
           poster={item.image}
           width={cardWidth}
           badge={getPostBadge(item)}
+          seasonBadge={getSeasonBadge(item)}
           providerBadge={getProviderBadge(item)}
           onPress={() => handleItemPress(item)}
         />

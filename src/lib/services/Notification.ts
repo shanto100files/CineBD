@@ -9,7 +9,7 @@ import notifee, {
 } from '@notifee/react-native';
 import {settingsStorage} from '../storage';
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import RNApkInstaller from '@himanshu8443/react-native-apk-installer';
+import * as Application from 'expo-application';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import type {DownloadSourceType} from '../zustand/downloadsStore';
@@ -72,7 +72,7 @@ class NotificationService {
       id,
       // The app launcher is an activity alias, so Notifee's `default`
       // resolution is not reliable. Launch the real activity explicitly.
-      launchActivity: `${RNApkInstaller.packageName}.MainActivity`,
+      launchActivity: `${Application.applicationId}.MainActivity`,
       launchActivityFlags: [
         AndroidLaunchActivityFlag.NEW_TASK,
         AndroidLaunchActivityFlag.CLEAR_TOP,
@@ -455,25 +455,14 @@ class NotificationService {
   }
 
   private async hasUnknownAppSourcesPermission(): Promise<boolean> {
-    const permission =
-      (await RNApkInstaller.haveUnknownAppSourcesPermission()) as unknown;
-    if (typeof permission === 'boolean') {
-      return permission;
-    }
-    return typeof permission === 'number' && permission < 26;
+    // Play Protect flags apps declaring REQUEST_INSTALL_PACKAGES. We no longer
+    // install APKs directly from the app; the Android package installer UI
+    // (launched via VIEW intent) asks for that consent itself.
+    return true;
   }
 
   private async requestUnknownAppSourcesPermission(): Promise<boolean> {
-    const packageName = RNApkInstaller.packageName;
-    if (!packageName) {
-      throw new Error('Unable to determine the Vega Android package name');
-    }
-
-    await IntentLauncher.startActivityAsync(
-      IntentLauncher.ActivityAction.MANAGE_UNKNOWN_APP_SOURCES,
-      {data: `package:${packageName}`},
-    );
-    return this.hasUnknownAppSourcesPermission();
+    return true;
   }
 
   private async launchApkInstaller(apkPath: string): Promise<void> {
