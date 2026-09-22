@@ -17,7 +17,7 @@ const QUALITY_PATTERNS: Array<[RegExp, string]> = [
   [/hevc|\b265\b/i, 'HEVC'],
   [/web-?dl|webdl|web\s*rip|webrip/i, 'WEB-DL'],
   [/bluray|blu-ray|\bbrrip\b/i, 'BluRay'],
-  [/\bhdr10?+\b/i, 'HDR'],
+  [/\bhdr\b|\bhdr10\b|\bhdr10\+\b/i, 'HDR'],
 ];
 
 const LANGUAGE_PATTERNS: Array<[RegExp, string]> = [
