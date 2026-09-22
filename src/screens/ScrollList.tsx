@@ -1,4 +1,4 @@
-import {View, TouchableOpacity, useWindowDimensions} from 'react-native';
+import {View, TouchableOpacity, Pressable, useWindowDimensions} from 'react-native';
 import React, {useEffect, useState, useRef} from 'react';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {HomeStackParamList, SearchStackParamList} from '../App';
@@ -10,6 +10,15 @@ import useContentStore from '../lib/zustand/contentStore';
 import {settingsStorage} from '../lib/storage';
 import {FlashList} from '@shopify/flash-list';
 import SkeletonLoader from '../components/Skeleton';
+import {MediaImage} from '../components/ui/MediaFallback';
+import FilterChipRow from '../components/ui/FilterChipRow';
+import {
+  extractTitleMeta,
+  getUniqueValues,
+  getUniqueYears,
+  sortPosts,
+  type SortMode,
+} from '../lib/utils/titleMetadata';
 import {providerManager} from '../lib/services/ProviderManager';
 import IconButton from '../components/ui/IconButton';
 import AppText from '../components/ui/Text';
@@ -41,6 +50,63 @@ const ScrollList = ({route}: Props): React.ReactElement => {
   const [viewType, setViewType] = useState<number>(
     settingsStorage.getListViewType(),
   );
+
+  // ---- client-side filters (title-derived metadata) ----
+  const [selQuality, setSelQuality] = useState<Set<string>>(new Set());
+  const [selLanguage, setSelLanguage] = useState<Set<string>>(new Set());
+  const [selYear, setSelYear] = useState<Set<string>>(new Set());
+  const [sortMode, setSortMode] = useState<SortMode>('relevance');
+
+  const availQuality = useMemo(() => getUniqueValues(posts, 'quality'), [posts]);
+  const availLanguage = useMemo(
+    () => getUniqueValues(posts, 'language'),
+    [posts],
+  );
+  const availYears = useMemo(() => getUniqueYears(posts), [posts]);
+
+  const filteredPosts = useMemo(() => {
+    let out = posts;
+    if (selQuality.size) {
+      out = out.filter(
+        p => extractTitleMeta(p).quality.some(q => selQuality.has(q)),
+      );
+    }
+    if (selLanguage.size) {
+      out = out.filter(
+        p => extractTitleMeta(p).language.some(l => selLanguage.has(l)),
+      );
+    }
+    if (selYear.size) {
+      out = out.filter(p => {
+        const y = extractTitleMeta(p).year;
+        return y ? selYear.has(y) : false;
+      });
+    }
+    return sortPosts(out, sortMode);
+  }, [
+    posts,
+    selQuality,
+    selLanguage,
+    selYear,
+    sortMode,
+  ]);
+
+  const toggleFrom = (
+    set: Set<string>,
+    setter: (s: Set<string>) => void,
+    key: string,
+  ) => {
+    const next = new Set(set);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    setter(next);
+  };
+
+  const hasActiveFilters =
+    selQuality.size > 0 || selLanguage.size > 0 || selYear.size > 0;
 
   // Derive the grid from the available width instead of hardcoding 3 columns.
   // With a fixed column count, wide screens stretch each cell far past the
@@ -149,8 +215,9 @@ const ScrollList = ({route}: Props): React.ReactElement => {
   const skeletons: ListItem[] = Array.from({
     length: viewType === 1 ? gridColumns * 3 : 6,
   }).map((_, i) => ({id: `skeleton-${i}`, isSkeleton: true}));
+  const shownPosts = hasActiveFilters || sortMode !== 'relevance' ? filteredPosts : posts;
   const listData: ListItem[] =
-    posts.length === 0 && isLoading ? skeletons : posts;
+    posts.length === 0 && isLoading ? skeletons : shownPosts;
 
   const renderSkeletonItem = () => (
     <View
@@ -201,6 +268,60 @@ const ScrollList = ({route}: Props): React.ReactElement => {
           }}
         />
       </View>
+      {posts.length > 0 ? (
+        <View>
+          <FilterChipRow
+            variant="sort"
+            chips={[
+              {key: 'relevance', label: 'Latest'},
+              {key: 'year', label: 'Year'},
+              {key: 'title', label: 'A-Z'},
+              {key: 'quality', label: 'Quality'},
+            ]}
+            selected={sortMode}
+            onToggle={k => setSortMode(k as SortMode)}
+          />
+          <FilterChipRow
+            chips={availQuality.map(q => ({key: q, label: q}))}
+            selected={selQuality}
+            onToggle={k => toggleFrom(selQuality, setSelQuality, k)}
+          />
+          {availLanguage.length > 0 ? (
+            <FilterChipRow
+              chips={availLanguage.map(l => ({key: l, label: l}))}
+              selected={selLanguage}
+              onToggle={k => toggleFrom(selLanguage, setSelLanguage, k)}
+            />
+          ) : null}
+          {availYears.length > 0 ? (
+            <FilterChipRow
+              chips={availYears.slice(0, 12).map(y => ({key: y, label: y}))}
+              selected={selYear}
+              onToggle={k => toggleFrom(selYear, setSelYear, k)}
+            />
+          ) : null}
+          {hasActiveFilters ? (
+            <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 4}}>
+              <AppText style={{color: '#A3A3A3', fontSize: 12, flex: 1}}>
+                Showing {shownPosts.length} of {posts.length}
+              </AppText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear all filters"
+                onPress={() => {
+                  setSelQuality(new Set());
+                  setSelLanguage(new Set());
+                  setSelYear(new Set());
+                }}
+                style={{paddingHorizontal: 8, paddingVertical: 4}}>
+                <AppText style={{color: '#E50914', fontSize: 12, fontWeight: '700'}}>
+                  Clear all
+                </AppText>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
       <View className="flex-1 w-full">
         <FlashList
           ListFooterComponent={
@@ -241,13 +362,10 @@ const ScrollList = ({route}: Props): React.ReactElement => {
                   })
                 }>
                 <View style={{position: 'relative'}}>
-                  <Image
+                  <MediaImage
                     className="rounded-md"
-                    source={{
-                      uri:
-                        item.image ||
-                        'https://placehold.jp/24/363636/ffffff/100x150.png?text=Vega',
-                    }}
+                    uri={item.image}
+                    title={item.title || 'Cinepix'}
                     style={
                       viewType === 1
                         ? {width: gridPosterWidth, height: gridPosterHeight}

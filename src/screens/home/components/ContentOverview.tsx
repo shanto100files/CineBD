@@ -5,6 +5,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import {useM3Colors} from '../../../theme/M3PaletteContext';
 import SkeletonLoader from '../../../components/Skeleton';
 import AppText from '../../../components/ui/Text';
+import {MediaFallback} from '../../../components/ui/MediaFallback';
 
 interface ContentOverviewProps {
   backgroundImage: string;
@@ -167,16 +168,29 @@ const ContentOverview = ({
           overflow: 'hidden',
           width: '100%',
         }}>
-        <Image
-          source={{uri: backgroundImage}}
-          resizeMode="cover"
-          style={{
-            height: 340,
-            position: 'absolute',
-            top: 0,
-            width: '100%',
-          }}
-        />
+        {backgroundImage ? (
+          <Image
+            source={{uri: backgroundImage}}
+            resizeMode="cover"
+            style={{
+              height: 340,
+              position: 'absolute',
+              top: 0,
+              width: '100%',
+            }}
+          />
+        ) : (
+          <MediaFallback
+            title={title || 'Cinepix'}
+            variant="backdrop"
+            style={{
+              height: 340,
+              position: 'absolute',
+              top: 0,
+              width: '100%',
+            }}
+          />
+        )}
         <LinearGradient
           colors={['rgba(0,0,0,0.12)', 'rgba(0,0,0,0.1)', colors.background]}
           locations={[0, 0.58, 1]}

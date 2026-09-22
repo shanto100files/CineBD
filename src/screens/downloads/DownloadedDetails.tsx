@@ -17,6 +17,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import type { DownloadsStackParamList, RootStackParamList } from '../../App';
 import AppDialog from '../../components/AppDialog';
 import DropdownField from '../../components/ui/DropdownField';
+import { MediaFallback } from '../../components/ui/MediaFallback';
 import {
   deleteDownloadOutput,
   downloadOutputExists,
@@ -232,20 +233,25 @@ const DownloadedDetails = ({ navigation, route }: DownloadedDetailsProps) => {
     }
   };
 
-  const backgroundImage =
-    metadata.background ||
-    metadata.poster ||
-    'https://placehold.jp/24/171717/ffffff/800x450.png?text=Vega';
+  const backgroundImage = metadata.background || metadata.poster || '';
 
   return (
     <View className="h-full w-full bg-black">
       <StatusBar translucent backgroundColor="transparent" />
       <View className="absolute h-[340px] w-full">
-        <Image
-          source={{ uri: backgroundImage }}
-          className="h-[340px] w-full"
-          resizeMode="cover"
-        />
+        {backgroundImage ? (
+          <Image
+            source={{ uri: backgroundImage }}
+            className="h-[340px] w-full"
+            resizeMode="cover"
+          />
+        ) : (
+          <MediaFallback
+            title={metadata.title || 'Cinepix'}
+            variant="backdrop"
+            style={{height: 340, width: '100%'}}
+          />
+        )}
       </View>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="relative h-[340px] w-full">

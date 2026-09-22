@@ -108,13 +108,14 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
     meta?.poster ||
     route.params.poster ||
     info?.image ||
-    'https://placehold.jp/24/363636/ffffff/500x750.png?text=Vega';
+    '';
   const accentBackground =
     meta?.background || info?.image || route.params.poster;
   const backgroundImage =
     meta?.background ||
     info?.image ||
-    'https://placehold.jp/24/363636/ffffff/900x1200.png?text=Vega';
+    route.params.poster ||
+    '';
 
   useEffect(() => {
     if (!dynamicInfoAccentEnabled) {
