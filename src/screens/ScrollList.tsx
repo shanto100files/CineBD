@@ -14,6 +14,7 @@ import {MediaImage} from '../components/ui/MediaFallback';
 import FilterChipRow from '../components/ui/FilterChipRow';
 import {
   extractTitleMeta,
+  getUniqueSeasons,
   getUniqueValues,
   getUniqueYears,
   sortPosts,
@@ -55,7 +56,9 @@ const ScrollList = ({route}: Props): React.ReactElement => {
   const [selQuality, setSelQuality] = useState<Set<string>>(new Set());
   const [selLanguage, setSelLanguage] = useState<Set<string>>(new Set());
   const [selYear, setSelYear] = useState<Set<string>>(new Set());
+  const [selSeason, setSelSeason] = useState<Set<string>>(new Set());
   const [sortMode, setSortMode] = useState<SortMode>('relevance');
+  const [showFilters, setShowFilters] = useState(true);
 
   const availQuality = useMemo(() => getUniqueValues(posts, 'quality'), [posts]);
   const availLanguage = useMemo(
@@ -63,6 +66,7 @@ const ScrollList = ({route}: Props): React.ReactElement => {
     [posts],
   );
   const availYears = useMemo(() => getUniqueYears(posts), [posts]);
+  const availSeasons = useMemo(() => getUniqueSeasons(posts), [posts]);
 
   const filteredPosts = useMemo(() => {
     let out = posts;
@@ -82,12 +86,18 @@ const ScrollList = ({route}: Props): React.ReactElement => {
         return y ? selYear.has(y) : false;
       });
     }
+    if (selSeason.size) {
+      out = out.filter(p =>
+        getUniqueSeasons([p]).some(s => selSeason.has(s)),
+      );
+    }
     return sortPosts(out, sortMode);
   }, [
     posts,
     selQuality,
     selLanguage,
     selYear,
+    selSeason,
     sortMode,
   ]);
 
@@ -106,7 +116,10 @@ const ScrollList = ({route}: Props): React.ReactElement => {
   };
 
   const hasActiveFilters =
-    selQuality.size > 0 || selLanguage.size > 0 || selYear.size > 0;
+    selQuality.size > 0 ||
+    selLanguage.size > 0 ||
+    selYear.size > 0 ||
+    selSeason.size > 0;
 
   // Derive the grid from the available width instead of hardcoding 3 columns.
   // With a fixed column count, wide screens stretch each cell far past the
@@ -250,6 +263,75 @@ const ScrollList = ({route}: Props): React.ReactElement => {
     </View>
   );
 
+    const renderFilterHeader = () => (
+      <View>
+        <FilterChipRow
+          variant="sort"
+          chips={[
+            {key: 'relevance', label: 'Latest'},
+            {key: 'year', label: 'Year'},
+            {key: 'title', label: 'A-Z'},
+            {key: 'quality', label: 'Quality'},
+          ]}
+          selected={sortMode}
+          onToggle={k => setSortMode(k as SortMode)}
+        />
+        {availSeasons.length > 0 ? (
+          <FilterChipRow
+            chips={availSeasons.map(s => ({key: s, label: s}))}
+            selected={selSeason}
+            onToggle={k => toggleFrom(selSeason, setSelSeason, k)}
+          />
+        ) : null}
+        <FilterChipRow
+          chips={availQuality.map(q => ({key: q, label: q}))}
+          selected={selQuality}
+          onToggle={k => toggleFrom(selQuality, setSelQuality, k)}
+        />
+        {availLanguage.length > 0 ? (
+          <FilterChipRow
+            chips={availLanguage.map(l => ({key: l, label: l}))}
+            selected={selLanguage}
+            onToggle={k => toggleFrom(selLanguage, setSelLanguage, k)}
+          />
+        ) : null}
+        {availYears.length > 0 ? (
+          <FilterChipRow
+            chips={availYears.slice(0, 12).map(y => ({key: y, label: y}))}
+            selected={selYear}
+            onToggle={k => toggleFrom(selYear, setSelYear, k)}
+          />
+        ) : null}
+        {hasActiveFilters ? (
+          <View
+            style={{
+              alignItems: 'center',
+              flexDirection: 'row',
+              paddingHorizontal: 16,
+              paddingVertical: 4,
+            }}>
+            <AppText style={{color: '#A3A3A3', flex: 1, fontSize: 12}}>
+              Showing {shownPosts.length} of {posts.length}
+            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear all filters"
+              onPress={() => {
+                setSelQuality(new Set());
+                setSelLanguage(new Set());
+                setSelYear(new Set());
+                setSelSeason(new Set());
+              }}
+              style={{paddingHorizontal: 8, paddingVertical: 4}}>
+              <AppText style={{color: '#E50914', fontSize: 12, fontWeight: '700'}}>
+                Clear all
+              </AppText>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+    );
+
   return (
     <View className="h-full w-full bg-m3-background p-4">
       <View className="w-full px-4 font-semibold my-6 flex-row justify-between items-center">
@@ -267,63 +349,15 @@ const ScrollList = ({route}: Props): React.ReactElement => {
             settingsStorage.setListViewType(newViewType);
           }}
         />
+        <IconButton
+          icon="tune"
+          label={showFilters ? 'Hide filters' : 'Show filters'}
+          onPress={() => setShowFilters(v => !v)}
+        />
       </View>
-      {posts.length > 0 ? (
-        <View>
-          <FilterChipRow
-            variant="sort"
-            chips={[
-              {key: 'relevance', label: 'Latest'},
-              {key: 'year', label: 'Year'},
-              {key: 'title', label: 'A-Z'},
-              {key: 'quality', label: 'Quality'},
-            ]}
-            selected={sortMode}
-            onToggle={k => setSortMode(k as SortMode)}
-          />
-          <FilterChipRow
-            chips={availQuality.map(q => ({key: q, label: q}))}
-            selected={selQuality}
-            onToggle={k => toggleFrom(selQuality, setSelQuality, k)}
-          />
-          {availLanguage.length > 0 ? (
-            <FilterChipRow
-              chips={availLanguage.map(l => ({key: l, label: l}))}
-              selected={selLanguage}
-              onToggle={k => toggleFrom(selLanguage, setSelLanguage, k)}
-            />
-          ) : null}
-          {availYears.length > 0 ? (
-            <FilterChipRow
-              chips={availYears.slice(0, 12).map(y => ({key: y, label: y}))}
-              selected={selYear}
-              onToggle={k => toggleFrom(selYear, setSelYear, k)}
-            />
-          ) : null}
-          {hasActiveFilters ? (
-            <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 4}}>
-              <AppText style={{color: '#A3A3A3', fontSize: 12, flex: 1}}>
-                Showing {shownPosts.length} of {posts.length}
-              </AppText>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Clear all filters"
-                onPress={() => {
-                  setSelQuality(new Set());
-                  setSelLanguage(new Set());
-                  setSelYear(new Set());
-                }}
-                style={{paddingHorizontal: 8, paddingVertical: 4}}>
-                <AppText style={{color: '#E50914', fontSize: 12, fontWeight: '700'}}>
-                  Clear all
-                </AppText>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
       <View className="flex-1 w-full">
         <FlashList
+          ListHeaderComponent={posts.length > 0 ? renderFilterHeader : null}
           ListFooterComponent={
             <View className={posts.length > 0 && isLoading ? 'mb-16' : ''}>
               {posts.length > 0 && isLoading

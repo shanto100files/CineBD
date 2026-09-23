@@ -1,4 +1,5 @@
 import {Post} from '../../lib/providers/types';
+import {getSeasonBadge} from './helpers';
 
 export interface TitleMeta {
   quality: string[];
@@ -119,4 +120,19 @@ export function sortPosts(posts: Post[], mode: SortMode): Post[] {
     default:
       return arr;
   }
+}
+
+/**
+ * Unique season badges (S01, S02, S01-S04...) across posts, in label order.
+ * Reuses getSeasonBadge so filtering matches exactly what cards display.
+ */
+export function getUniqueSeasons(posts: Post[]): string[] {
+  const set = new Set<string>();
+  for (const p of posts) {
+    const s = getSeasonBadge(p);
+    if (s) {
+      set.add(s);
+    }
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
 }

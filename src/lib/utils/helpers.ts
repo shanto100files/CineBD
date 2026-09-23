@@ -145,6 +145,9 @@ export function getPostBadge(post: Post): string | undefined {
 
   if (providerName.includes('4khdhub')) return '4K';
 
+  // 4K/UHD is the strongest selling point — show it over language.
+  if (/\b4k\b|\b2160p\b|\b2160\b|\buhd\b/i.test(title)) return '4K';
+
   // Primary (top) badge: language wins for series titles, then quality/4K.
   // Season info is NOT decided here - see getSeasonBadge (rendered below).
   if (/\[Hindi\]|\bHindi\b/i.test(title)) return 'Hindi';
@@ -153,8 +156,6 @@ export function getPostBadge(post: Post): string | undefined {
   if (/\[Bengali\]|\bBengali\b/i.test(title)) return 'Bengali';
   if (/\[English\]|\bEnglish\b/i.test(title)) return 'English';
   if (/\[Dual\]|\bDual\b/i.test(title)) return 'Dual';
-
-  if (/\b4k\b|\b2160p\b/i.test(title)) return '4K';
 
   if (post.episodeCount) {
     return `Ep ${post.episodeCount}`;

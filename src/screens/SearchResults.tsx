@@ -10,6 +10,7 @@ import LoadingIndicator from '../components/ui/LoadingIndicator';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import {useNavigation} from '@react-navigation/native';
 import {getPostBadge, getSeasonBadge, getProviderBadge} from '../lib/utils/helpers';
+import {getUniqueSeasons} from '../lib/utils/titleMetadata';
 import {Post} from '../lib/providers/types';
 import {MMKV} from '../lib/Mmkv';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -130,7 +131,9 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   const [selQuality, setSelQuality] = useState<Set<string>>(new Set());
   const [selLanguage, setSelLanguage] = useState<Set<string>>(new Set());
   const [selYear, setSelYear] = useState<Set<string>>(new Set());
+  const [selSeason, setSelSeason] = useState<Set<string>>(new Set());
   const [sortMode, setSortMode] = useState<SortMode>('relevance');
+  const [showFilters, setShowFilters] = useState(true);
   const [deepPages, setDeepPages] = useState<Record<string, number>>({});
   const [deepLoading, setDeepLoading] = useState(false);
   const abortController = useRef<AbortController | null>(null);
@@ -166,6 +169,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
     [baseFiltered],
   );
   const availYears = useMemo(() => getUniqueYears(baseFiltered), [baseFiltered]);
+  const availSeasons = useMemo(() => getUniqueSeasons(baseFiltered), [baseFiltered]);
 
   const filteredPosts = useMemo(() => {
     let out = baseFiltered;
@@ -184,6 +188,9 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         return y ? selYear.has(y) : false;
       });
     }
+    if (selSeason.size) {
+      out = out.filter(p => getUniqueSeasons([p]).some(s => selSeason.has(s)));
+    }
     return sortPosts(out, sortMode);
   }, [
     baseFiltered,
@@ -191,6 +198,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
     selQuality,
     selLanguage,
     selYear,
+    selSeason,
     sortMode,
   ]);
 
@@ -198,7 +206,8 @@ const SearchResults = ({route}: Props): React.ReactElement => {
     selProvider !== 'all' ||
     selQuality.size > 0 ||
     selLanguage.size > 0 ||
-    selYear.size > 0;
+    selYear.size > 0 ||
+    selSeason.size > 0;
 
   const toggleFrom = (
     set: Set<string>,
@@ -267,6 +276,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
     setSelQuality(new Set());
     setSelLanguage(new Set());
     setSelYear(new Set());
+    setSelSeason(new Set());
     setSortMode('relevance');
   };
 
@@ -402,6 +412,88 @@ const SearchResults = ({route}: Props): React.ReactElement => {
     </View>
   );
 
+  const renderFilterHeader = () =>
+    showFilters ? (
+      <View>
+        {providerCounts.size > 1 ? (
+          <FilterChipRow
+            chips={[
+              {key: 'all', label: 'All', count: baseFiltered.length},
+              ...Array.from(providerCounts.entries()).map(([k, v]) => ({
+                key: k,
+                label: getProviderBadge({provider: k} as Post) || k,
+                count: v,
+              })),
+            ]}
+            selected={selProvider}
+            onToggle={k => setSelProvider(k)}
+            variant="sort"
+          />
+        ) : null}
+        <FilterChipRow
+          variant="sort"
+          chips={[
+            {key: 'relevance', label: 'Best match'},
+            {key: 'year', label: 'Year'},
+            {key: 'title', label: 'A-Z'},
+            {key: 'quality', label: 'Quality'},
+          ]}
+          selected={sortMode}
+          onToggle={k => setSortMode(k as SortMode)}
+        />
+        {availSeasons.length > 0 ? (
+          <FilterChipRow
+            chips={availSeasons.map(s => ({key: s, label: s}))}
+            selected={selSeason}
+            onToggle={k => toggleFrom(selSeason, setSelSeason, k)}
+          />
+        ) : null}
+        {availQuality.length > 0 ? (
+          <FilterChipRow
+            chips={availQuality.map(q => ({key: q, label: q}))}
+            selected={selQuality}
+            onToggle={k => toggleFrom(selQuality, setSelQuality, k)}
+          />
+        ) : null}
+        {availLanguage.length > 0 ? (
+          <FilterChipRow
+            chips={availLanguage.map(l => ({key: l, label: l}))}
+            selected={selLanguage}
+            onToggle={k => toggleFrom(selLanguage, setSelLanguage, k)}
+          />
+        ) : null}
+        {availYears.length > 0 ? (
+          <FilterChipRow
+            chips={availYears.slice(0, 12).map(y => ({key: y, label: y}))}
+            selected={selYear}
+            onToggle={k => toggleFrom(selYear, setSelYear, k)}
+          />
+        ) : null}
+        {hasActiveFilters ? (
+          <View
+            style={{
+              alignItems: 'center',
+              flexDirection: 'row',
+              paddingHorizontal: 16,
+              paddingVertical: 4,
+            }}>
+            <AppText style={{color: colors.onSurfaceVariant, flex: 1, fontSize: 12}}>
+              Showing {filteredPosts.length} of {baseFiltered.length}
+            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear all filters"
+              onPress={clearAllFilters}
+              style={{paddingHorizontal: 8, paddingVertical: 4}}>
+              <AppText style={{color: colors.primary, fontSize: 12, fontWeight: '700'}}>
+                Clear all
+              </AppText>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+    ) : null;
+
   return (
     <SafeAreaView className="h-full w-full bg-m3-background">
       <View className="mt-6 px-4">
@@ -414,80 +506,23 @@ const SearchResults = ({route}: Props): React.ReactElement => {
             </AppText>
           </AppText>
           {!loading && (
-            <AppText style={{color: colors.onSurfaceVariant, fontSize: 13}}>
-              {totalVisible} results
-            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={showFilters ? 'Hide filters' : 'Show filters'}
+              onPress={() => setShowFilters(v => !v)}
+              style={{alignItems: 'center', flexDirection: 'row', gap: 2}}>
+              <AppText style={{color: colors.onSurfaceVariant, fontSize: 13}}>
+                {showFilters ? 'Hide filters' : 'Filters'}
+              </AppText>
+              <MaterialCommunityIcons
+                name={showFilters ? 'chevron-up' : 'tune'}
+                size={14}
+                color={colors.onSurfaceVariant}
+              />
+            </Pressable>
           )}
         </View>
       </View>
-
-      {baseFiltered.length > 0 ? (
-        <View>
-          {providerCounts.size > 1 ? (
-            <FilterChipRow
-              chips={[
-                {key: 'all', label: 'All', count: baseFiltered.length},
-                ...Array.from(providerCounts.entries()).map(([k, v]) => ({
-                  key: k,
-                  label: getProviderBadge({provider: k} as Post) || k,
-                  count: v,
-                })),
-              ]}
-              selected={selProvider}
-              onToggle={k => setSelProvider(k)}
-              variant="sort"
-            />
-          ) : null}
-          <FilterChipRow
-            variant="sort"
-            chips={[
-              {key: 'relevance', label: 'Best match'},
-              {key: 'year', label: 'Year'},
-              {key: 'title', label: 'A-Z'},
-              {key: 'quality', label: 'Quality'},
-            ]}
-            selected={sortMode}
-            onToggle={k => setSortMode(k as SortMode)}
-          />
-          {availQuality.length > 0 ? (
-            <FilterChipRow
-              chips={availQuality.map(q => ({key: q, label: q}))}
-              selected={selQuality}
-              onToggle={k => toggleFrom(selQuality, setSelQuality, k)}
-            />
-          ) : null}
-          {availLanguage.length > 0 ? (
-            <FilterChipRow
-              chips={availLanguage.map(l => ({key: l, label: l}))}
-              selected={selLanguage}
-              onToggle={k => toggleFrom(selLanguage, setSelLanguage, k)}
-            />
-          ) : null}
-          {availYears.length > 0 ? (
-            <FilterChipRow
-              chips={availYears.slice(0, 12).map(y => ({key: y, label: y}))}
-              selected={selYear}
-              onToggle={k => toggleFrom(selYear, setSelYear, k)}
-            />
-          ) : null}
-          {hasActiveFilters ? (
-            <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 4}}>
-              <AppText style={{color: colors.onSurfaceVariant, fontSize: 12, flex: 1}}>
-                Showing {filteredPosts.length} of {baseFiltered.length}
-              </AppText>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Clear all filters"
-                onPress={clearAllFilters}
-                style={{paddingHorizontal: 8, paddingVertical: 4}}>
-                <AppText style={{color: colors.primary, fontSize: 12, fontWeight: '700'}}>
-                  Clear all
-                </AppText>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
 
       {loading && allPosts.length === 0 ? (
         <View className="flex-1 items-center justify-center">
@@ -497,6 +532,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         <ScrollView
           contentContainerStyle={{paddingHorizontal: 16, paddingTop: 8, paddingBottom: 64}}
           showsVerticalScrollIndicator={false}>
+          {baseFiltered.length > 0 ? renderFilterHeader() : null}
           {renderGrid(filteredPosts)}
         </ScrollView>
       ) : totalVisible === 0 ? (
@@ -509,6 +545,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         <ScrollView
           contentContainerStyle={{paddingHorizontal: 16, paddingTop: 8, paddingBottom: 64}}
           showsVerticalScrollIndicator={false}>
+          {baseFiltered.length > 0 ? renderFilterHeader() : null}
           {renderGrid(filteredPosts)}
           {!loading && filteredPosts.length > 0 ? (
             <Pressable
