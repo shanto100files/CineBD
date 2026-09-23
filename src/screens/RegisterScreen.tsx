@@ -24,13 +24,20 @@ export default function RegisterScreen({navigation}: any) {
     setLoading(false);
     if (result.success) {
       ToastAndroid.show('Registration successful!', ToastAndroid.SHORT);
-      // Reset stack to [Settings, Profile]: lands on Profile, back → Settings.
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 1,
-          routes: [{name: 'Settings'}, {name: 'Profile'}],
-        }),
-      );
+      // 1) Navigate now while this screen is still mounted.
+      navigation.navigate('Profile');
+      // 2) Belt-and-braces reset only if the navigate didn't take effect.
+      setTimeout(() => {
+        const current = navigation.getParent()?.getState()?.routes.at(-1)?.name;
+        if (current !== 'Profile') {
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 1,
+              routes: [{name: 'Settings'}, {name: 'Profile'}],
+            }),
+          );
+        }
+      }, 400);
     } else {
       setError(result.error || 'Registration failed');
     }

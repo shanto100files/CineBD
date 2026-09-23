@@ -23,15 +23,23 @@ export default function LoginScreen({navigation}: any) {
     setLoading(false);
     if (result.success) {
       ToastAndroid.show('Login successful!', ToastAndroid.SHORT);
-      // Reset the whole Settings stack to [Settings, Profile]: lands on
-      // Profile, and back returns to Settings regardless of any stale
-      // navigator state. Works even where plain replace() silently no-ops.
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 1,
-          routes: [{name: 'Settings'}, {name: 'Profile'}],
-        }),
-      );
+      // 1) Navigate now — this screen is still mounted, so the call always
+      // reaches a live navigator.
+      navigation.navigate('Profile');
+      // 2) Belt-and-braces: if a navigator bug left us on Login anyway
+      //    (some react-native-screens versions no-op navigate from a
+      //    screen mid-freeze), rebuild the stack deterministically.
+      setTimeout(() => {
+        const current = navigation.getParent()?.getState()?.routes.at(-1)?.name;
+        if (current !== 'Profile') {
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 1,
+              routes: [{name: 'Settings'}, {name: 'Profile'}],
+            }),
+          );
+        }
+      }, 400);
     } else {
       setError(result.error || 'Login failed');
     }
