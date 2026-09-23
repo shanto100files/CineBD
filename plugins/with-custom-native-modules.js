@@ -44,8 +44,16 @@ function withCustomNativeModules(config) {
         const files = fs.readdirSync(sourceDir);
         for (const file of files) {
           if (file.endsWith('.kt')) {
-            const sourceFile = path.join(sourceDir, file);
+            // Torrent sources need libtorrent4j/nanohttpd deps — skip when excluded.
             const targetFile = path.join(targetDir, file);
+            if (!includeTorrent && /torrent/i.test(file)) {
+              if (fs.existsSync(targetFile)) {
+                fs.rmSync(targetFile);
+              }
+              continue;
+            }
+
+            const sourceFile = path.join(sourceDir, file);
 
             // Read the file and update the package name
             let content = fs.readFileSync(sourceFile, 'utf8');
