@@ -18,6 +18,63 @@ export type DownloadLocationConfig = PathDownloadLocation | SafDownloadLocation;
 
 const DOWNLOAD_LOCATION_PREFIX = 'download-location:';
 
+export const AUTO_DOWNLOAD_DIRNAME = 'CineBD';
+
+const httpDownloadModule = NativeModules.HttpDownloadModule as
+  | {
+      getStoragePermissionStatus?: () => Promise<boolean>;
+      requestAllFilesAccess?: () => Promise<boolean>;
+      moveToPublicStorage?: (
+        fromPath: string,
+        toPath: string,
+      ) => Promise<string>;
+    }
+  | undefined;
+
+export const hasAllFilesAccess = async (): Promise<boolean> => {
+  try {
+    const granted = await httpDownloadModule?.getStoragePermissionStatus?.();
+    return granted === true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * One-time gate for fully automatic downloads: with "All files access"
+ * enabled the app writes straight into a public Download/CineBD folder —
+ * no SAF picker at all. Returns false when the settings page was opened
+ * and the user still has to flip the toggle.
+ */
+export const requestAllFilesAccess = async (): Promise<boolean> => {
+  if (!(await hasAllFilesAccess())) {
+    await httpDownloadModule?.requestAllFilesAccess?.();
+    return false;
+  }
+  return true;
+};
+
+/** Absolute path of the auto-managed public download folder (best effort). */
+export const getAutoDownloadDir = async (): Promise<string> => {
+  const candidates = [
+    RNFS.DownloadDirectoryPath,
+    `${RNFS.ExternalStorageDirectoryPath}/Download`,
+  ].filter(Boolean);
+  for (const downloadRoot of candidates) {
+    try {
+      const target = `${downloadRoot}/${AUTO_DOWNLOAD_DIRNAME}`;
+      if (!(await RNFS.exists(target))) {
+        await RNFS.mkdir(target);
+      }
+      await RNFS.exists(`${target}/.cinebd_access_check`);
+      return target;
+    } catch {
+      // Try the next candidate root.
+    }
+  }
+  throw new Error('Auto download folder is unavailable');
+};
+
 export const serializeDownloadLocation = (
   config: DownloadLocationConfig,
 ): string => {
@@ -51,8 +108,7 @@ export const parseDownloadLocation = (
       return parsed;
     }
 
-    // Android uses SAF only — path type not supported without storage permission
-    if (parsed.type === 'path' && parsed.path && Platform.OS !== 'android') {
+    if (parsed.type === 'path' && parsed.path) {
       return {
         type: 'path',
         path: parsed.path,
@@ -108,6 +164,17 @@ export const selectDownloadLocation = async (): Promise<
   DownloadLocationConfig | undefined
 > => {
   if (Platform.OS === 'android') {
+    // Fast path: with All-files-access the folder is chosen automatically —
+    // no system picker, ever.
+    if (await hasAllFilesAccess()) {
+      try {
+        const path = await getAutoDownloadDir();
+        return {type: 'path', path, label: `Internal storage/Download/${AUTO_DOWNLOAD_DIRNAME}`};
+      } catch {
+        // Permission exists but writing failed — fall through to SAF.
+      }
+    }
+
     // Pre-navigate the SAF picker to the primary Download folder (Android 11+).
     // On older Android versions the system silently ignores the initial URI.
     const initialUri =
@@ -146,12 +213,15 @@ export const validateDownloadLocationAccess = async (
       await FileSystem.StorageAccessFramework.readDirectoryAsync(location.uri);
       return true;
     }
-    if (Platform.OS === 'android') {
-      // Android requires SAF — path type not supported without storage permission
-      return false;
-    }
     if (!(await RNFS.exists(location.path))) {
       await RNFS.mkdir(location.path);
+    }
+    if (!(await RNFS.exists(`${location.path}/.cinebd_access_check`))) {
+      await RNFS.writeFile(
+        `${location.path}/.cinebd_access_check`,
+        'ok',
+        'utf8',
+      );
     }
     return true;
   } catch (error) {

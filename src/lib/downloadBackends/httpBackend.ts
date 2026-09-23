@@ -205,7 +205,13 @@ export const httpDownloadBackend: DownloadBackend = {
   directToSaf: hasNativeHttpDownloader,
   preservePartialOnFailure: hasNativeHttpDownloader,
   async start({record, destination}: DownloadBackendContext): Promise<void> {
-    if (hasNativeHttpDownloader) {
+    // The native downloader writes SAF documents only. Plain path destinations
+    // (All-files-access auto folder) go through JS staging + native move.
+    if (
+      hasNativeHttpDownloader &&
+      destination.directFinalDocumentUri &&
+      !destination.stagingDirectory
+    ) {
       await startNativeDownload({record, destination});
       return;
     }

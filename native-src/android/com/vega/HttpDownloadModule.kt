@@ -202,6 +202,78 @@ class HttpDownloadModule(
     @ReactMethod fun addListener(eventName: String) = Unit
     @ReactMethod fun removeListeners(count: Double) = Unit
 
+    /** Whether the app holds MANAGE_EXTERNAL_STORAGE (All files access). */
+    @ReactMethod
+    fun getStoragePermissionStatus(promise: Promise) {
+        // MANAGE_EXTERNAL_STORAGE exists on API 30+; older devices keep using SAF.
+        promise.resolve(
+            android.os.Build.VERSION.SDK_INT >= 30 &&
+                android.os.Environment.isExternalStorageManager(),
+        )
+    }
+
+    /** Opens the system "All files access" settings page for this app. */
+    @ReactMethod
+    fun requestAllFilesAccess(promise: Promise) {
+        try {
+            val intent = android.content.Intent(
+                android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                Uri.parse("package:${reactContext.packageName}"),
+            )
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            reactContext.startActivity(intent)
+            promise.resolve(true)
+        } catch (error: Exception) {
+            try {
+                val fallback = android.content.Intent(
+                    android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION,
+                )
+                fallback.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                reactContext.startActivity(fallback)
+                promise.resolve(true)
+            } catch (fallbackError: Exception) {
+                promise.reject("ALL_FILES_ACCESS_FAILED", fallbackError.message, fallbackError)
+            }
+        }
+    }
+
+    /**
+     * Copies a finished local staging file into a public storage path
+     * (requires MANAGE_EXTERNAL_STORAGE). Returns the final absolute path.
+     */
+    @ReactMethod
+    fun moveToPublicStorage(fromPath: String, toPath: String, promise: Promise) {
+        try {
+            val from = java.io.File(fromPath)
+            if (!from.exists()) {
+                promise.reject("MOVE_FAILED", "Source file does not exist: $fromPath")
+                return
+            }
+            val to = java.io.File(toPath)
+            to.parentFile?.mkdirs()
+            if (to.exists()) {
+                to.delete()
+            }
+            if (!from.renameTo(to)) {
+                // Cross-volume rename fails; fall back to stream copy.
+                java.io.FileInputStream(from).channel.use { source ->
+                    java.io.FileOutputStream(to).channel.use { target ->
+                        target.transferFrom(source, 0, source.size())
+                    }
+                }
+                if (to.length() != from.length()) {
+                    to.delete()
+                    promise.reject("MOVE_FAILED", "Size mismatch after copy")
+                    return
+                }
+                from.delete()
+            }
+            promise.resolve(to.absolutePath)
+        } catch (error: Exception) {
+            promise.reject("MOVE_FAILED", error.message, error)
+        }
+    }
+
     private fun runJob(job: HttpDownloadJob) {
         var retryDelay = INITIAL_RETRY_DELAY_MS
         try {

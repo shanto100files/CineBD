@@ -314,7 +314,9 @@ export const startDownload = async (
       location,
       fileName: getOutputName(record),
       fileType: record.videoType || 'mp4',
-      directToSaf: backend.directToSaf,
+      // Path destinations (All-files-access auto folder) never write directly —
+      // they stage locally and finalize with a native move.
+      directToSaf: backend.directToSaf && location.type === 'saf',
       existingFinalDocumentUri: record.finalDocumentUri,
       outputDirectoryNames: getOutputDirectoryNames(record),
     });

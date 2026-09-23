@@ -9,6 +9,7 @@ import {
   getDownloadMimeType,
   getOrCreateSafDirectory,
   isSafDownloadLocation,
+  PathDownloadLocation,
   validateDownloadLocationAccess,
 } from './downloadLocation';
 import {sanitizeDownloadFileName} from './downloadId';
@@ -188,7 +189,14 @@ export const finalizeDownloadOutput = async ({
   }
 
   if (!isSafDownloadLocation(location)) {
-    throw new Error('SAF download location is required');
+    return finalizePathDownload({
+      downloadId,
+      location,
+      stagingPath,
+      fileName,
+      fileType,
+      outputDirectoryNames,
+    });
   }
 
   let directoryUri = location.uri;
@@ -213,6 +221,50 @@ export const finalizeDownloadOutput = async ({
   return {
     filePath: fileUri,
     finalDocumentUri: fileUri,
+    size: destinationSize,
+  };
+};
+
+/**
+ * Moves a finished staging file into a plain filesystem location
+ * (used by the All-files-access auto folder — no SAF copy needed).
+ */
+const finalizePathDownload = async ({
+  downloadId,
+  location,
+  stagingPath,
+  fileName,
+  fileType,
+  outputDirectoryNames,
+}: {
+  downloadId: string;
+  location: PathDownloadLocation;
+  stagingPath: string;
+  fileName: string;
+  fileType: string;
+  outputDirectoryNames?: string[];
+}): Promise<FinalizedDownloadOutput> => {
+  const moveToPublicStorage = (
+    NativeModules.HttpDownloadModule as
+      | {moveToPublicStorage?: (from: string, to: string) => Promise<string>}
+      | undefined
+  )?.moveToPublicStorage;
+  if (!moveToPublicStorage) {
+    throw new Error('Native file move bridge is unavailable');
+  }
+
+  let finalDirectory = location.path;
+  for (const directoryName of outputDirectoryNames || []) {
+    finalDirectory = `${finalDirectory}/${sanitizeDownloadFileName(directoryName)}`;
+  }
+  const finalPath = `${finalDirectory}/${getDownloadFileName(fileName, fileType)}`;
+  await moveToPublicStorage(stagingPath, finalPath);
+  const destinationSize = await getLocalFileSize(finalPath);
+  await cleanupDownloadStaging(downloadId);
+
+  return {
+    filePath: finalPath,
+    finalDocumentUri: undefined,
     size: destinationSize,
   };
 };
