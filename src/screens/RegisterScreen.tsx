@@ -23,10 +23,8 @@ export default function RegisterScreen({navigation}: any) {
     setLoading(false);
     if (result.success) {
       ToastAndroid.show('Registration successful!', ToastAndroid.SHORT);
-      navigation.popToTop();
-      setTimeout(() => {
-        navigation.navigate('Profile');
-      }, 300);
+      // Replace Register with Profile so back returns to Settings.
+      navigation.replace('Profile');
     } else {
       setError(result.error || 'Registration failed');
     }

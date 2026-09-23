@@ -22,10 +22,9 @@ export default function LoginScreen({navigation}: any) {
     setLoading(false);
     if (result.success) {
       ToastAndroid.show('Login successful!', ToastAndroid.SHORT);
-      navigation.popToTop();
-      setTimeout(() => {
-        navigation.navigate('Profile');
-      }, 300);
+      // Replace Login with Profile so back returns to Settings — no stale
+      // screen, no unmount race from popToTop + delayed navigate.
+      navigation.replace('Profile');
     } else {
       setError(result.error || 'Login failed');
     }
