@@ -5,7 +5,6 @@ import {
 import {
   DownloadLocationConfig,
   ensureDownloadLocationAccess,
-  isSafDownloadLocation,
 } from './downloadLocation';
 import {notificationService} from './services/Notification';
 import useDownloadsStore, {DownloadItem} from './zustand/downloadsStore';
@@ -529,7 +528,7 @@ export const retryDownload = async (downloadId: string): Promise<void> => {
   const location = await ensureDownloadLocationAccess(
     record.downloadLocation || settingsStorage.getDownloadLocationConfig(),
   );
-  if (!location || !isSafDownloadLocation(location)) {
+  if (!location) {
     return;
   }
   settingsStorage.setDownloadLocation(location);
