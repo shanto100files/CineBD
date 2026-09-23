@@ -71,6 +71,10 @@ import DownloadLocationDialog from './components/DownloadLocationDialog';
 import {
   getDownloadLocationDisplayValue,
   selectDownloadLocation,
+  AUTO_DOWNLOAD_DIRNAME,
+  hasAllFilesAccess,
+  getAutoDownloadDir,
+  requestAllFilesAccess,
 } from './lib/downloadLocation';
 import {
   getAnalytics,
@@ -458,27 +462,97 @@ const App = () => {
     return () => clearInterval(interval);
   }, [appReady]);
 
-  // Check download location on app start — show setup dialog if not configured
+  // Check download location on app start — silent auto-setup when the
+  // permission is already granted, otherwise the one-button settings dialog.
   useEffect(() => {
-    if (!appReady) return;
+    if (!appReady || Platform.OS !== 'android') return;
     const config = settingsStorage.getDownloadLocationConfig();
-    if (!config && Platform.OS === 'android') {
-      // Small delay to let app fully render
-      const timer = setTimeout(() => setShowDownloadSetup(true), 1500);
-      return () => clearTimeout(timer);
-    }
+    if (config) return;
+    let cancelled = false;
+    const setup = async () => {
+      try {
+        if (await hasAllFilesAccess()) {
+          // Permission already granted — configure the auto folder silently.
+          const path = await getAutoDownloadDir();
+          if (!cancelled) {
+            settingsStorage.setDownloadLocation({
+              type: 'path',
+              path,
+              label: `Internal storage/Download/${AUTO_DOWNLOAD_DIRNAME}`,
+            });
+          }
+          return;
+        }
+      } catch {}
+      if (!cancelled) {
+        const timer = setTimeout(() => setShowDownloadSetup(true), 1500);
+        return () => clearTimeout(timer);
+      }
+    };
+    const timer = setTimeout(setup, 800);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [appReady]);
+
+  // When the user returns from the All-files-access settings screen,
+  // finish the auto-setup silently (dialog stays closed).
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = AppState.addEventListener('change', async state => {
+      if (state !== 'active' || !showDownloadSetup) return;
+      try {
+        if (await hasAllFilesAccess()) {
+          const path = await getAutoDownloadDir();
+          settingsStorage.setDownloadLocation({
+            type: 'path',
+            path,
+            label: `Internal storage/Download/${AUTO_DOWNLOAD_DIRNAME}`,
+          });
+          setShowDownloadSetup(false);
+          ToastAndroid.show(
+            'ডাউনলোড ফোল্ডার সেট হয়েছে: Download/CineBD',
+            ToastAndroid.SHORT,
+          );
+        }
+      } catch {}
+    });
+    return () => sub.remove();
+  }, [showDownloadSetup]);
 
   const handleSelectDownloadFolder = async () => {
     setIsPickingFolder(true);
     setShowDownloadSetup(false);
     try {
-      const pickedLocation = await selectDownloadLocation();
-      if (pickedLocation) {
-        settingsStorage.setDownloadLocation(pickedLocation);
+      const apiLevel = Number(Platform.Version);
+      if (apiLevel >= 30) {
+        // Android 11+: opens the All-files-access settings screen (not a
+        // file picker). When the user comes back, the AppState listener
+        // above completes the auto-setup. If already granted, finish now.
+        if (await requestAllFilesAccess()) {
+          const path = await getAutoDownloadDir();
+          settingsStorage.setDownloadLocation({
+            type: 'path',
+            path,
+            label: `Internal storage/Download/${AUTO_DOWNLOAD_DIRNAME}`,
+          });
+          ToastAndroid.show(
+            'ডাউনলোড ফোল্ডার সেট হয়েছে: Download/CineBD',
+            ToastAndroid.SHORT,
+          );
+        }
+      } else {
+        // Android 10-: no All-files-access — SAF picker pre-navigated to
+        // the Download folder; one tap on "Use this folder" finishes it.
+        const picked = await selectDownloadLocation();
+        if (picked) {
+          settingsStorage.setDownloadLocation(picked);
+          ToastAndroid.show('ডাউনলোড ফোল্ডার সেট হয়েছে', ToastAndroid.SHORT);
+        }
       }
     } catch (error) {
-      console.log('Error picking download folder:', error);
+      console.log('Error opening download settings:', error);
     } finally {
       setIsPickingFolder(false);
     }

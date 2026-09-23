@@ -18,18 +18,18 @@ const DownloadLocationDialog = ({
   return (
     <AppDialog
       visible={visible}
-      title="ডাউনলোড ফোল্ডার নির্বাচন করুন"
-      message={`📁 ডাউনলোড ফোল্ডার সেট করার নিয়ম:
+      title="ডাউনলোড সেটআপ — এক ক্যাপে"
+      message={`ডাউনলোড অটোমেটিক সেট করতে:
 
-১. নিচের "ফোল্ডার নির্বাচন করুন" বাটনে ট্যাপ করুন — "All files access" সেটিংস খুলবে
-২. "Allow access to manage all files" টগলটি চালু করুন, তারপর ব্যাক করে অ্যাপে ফিরে আসুন
+১. নিচের বাটনে ট্যাপ করুন — ফাইল-ম্যানেজার নয়, সরাসরি "All files access" সেটিংস খুলবে (Cinepix আগেই সিলেক্টেড থাকবে)
+২. টগলটি ON করুন — ব্যাক করলেই অটোমেটিক Download/CineBD ফোল্ডার সেট হয়ে যাবে
 
-এরপর থেকে ডাউনলোড অটোমেটিক Download/CineBD ফোল্ডারে সেভ হবে — আর কোনো পিকার দেখতে হবে না।`}
+এরপর আর কখনো কিছু চেখতে হবে না — সব ডাউনলোড নিজে নিজে গুছিয়ে সেভ হবে।`}
       primary=""
       actions={[
         {label: 'বাতিল'},
         {
-          label: selecting ? 'খুলছে...' : 'ফোল্ডার নির্বাচন করুন',
+          label: selecting ? 'খুলছে...' : 'সেটিংস খুলুন',
           variant: 'primary',
           disabled: selecting,
           dismissOnPress: false,
