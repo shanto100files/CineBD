@@ -108,8 +108,14 @@ export const selectDownloadLocation = async (): Promise<
   DownloadLocationConfig | undefined
 > => {
   if (Platform.OS === 'android') {
+    // Pre-navigate the SAF picker to the primary Download folder (Android 11+).
+    // On older Android versions the system silently ignores the initial URI.
+    const initialUri =
+      FileSystem.StorageAccessFramework.getUriForDirectoryInRoot('Download');
     const permissions =
-      await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+      await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(
+        initialUri,
+      );
     if (!permissions.granted) {
       return undefined;
     }

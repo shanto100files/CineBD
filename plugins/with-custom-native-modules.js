@@ -6,6 +6,11 @@ const {
   withAppBuildGradle,
 } = require('expo/config-plugins');
 
+// Play Protect heavily flags APKs containing BitTorrent engines + local HTTP
+// servers (P2P heuristics). No provider currently emits magnet/.torrent links,
+// so the torrent stack is excluded by default. Set INCLUDE_TORRENT=1 to opt in.
+const includeTorrent = process.env.INCLUDE_TORRENT === '1';
+
 function withCustomNativeModules(config) {
   // 1. Copy the files over
   config = withDangerousMod(config, [
@@ -65,10 +70,12 @@ function withCustomNativeModules(config) {
     const packagesToAdd = [
       'DohPackage()',
       'HttpDownloadPackage()',
-      'TorrentPackage()',
       'LauncherIconPackage()',
       'VideoThumbnailPackage()',
     ];
+    if (includeTorrent) {
+      packagesToAdd.push('TorrentPackage()');
+    }
 
     for (const pkg of packagesToAdd) {
       if (!currentContents.includes(`add(${pkg})`)) {
@@ -140,8 +147,8 @@ function withCustomNativeModules(config) {
       );
     }
 
-    // Make sure libtorrent4j and nanohttpd are re-added just in case the user's manual addition gets wiped
-    if (!contents.includes('libtorrent4j:2.1.0-39')) {
+    // libtorrent4j + nanohttpd (torrent stack) — only when explicitly opted in.
+    if (includeTorrent && !contents.includes('libtorrent4j:2.1.0-39')) {
       contents = contents.replace(
         /dependencies\s*\{/,
         match =>

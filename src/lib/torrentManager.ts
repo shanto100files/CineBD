@@ -45,6 +45,9 @@ class TorrentManager {
     if (Platform.OS !== 'android') {
       throw new Error('Torrent streaming is only supported on Android');
     }
+    if (!TorrentModule) {
+      throw new Error('Torrent engine not included in this build');
+    }
     if (this.isInitialized) {
       return;
     }
