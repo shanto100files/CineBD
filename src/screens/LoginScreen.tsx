@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image, ToastAndroid} from 'react-native';
+import {CommonActions} from '@react-navigation/native';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
 
@@ -22,9 +23,15 @@ export default function LoginScreen({navigation}: any) {
     setLoading(false);
     if (result.success) {
       ToastAndroid.show('Login successful!', ToastAndroid.SHORT);
-      // Replace Login with Profile so back returns to Settings — no stale
-      // screen, no unmount race from popToTop + delayed navigate.
-      navigation.replace('Profile');
+      // Reset the whole Settings stack to [Settings, Profile]: lands on
+      // Profile, and back returns to Settings regardless of any stale
+      // navigator state. Works even where plain replace() silently no-ops.
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 1,
+          routes: [{name: 'Settings'}, {name: 'Profile'}],
+        }),
+      );
     } else {
       setError(result.error || 'Login failed');
     }

@@ -103,7 +103,7 @@ module.exports = () => {
       autolinking: { exclude: ['expo-splash-screen', 'react-native-fullscreen-chz', 'react-native-worklets', 'react-native-reanimated'] },
       plugins,
       slug: 'cinepix',
-       version: '5.7.1',
+       version: '5.7.2',
       userInterfaceStyle: 'dark',
       experiments: {
         reactCompiler: true,
@@ -114,7 +114,7 @@ module.exports = () => {
           : {}),
         minSdkVersion: 28,
         package: PACKAGE_NAME,
-        versionCode: 203,
+        versionCode: 204,
         permissions: [
           'FOREGROUND_SERVICE',
           'FOREGROUND_SERVICE_DATA_SYNC',

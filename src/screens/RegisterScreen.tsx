@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image, ToastAndroid} from 'react-native';
+import {CommonActions} from '@react-navigation/native';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
 
@@ -23,8 +24,13 @@ export default function RegisterScreen({navigation}: any) {
     setLoading(false);
     if (result.success) {
       ToastAndroid.show('Registration successful!', ToastAndroid.SHORT);
-      // Replace Register with Profile so back returns to Settings.
-      navigation.replace('Profile');
+      // Reset stack to [Settings, Profile]: lands on Profile, back → Settings.
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 1,
+          routes: [{name: 'Settings'}, {name: 'Profile'}],
+        }),
+      );
     } else {
       setError(result.error || 'Registration failed');
     }
