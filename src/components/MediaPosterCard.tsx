@@ -4,6 +4,7 @@ import {Pressable, View} from 'react-native';
 import {Image} from 'expo-image';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import AppText from './ui/Text';
+import {MediaFallback} from './ui/MediaFallback';
 
 interface MediaPosterCardProps {
   title: string;
@@ -58,6 +59,11 @@ const MediaPosterCard = ({
             position: 'relative',
             borderWidth: selected ? 2 : 0,
             borderColor: selected ? colors.primary : 'transparent',
+            shadowColor: '#000',
+            shadowOffset: {width: 0, height: 6},
+            shadowOpacity: 0.35,
+            shadowRadius: 10,
+            elevation: 5,
           }}>
           {badge != null ? (
             <View
@@ -179,23 +185,12 @@ const MediaPosterCard = ({
             <Image
               source={poster}
               contentFit="cover"
-              transition={200}
+              transition={220}
               style={{aspectRatio: 2 / 3, width: selected ? width - 8 : width}}
             />
           ) : (
-            <View
-              style={{
-                alignItems: 'center',
-                aspectRatio: 2 / 3,
-                backgroundColor: colors.surfaceContainerHighest,
-                justifyContent: 'center',
-                width: selected ? width - 8 : width,
-              }}>
-              <AppText
-                role="headlineMediumEmphasized"
-                style={{color: colors.onSurfaceVariant}}>
-                {title.slice(0, 1).toUpperCase()}
-              </AppText>
+            <View style={{aspectRatio: 2 / 3, width: selected ? width - 8 : width}}>
+              <MediaFallback title={title} />
             </View>
           )}
         </View>

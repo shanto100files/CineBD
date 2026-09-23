@@ -5,7 +5,7 @@ let RootedState = false;
 let TamperedState = false;
 
 const EXPECTED_SIGNATURE = '308203b53082029da0030201020204';
-const EXPECTED_PACKAGE = 'com.vega';
+const EXPECTED_PACKAGE = 'com.cine.pix';
 
 const isDevelopmentBuild = (): boolean => {
   return __DEV__ || (Application.applicationId || '').includes('.debug');

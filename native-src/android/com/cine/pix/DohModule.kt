@@ -1,4 +1,4 @@
-package com.vega
+package com.cine.pix
 
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.Promise

@@ -6,12 +6,20 @@ import {View} from 'react-native';
 import {Image} from 'expo-image';
 import {getColors} from 'react-native-image-colors';
 import LinearGradient from 'react-native-linear-gradient';
-import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {HomeStackParamList} from '../App';
 import {useHeroMetadata} from '../lib/hooks/useHomePageData';
 import useContentStore from '../lib/zustand/contentStore';
 import useHeroStore from '../lib/zustand/herostore';
+import useWatchListStore from '../lib/zustand/watchListStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import {mixHex} from '../theme/seeds';
 import Button from './ui/Button';
@@ -138,13 +146,52 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
     });
   }, [hero, heroData, navigation, provider.value]);
 
+  const heroItem = useMemo(() => {
+    const link = hero?.link;
+    const title = heroData?.title || hero?.title;
+    if (!link || !title) {
+      return null;
+    }
+    return {
+      link,
+      title,
+      poster: heroData?.poster || heroData?.image || hero?.image || '',
+      provider: provider.value,
+    };
+  }, [hero, heroData, provider.value]);
+  const inWatchList = useWatchListStore(state =>
+    heroItem ? state.watchList.some(item => item.link === heroItem.link) : false,
+  );
+  const addItem = useWatchListStore(state => state.addItem);
+  const removeItem = useWatchListStore(state => state.removeItem);
+  const toggleWatchList = useCallback(() => {
+    if (!heroItem) {
+      return;
+    }
+    if (inWatchList) {
+      removeItem(heroItem.link);
+    } else {
+      addItem(heroItem);
+    }
+  }, [heroItem, inWatchList, addItem, removeItem]);
+
+  // Ken-Burns slow zoom, restarted per hero change — subtle cinema motion.
+  const kenBurns = useSharedValue(1);
+  useEffect(() => {
+    kenBurns.value = 1;
+    kenBurns.value = withTiming(1.09, {duration: 18000, easing: Easing.linear});
+  }, [hero?.link, kenBurns]);
+  const heroImageStyle = useAnimatedStyle(() => ({
+    transform: [{scale: kenBurns.value}],
+  }));
+
   return (
     <View
       style={{
         backgroundColor: colors.surfaceContainerLow,
         borderBottomLeftRadius: 28,
         borderBottomRightRadius: 28,
-        height: 410,
+        height: 460,
         overflow: 'hidden',
       }}>
       {!imageUri ? (
@@ -152,23 +199,26 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
           style={{flex: 1, backgroundColor: colors.surfaceContainerHighest}}
         />
       ) : (
-        <Animated.Image
+        <Animated.View
           entering={FadeIn.duration(450)}
-          source={imageSource}
-          onLoad={updateHeroColor}
-          resizeMode="cover"
-          style={{height: '100%', width: '100%'}}
-        />
+          style={[{height: '100%', width: '100%'}, heroImageStyle]}>
+          <Animated.Image
+            source={imageSource}
+            onLoad={updateHeroColor}
+            resizeMode="cover"
+            style={{height: '100%', width: '100%'}}
+          />
+        </Animated.View>
       )}
 
       <LinearGradient
         colors={[
-          'rgba(0,0,0,0.2)',
-          'rgba(0,0,0,0.08)',
-          'rgba(0,0,0,0.72)',
+          'rgba(0,0,0,0.3)',
+          'rgba(0,0,0,0.12)',
+          'rgba(0,0,0,0.78)',
           colors.background,
         ]}
-        locations={[0, 0.28, 0.7, 1]}
+        locations={[0, 0.3, 0.72, 1]}
         style={{position: 'absolute', inset: 0}}
       />
 
@@ -206,10 +256,14 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
         ) : heroData?.title || hero?.title ? (
           <AppText
             numberOfLines={2}
-            role="headlineLarge"
+            role="displaySmallEmphasized"
             style={{
               color: '#FFFFFF',
-              maxWidth: 300,
+              letterSpacing: 0.4,
+              maxWidth: 320,
+              textShadowColor: 'rgba(0,0,0,0.65)',
+              textShadowOffset: {width: 0, height: 2},
+              textShadowRadius: 12,
               textAlign: 'center',
             }}>
             {heroData?.title || hero?.title}
@@ -248,17 +302,26 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
 
         <View
           style={{
+            alignItems: 'center',
             flexDirection: 'row',
+            gap: 12,
             justifyContent: 'center',
             marginTop: 14,
             width: '100%',
           }}>
           <Button
-            variant="filled"
-            containerColor={heroColor}
-            contentColor={getReadableContentColor(heroColor)}
-            onPress={openDetails}>
-            Watch now
+            variant="white"
+            onPress={openDetails}
+            style={{borderRadius: 24, minWidth: 132}}>
+            ▶  Play
+          </Button>
+          <Button
+            variant="tonal"
+            containerColor="rgba(60,60,64,0.85)"
+            contentColor="#FFFFFF"
+            onPress={toggleWatchList}
+            style={{borderRadius: 24, minWidth: 132}}>
+            {inWatchList ? '✓  In My List' : '+  My List'}
           </Button>
         </View>
         {error ? (

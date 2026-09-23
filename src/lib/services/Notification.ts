@@ -273,7 +273,7 @@ class NotificationService {
       data: {navigationTarget: 'downloads'},
       onlyAlertOnce: true,
       asForegroundService: true,
-      groupId: 'vega-downloads',
+      groupId: 'cinepix-downloads',
       sortKey: '0000-summary',
       groupSummary: true,
       groupAlertBehavior: AndroidGroupAlertBehavior.CHILDREN,
@@ -322,7 +322,7 @@ class NotificationService {
       smallIcon: 'ic_download_notification_system',
       color,
       data: this.getDownloadData(downloadId, sourceType),
-      groupId: 'vega-downloads',
+      groupId: 'cinepix-downloads',
       sortKey: downloadId,
       progress: {
         max: 100,
@@ -344,7 +344,7 @@ class NotificationService {
       body: 'Queued',
       color,
       data: this.getDownloadData(downloadId, sourceType),
-      groupId: 'vega-downloads',
+      groupId: 'cinepix-downloads',
       sortKey: downloadId,
       actions: [
         {
@@ -388,7 +388,7 @@ class NotificationService {
           : 'ic_download_notification',
       color,
       data: this.getDownloadData(downloadId, sourceType),
-      groupId: 'vega-downloads',
+      groupId: 'cinepix-downloads',
       sortKey: downloadId,
       progress: {
         max: 100,

@@ -1,4 +1,4 @@
-package com.vega
+package com.cine.pix
 
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever

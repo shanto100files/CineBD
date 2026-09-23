@@ -1,15 +1,13 @@
-package com.vega
+package com.cine.pix
 
-import android.view.View
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.uimanager.ReactStylesDiffMap
 import com.facebook.react.uimanager.ViewManager
 
-class TorrentPackage : ReactPackage {
+class HttpDownloadPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-        return listOf(TorrentModule(reactContext))
+        return listOf(HttpDownloadModule(reactContext))
     }
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {

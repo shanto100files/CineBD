@@ -1,4 +1,4 @@
-package com.vega
+package com.cine.pix
 
 import android.content.Context
 import android.net.ConnectivityManager

@@ -352,7 +352,7 @@ const TrailerPage = ({
   const [activeTrailerIndex, setActiveTrailerIndex] = useState(0);
   const activeVideo = trailers[activeTrailerIndex] ?? trailers[0];
 
-  const youtubeOrigin = 'https://vega.app';
+  const youtubeOrigin = 'https://cinepix.top';
   const trailerUrl = activeVideo?.youtubeKey
     ? `https://www.youtube.com/embed/${encodeURIComponent(
       activeVideo.youtubeKey,

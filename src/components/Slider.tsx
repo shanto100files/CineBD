@@ -89,19 +89,28 @@ const Slider = ({
           justifyContent: 'space-between',
           paddingHorizontal: 20,
         }}>
-        <AppText
-          numberOfLines={1}
-          style={{
-            color: colors.onBackground,
-            flex: 1,
-            fontSize: 16,
-            fontWeight: '600',
-            letterSpacing: 0.15,
-            marginRight: 12,
-            minWidth: 0,
-          }}>
-          {title}
-        </AppText>
+        <View style={{alignItems: 'center', flexDirection: 'row', flex: 1, gap: 8, minWidth: 0, marginRight: 12}}>
+          <View
+            style={{
+              backgroundColor: colors.primary,
+              borderRadius: 2,
+              height: 18,
+              width: 3,
+            }}
+          />
+          <AppText
+            numberOfLines={1}
+            style={{
+              color: colors.onBackground,
+              flex: 1,
+              fontSize: 16.5,
+              fontWeight: '700',
+              letterSpacing: 0.2,
+              minWidth: 0,
+            }}>
+            {title}
+          </AppText>
+        </View>
         {filter !== 'recent' && (
           <Pressable
             accessibilityRole="button"

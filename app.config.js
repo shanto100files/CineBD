@@ -21,8 +21,8 @@ module.exports = () => {
   const IS_PLAYSTORE = process.env.APP_VARIANT === 'playstore';
   const HAS_FIREBASE =
     !IS_PLAYSTORE && (hasAndroidGoogleServices || hasIosGooglePlist);
-  const PACKAGE_NAME = IS_PLAYSTORE ? 'vega.app' : 'com.vega';
-  const APP_SCHEME = IS_PLAYSTORE ? 'vegaapp' : 'com.vega';
+  const PACKAGE_NAME = 'com.cine.pix';
+  const APP_SCHEME = 'cinepix';
   const plugins = [
     './plugins/with-custom-native-modules.js',
     './plugins/android-native-config.js',
@@ -102,8 +102,8 @@ module.exports = () => {
       newArchEnabled: true,
       autolinking: { exclude: ['expo-splash-screen', 'react-native-fullscreen-chz', 'react-native-worklets', 'react-native-reanimated'] },
       plugins,
-      slug: 'vega',
-       version: '5.6.5',
+      slug: 'cinepix',
+       version: '5.6.6',
       userInterfaceStyle: 'dark',
       experiments: {
         reactCompiler: true,
@@ -114,7 +114,7 @@ module.exports = () => {
           : {}),
         minSdkVersion: 28,
         package: PACKAGE_NAME,
-        versionCode: 197,
+        versionCode: 198,
         permissions: [
           'FOREGROUND_SERVICE',
           'FOREGROUND_SERVICE_DATA_SYNC',

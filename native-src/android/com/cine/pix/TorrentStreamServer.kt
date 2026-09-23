@@ -1,4 +1,4 @@
-package com.vega
+package com.cine.pix
 
 import android.util.Log
 import fi.iki.elonen.NanoHTTPD
