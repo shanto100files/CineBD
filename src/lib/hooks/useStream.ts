@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, onlineManager } from '@tanstack/react-query';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ToastAndroid } from 'react-native';
 import { providerManager } from '../services/ProviderManager';
@@ -374,6 +374,12 @@ export const useStream = ({
       const localStream: Stream | null = downloadedPath
         ? { server: 'Downloaded', link: downloadedPath, type: 'mp4' }
         : null;
+
+      // Offline: play the downloaded file immediately instead of waiting for
+      // a doomed remote fetch to time out.
+      if (!onlineManager.isOnline() && localStream) {
+        return [localStream];
+      }
 
       const remoteLink =
         (!isLocalPath(activeEpisode?.link) && activeEpisode?.link) ||

@@ -45,6 +45,8 @@ import Constants from 'expo-constants';
 import {settingsStorage} from './lib/storage';
 import {updateProvidersService} from './lib/services/UpdateProviders';
 import {QueryClientProvider} from '@tanstack/react-query';
+import {initNetStatus} from './lib/netStatus';
+import OfflineBanner from './components/OfflineBanner';
 import {queryClient} from './lib/client';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import notifee, {EventType} from '@notifee/react-native';
@@ -605,6 +607,7 @@ const App = () => {
     <SafeAreaProvider>
       <SystemBars style="light" />
       <M3ThemeProvider>
+        <OfflineBanner />
         <AppDialogHost />
         <DownloadLocationDialog
           visible={showDownloadSetup}
@@ -687,6 +690,8 @@ const App = () => {
     </SafeAreaProvider>
   );
 };
+
+initNetStatus();
 
 export default App;
 

@@ -15,6 +15,8 @@ import {Post} from '../lib/providers/types';
 import {MMKV} from '../lib/Mmkv';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import FilterChipRow from '../components/ui/FilterChipRow';
+import {useIsOffline} from '../lib/netStatus';
+import OfflineFriendlyState from '../components/OfflineFriendlyState';
 import {
   extractTitleMeta,
   getUniqueValues,
@@ -127,6 +129,8 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   const provider = useContentStore(state => state.provider);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const isOffline = useIsOffline();
+  const [searchEpoch, setSearchEpoch] = useState(0);
   const [selProvider, setSelProvider] = useState<string>('all');
   const [selQuality, setSelQuality] = useState<Set<string>>(new Set());
   const [selLanguage, setSelLanguage] = useState<Set<string>>(new Set());
@@ -378,7 +382,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         abortController.current = null;
       }
     };
-  }, [route.params.filter, installedProviders]);
+  }, [route.params.filter, installedProviders, searchEpoch]);
 
   const handleItemPress = useCallback(
     (item: Post) => {
@@ -537,9 +541,12 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         </ScrollView>
       ) : totalVisible === 0 ? (
         <View className="flex-1 items-center justify-center px-8">
-          <AppText role="bodyLarge" style={{color: colors.onSurfaceVariant}}>
-            No content found
-          </AppText>
+          <OfflineFriendlyState onRetry={() => setSearchEpoch(e => e + 1)} />
+          {!isOffline ? (
+            <AppText role="bodyLarge" style={{color: colors.onSurfaceVariant}}>
+              No content found
+            </AppText>
+          ) : null}
         </View>
       ) : (
         <ScrollView

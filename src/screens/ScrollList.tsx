@@ -24,6 +24,8 @@ import {providerManager} from '../lib/services/ProviderManager';
 import IconButton from '../components/ui/IconButton';
 import AppText from '../components/ui/Text';
 import {getPostBadge, getSeasonBadge} from '../lib/utils/helpers';
+import {useIsOffline} from '../lib/netStatus';
+import OfflineFriendlyState from '../components/OfflineFriendlyState';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'ScrollList'>;
 
@@ -43,6 +45,8 @@ const ScrollList = ({route}: Props): React.ReactElement => {
   const navigation =
     useNavigation<NativeStackNavigationProp<SearchStackParamList>>();
   const [posts, setPosts] = useState<Post[]>([]);
+  const isOffline = useIsOffline();
+  const [reloadKey, setReloadKey] = useState(0);
   const {filter, providerValue} = route.params;
   const [page, setPage] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -214,7 +218,7 @@ const ScrollList = ({route}: Props): React.ReactElement => {
     };
 
     fetchPosts();
-  }, [page, route.params, filter, provider.value]);
+  }, [page, route.params, filter, provider.value, reloadKey]);
 
   const onEndReached = async () => {
     // Don't trigger more loading if we're already loading or at the end
@@ -485,11 +489,14 @@ const ScrollList = ({route}: Props): React.ReactElement => {
         />
         {!isLoading && posts.length === 0 ? (
           <View className="w-full h-full flex items-center justify-center">
-            <AppText
-              role="titleLargeEmphasized"
-              className="text-center text-m3-on-surface-variant">
-              No Content Found
-            </AppText>
+            <OfflineFriendlyState onRetry={() => setReloadKey(k => k + 1)} />
+            {!isOffline ? (
+              <AppText
+                role="titleLargeEmphasized"
+                className="text-center text-m3-on-surface-variant">
+                No Content Found
+              </AppText>
+            ) : null}
           </View>
         ) : null}
       </View>
