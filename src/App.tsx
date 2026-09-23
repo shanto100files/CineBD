@@ -540,7 +540,10 @@ const App = () => {
         popToTopOnBlur: false,
         tabBarPosition: isLargeScreen ? 'left' : 'bottom',
         headerShown: false,
-        freezeOnBlur: true,
+        // freezeOnBlur must stay OFF: with freeze enabled the inactive
+        // Settings screen intercepts tab taps (known react-native-screens
+        // issue) — Home/Search taps open Settings content instead.
+        freezeOnBlur: false,
         tabBarHideOnKeyboard: true,
       }}>
       <Tab.Screen
