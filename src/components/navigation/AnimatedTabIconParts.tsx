@@ -120,7 +120,7 @@ export const FilledTabIcon = ({
           fill={color}
           fillRule="evenodd"
           clipRule="evenodd"
-          d="M11.025 3.63a1.5 1.5 0 0 1 1.95 0l7.6 6.515a1 1 0 0 1-1.3 1.52L19 11.43V19a2.25 2.25 0 0 1-2.25 2.25h-9.5A2.25 2.25 0 0 1 5 19v-7.57l-.275.235a1 1 0 1 1-1.3-1.52l7.6-6.515ZM9.25 21.25v-5.5A1.75 1.75 0 0 1 11 14h2a1.75 1.75 0 0 1 1.75 1.75v5.5h-5.5Z"
+          d="M11.025 3.63a1.5 1.5 0 0 1 1.95 0l7.6 6.515a1 1 0 0 1-1.3 1.52L19 11.43V19a2.25 2.25 0 0 1-2.25 2.25h-9.5A2.25 2.25 0 0 1 5 19v-7.57l-.275.235a1 1 0 1 1-1.3-1.52l7.6-6.515ZM10.7 13.42a.92.92 0 0 1 1.38-.8l4.55 2.38a.92.92 0 0 1 0 1.62l-4.55 2.38a.92.92 0 0 1-1.38-.8v-4.78Z"
         />
       );
     case 'search':
@@ -136,7 +136,9 @@ export const FilledTabIcon = ({
       return (
         <Path
           fill={color}
-          d="M8.5 2.75A3.25 3.25 0 0 0 5.25 6v14.25a1.25 1.25 0 0 0 1.828 1.108L12 18.79l4.922 2.568a1.25 1.25 0 0 0 1.828-1.108V6a3.25 3.25 0 0 0-3.25-3.25h-7Z"
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M8.5 2.75A3.25 3.25 0 0 0 5.25 6v14.25a1.25 1.25 0 0 0 1.828 1.108L12 18.79l4.922 2.568a1.25 1.25 0 0 0 1.828-1.108V6a3.25 3.25 0 0 0-3.25-3.25h-7ZM11.25 7.5h1.5v2.25H15v1.5h-2.25v2.25h-1.5V11.25H9v-1.5h2.25V7.5Z"
         />
       );
     case 'download':
@@ -193,8 +195,15 @@ export const OutlineTabIcon = ({
           <AnimatedStrokePath
             progress={progress}
             color={color}
-            start={0.48}
-            d="M9.5 20.5v-5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v5"
+            start={0.52}
+            end={0.9}
+            d="M10.9 15.6v4.9"
+          />
+          <AnimatedStrokePath
+            progress={progress}
+            color={color}
+            start={0.68}
+            d="m15.4 15.15-4.25 2.2 4.25 2.2"
           />
         </>
       );
@@ -263,6 +272,13 @@ export const OutlineTabIcon = ({
               d="m12 17.5 5.75 3"
             />
           </RotatingPart>
+          <AnimatedStrokePath
+            progress={progress}
+            color={color}
+            start={0.86}
+            strokeWidth={1.7}
+            d="M9.4 7.4h5.2M9.4 10.4h5.2"
+          />
         </>
       );
     case 'download':
