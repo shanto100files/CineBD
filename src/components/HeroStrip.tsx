@@ -25,12 +25,12 @@ interface HeroStripProps {
 const ITEM_GAP = 10;
 const MINI_WIDTH = 52;
 const MINI_HEIGHT = 76;
+const ACTIVE_WIDTH = 252;
 
 // MovieBox-style overlap strip that floats over the bottom edge of the hero.
-// The active item renders as a wide card (mini poster + title + play circle);
-// the remaining items render as small posters. Tapping a mini poster swaps the
-// hero (via the hero store, wired by Home); the play circle opens the details
-// page.
+// The active item keeps its ORIGINAL position in the list but renders as a
+// wide card and is auto-centered (carousel behaviour): selecting a mini poster
+// scrolls it to the middle of the strip with smaller neighbours on both sides.
 const HeroStrip = ({posts, activeLink, onSelect}: HeroStripProps) => {
   const colors = useM3Colors();
   const provider = useContentStore(state => state.provider);
@@ -38,16 +38,28 @@ const HeroStrip = ({posts, activeLink, onSelect}: HeroStripProps) => {
     useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
   const listRef = useRef<FlatList<HeroStripItem>>(null);
 
-  // Active item first so it always renders as the wide card on the left.
-  const ordered = useMemo(() => {
-    const active = posts.find(p => p.link === activeLink);
-    const rest = posts.filter(p => p.link !== activeLink);
-    return active ? [active, ...rest] : posts;
-  }, [posts, activeLink]);
+  const activeIndex = useMemo(
+    () => posts.findIndex(p => p.link === activeLink),
+    [posts, activeLink],
+  );
 
+  // Center the active card in the strip whenever it changes (and on mount).
   useEffect(() => {
-    listRef.current?.scrollToOffset({offset: 0, animated: true});
-  }, [activeLink]);
+    if (activeIndex < 0) return;
+    // Wait a tick so the wide-card layout for the new active item exists.
+    const t = setTimeout(() => {
+      try {
+        listRef.current?.scrollToIndex({
+          index: activeIndex,
+          animated: true,
+          viewPosition: 0.5, // 0.5 = center the item in the viewport
+        });
+      } catch {
+        // Index out of range during data swaps — safe to ignore.
+      }
+    }, 60);
+    return () => clearTimeout(t);
+  }, [activeIndex]);
 
   const openDetails = useCallback(
     (item: HeroStripItem) => {
@@ -64,8 +76,9 @@ const HeroStrip = ({posts, activeLink, onSelect}: HeroStripProps) => {
   );
 
   const renderItem = useCallback(
-    ({item, index}: {item: HeroStripItem; index: number}) => {
-      if (index === 0 && item.link === activeLink) {
+    ({item}: {item: HeroStripItem}) => {
+      const isActive = item.link === activeLink;
+      if (isActive) {
         return (
           <View
             style={{
@@ -75,7 +88,7 @@ const HeroStrip = ({posts, activeLink, onSelect}: HeroStripProps) => {
               borderRadius: 14,
               padding: 8,
               gap: 10,
-              width: 252,
+              width: ACTIVE_WIDTH,
             }}>
             <Pressable onPress={() => openDetails(item)}>
               <Image
@@ -149,7 +162,7 @@ const HeroStrip = ({posts, activeLink, onSelect}: HeroStripProps) => {
       }}>
       <FlatList
         ref={listRef}
-        data={ordered}
+        data={posts}
         horizontal
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item, i) => `${item.link}-${i}`}
@@ -159,9 +172,21 @@ const HeroStrip = ({posts, activeLink, onSelect}: HeroStripProps) => {
         maxToRenderPerBatch={8}
         windowSize={5}
         removeClippedSubviews={false}
+        onScrollToIndexFailed={info => {
+          // Item not rendered yet — wait then retry centering it.
+          setTimeout(() => {
+            try {
+              listRef.current?.scrollToIndex({
+                index: info.index,
+                animated: true,
+                viewPosition: 0.5,
+              });
+            } catch {}
+          }, 120);
+        }}
       />
     </View>
   );
 };
 
-export default React.memo(HeroStrip);
+export default HeroStrip;
