@@ -73,7 +73,9 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
     useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
   const {data: heroData, error} = useHeroMetadata(
     hero?.link || '',
-    provider.value,
+    // Hero post may come from any installed provider — fetch metadata from
+    // the post's own provider, not whichever one is currently active.
+    (hero as any).provider || provider.value,
   );
 
   const imageSource = useMemo(
@@ -141,7 +143,9 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
     }
     navigation.navigate('Info', {
       link: hero.link,
-      provider: provider.value,
+      // The hero post may come from any installed provider — always use the
+      // post's own provider so the Info page scrapes the right source.
+      provider: (hero as any).provider || provider.value,
       poster: heroData?.poster || heroData?.image || heroData?.background,
     });
   }, [hero, heroData, navigation, provider.value]);
@@ -156,7 +160,7 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
       link,
       title,
       poster: heroData?.poster || heroData?.image || hero?.image || '',
-      provider: provider.value,
+      provider: (hero as any).provider || provider.value,
     };
   }, [hero, heroData, provider.value]);
   const inWatchList = useWatchListStore(state =>
