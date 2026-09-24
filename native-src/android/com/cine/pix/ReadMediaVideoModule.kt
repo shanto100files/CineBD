@@ -19,8 +19,8 @@ import com.facebook.react.bridge.WritableArray
  * browse the device's own video files ("Local files" tab) — separate from the
  * All-files-access toggle that only governs where downloads are written.
  */
-class ReadMediaVideoModule(private val reactContext: ReactApplicationContext) :
-    ReactContextBaseJavaModule() {
+class ReadMediaVideoModule(reactContext: ReactApplicationContext) :
+    ReactContextBaseJavaModule(reactContext) {
 
     override fun getName(): String = "ReadMediaVideoModule"
 
