@@ -22,11 +22,19 @@ interface UseStreamOptions {
 
 export const isLocalPath = (path?: string): boolean => {
   if (!path || typeof path !== 'string') return false;
-  return (
+  if (
     path.startsWith('content://') ||
     path.startsWith('file://') ||
-    path.startsWith('/')
-  );
+    path.startsWith('/data/') ||
+    path.startsWith('/storage/')
+  ) {
+    return true;
+  }
+  // A bare absolute path like "/file/abc123" is also how many providers
+  // format REMOTE links. Only treat "/..." as local when it looks like a
+  // real filesystem location; everything else is remote and must not be
+  // misdetected as a downloaded video (phantom "Downloaded" stream).
+  return path.startsWith('/') && !path.startsWith('//') && /\.[a-zA-Z0-9]{2,5}$/.test(path);
 };
 
 export const findDownloadedFileForMedia = async (

@@ -2,6 +2,7 @@ import {extensionManager} from './ExtensionManager';
 import {extensionStorage} from '../storage/extensionStorage';
 import useContentStore from '../zustand/contentStore';
 import {mainStorage as storage} from '../storage/StorageService';
+import {settingsStorage} from '../storage';
 import * as Application from 'expo-application';
 import {getDeviceId} from './heartbeatService';
 import axios from 'axios';
@@ -114,13 +115,21 @@ export async function initializeApp(
       await withTimeout(extensionManager.initialize(), 10000);
     } catch {}
 
-    const installed = extensionStorage.getInstalledProviders();
+    const installedAll = extensionStorage.getInstalledProviders();
+    // 18+ gating: hide adult providers unless the age gate was passed.
+    const adultAllowed = settingsStorage.isAdultEnabled();
+    const installed = adultAllowed
+      ? installedAll
+      : installedAll.filter(p => !p.is_adult);
     const contentStore = useContentStore.getState();
     if (installed.length > 0) {
       useContentStore.setState({installedProviders: installed});
-      if (!contentStore.provider?.value) {
+      if (!contentStore.provider?.value || (!adultAllowed && contentStore.provider.is_adult)) {
         useContentStore.setState({provider: installed[0]});
       }
+    } else if (installedAll.length > 0 && !adultAllowed) {
+      // Everything installed was 18+ — keep list empty-safe.
+      useContentStore.setState({installedProviders: []});
     }
 
     onProgress({progress: 100, status: 'Ready!'});

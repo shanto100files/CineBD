@@ -65,9 +65,14 @@ export const TopControls = memo(
     return (
       <AnimatedView style={[_styles.top, controlsOpacity, topControl]}>
         <SafeAreaView style={_styles.topControlGroup}>
-          <View style={_styles.sideControl}>
+          <View style={_styles.sideControl} pointerEvents="box-none">
             {backControl}
-            <Title {...title} />
+            {/* Centered floating title (YouTube-style): absolutely positioned
+                so the back button and volume sit at the edges without pushing
+                the title off-center. */}
+            <View pointerEvents="none" style={_styles.centerTitle}>
+              <Title {...title} />
+            </View>
           </View>
           <View style={_styles.pullRight}>{volumeControl}</View>
         </SafeAreaView>
@@ -100,5 +105,10 @@ const _styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  centerTitle: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
   },
 });

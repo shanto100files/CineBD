@@ -21,6 +21,8 @@ export interface ProviderExtension {
   disabled: boolean;
   type: 'global' | 'english' | 'india' | 'italy' | 'anime' | 'drama';
   installed: boolean;
+  /** 18+ provider — hidden unless the user passed the age gate. */
+  is_adult?: boolean;
   hasSettings?: boolean;
   installedAt?: number;
   lastUpdated?: number;

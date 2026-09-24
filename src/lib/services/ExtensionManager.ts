@@ -119,6 +119,7 @@ export class ExtensionManager {
         icon: item.icon || '',
         type: item.type || 'global',
         hasSettings: Boolean(item.hasSettings),
+        is_adult: Boolean(item.is_adult),
         installed: false,
       }));
 

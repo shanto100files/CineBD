@@ -7,7 +7,7 @@ import {
   Linking,
   Share,
 } from 'react-native';
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   settingsStorage,
   clearAllMMKVStorage,
@@ -57,6 +57,7 @@ const Settings = ({navigation}: Props) => {
     useNavigation<NativeStackNavigationProp<TabStackParamList>>();
   const colors = useM3Colors();
   const [preferredLanguage, setPreferredLanguage] = useState(settingsStorage.getPreferredLanguage());
+  const [adultEnabled, setAdultEnabled] = useState(settingsStorage.isAdultEnabled());
   const {user, isPremium, isLoggedIn, logout} = useAuthStore();
   const provider = useContentStore(state => state.provider);
   const homeProviderValue = useContentStore(state => state.homeProviderValue);
@@ -65,6 +66,20 @@ const Settings = ({navigation}: Props) => {
   const hideDownloadsTab = useNavigationPreferencesStore(
     state => state.hideDownloadsTab,
   );
+
+  // 18+ toggle: immediately drop adult providers from the active list so the
+  // change applies without an app restart.
+  useEffect(() => {
+    const installed = useContentStore.getState().installedProviders || [];
+    const filtered = installed.filter(p => adultEnabled || !p.is_adult);
+    if (filtered.length !== installed.length) {
+      useContentStore.setState({installedProviders: filtered});
+      const active = useContentStore.getState().provider;
+      if (active?.is_adult && !adultEnabled) {
+        useContentStore.setState({provider: filtered[0] || active});
+      }
+    }
+  }, [adultEnabled]);
 
   const handleProviderSelect = useCallback(
     (item: ProviderExtension) => {
@@ -282,6 +297,14 @@ const Settings = ({navigation}: Props) => {
                 onPress={() => navigation.navigate('Profile')}
               />
               <SettingsRow
+                title="বন্ধুরা"
+                description="বন্ধু যোগ করুন, কন্টেন্ট শেয়ার করুন"
+                icon="account-group"
+                iconBg="#10b98122"
+                iconColor="#10b981"
+                onPress={() => navigation.navigate('Friends')}
+              />
+              <SettingsRow
                 title={isPremium ? '★ Premium Active' : 'Upgrade to Premium'}
                 description={isPremium ? 'Manage subscription' : 'Ad-free, all providers'}
                 icon="workspace_premium"
@@ -497,8 +520,45 @@ const Settings = ({navigation}: Props) => {
               icon="tune-variant"
               iconBg={'#3A2A1A'}
               iconColor={'#FFCC80'}
-              divider={false}
               onPress={() => navigation.navigate('Preferences')}
+            />
+            <SettingsRow
+              title={adultEnabled ? '18+ Content: On' : '18+ Content: Off'}
+              description={
+                adultEnabled
+                  ? '18+ providers are visible'
+                  : 'Enable to see 18+ providers (age 18+)'
+              }
+              icon={adultEnabled ? 'eye' : 'eye-off'}
+              iconBg={'#3A1A2A'}
+              iconColor={'#F48FB1'}
+              divider={false}
+              onPress={() => {
+                if (adultEnabled) {
+                  settingsStorage.setAdultEnabled(false);
+                  setAdultEnabled(false);
+                  ToastAndroid.show('18+ content hidden', ToastAndroid.SHORT);
+                } else {
+                  showAppDialog({
+                    title: 'আপনি কি ১৮ বছরের বেশি?',
+                    message:
+                      '18+ কন্টেন্ট দেখতে নিশ্চিত করুন যে আপনি ১৮ বছর বা তার বেশি বয়সী। এই কন্টেন্ট শিশুদের জন্য উপযুক্ত নয়।',
+                    variant: 'warning',
+                    actions: [
+                      {label: 'না'},
+                      {
+                        label: 'হ্যাঁ, ১৮+',
+                        variant: 'destructive',
+                        onPress: () => {
+                          settingsStorage.setAdultEnabled(true);
+                          setAdultEnabled(true);
+                          ToastAndroid.show('18+ content enabled', ToastAndroid.SHORT);
+                        },
+                      },
+                    ],
+                  });
+                }
+              }}
             />
           </SettingsSection>
         </AnimatedSection>

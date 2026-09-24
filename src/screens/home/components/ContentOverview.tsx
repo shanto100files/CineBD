@@ -18,6 +18,7 @@ interface ContentOverviewProps {
   onOpenWeb?: () => void;
   onSearchTitle: () => void;
   onToggleLibrary: () => void;
+  onShare: () => void;
   onToggleSynopsis: () => void;
   providerName: string;
   rating?: string;
@@ -29,6 +30,8 @@ interface ContentOverviewProps {
   title?: string;
   trailerUrl?: string;
   year?: string;
+  /** Optional inline player rendered in place of the static backdrop. */
+  playerNode?: React.ReactNode;
 }
 
 const HeaderIconButton = ({
@@ -127,6 +130,7 @@ const ContentOverview = ({
   onOpenWeb,
   onSearchTitle,
   onToggleLibrary,
+  onShare,
   onToggleSynopsis,
   providerName,
   rating,
@@ -138,6 +142,7 @@ const ContentOverview = ({
   title,
   trailerUrl,
   year,
+  playerNode,
 }: ContentOverviewProps) => {
   const colors = useM3Colors();
   const [logoFailed, setLogoFailed] = useState(false);
@@ -164,11 +169,19 @@ const ContentOverview = ({
       <View
         style={{
           backgroundColor: colors.background,
-          height: 340,
-          overflow: 'hidden',
+          ...(playerNode
+            ? // Player mode: no fixed height / clipping — the inline player
+              // (surface + its chip rows) defines its own size.
+              {}
+            : {
+                height: 340,
+                overflow: 'hidden',
+              }),
           width: '100%',
         }}>
-        {backgroundImage ? (
+        {playerNode ? (
+          <View style={{width: '100%'}}>{playerNode}</View>
+        ) : backgroundImage ? (
           <Image
             source={{uri: backgroundImage}}
             resizeMode="cover"
@@ -191,17 +204,19 @@ const ContentOverview = ({
             }}
           />
         )}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.12)', 'rgba(0,0,0,0.1)', colors.background]}
-          locations={[0, 0.58, 1]}
-          style={{
-            height: 340,
-            left: 0,
-            position: 'absolute',
-            right: 0,
-            top: 0,
-          }}
-        />
+        {playerNode ? null : (
+          <LinearGradient
+            colors={['rgba(0,0,0,0.12)', 'rgba(0,0,0,0.1)', colors.background]}
+            locations={[0, 0.58, 1]}
+            style={{
+              height: 340,
+              left: 0,
+              position: 'absolute',
+              right: 0,
+              top: 0,
+            }}
+          />
+        )}
 
         <View
           style={{
@@ -209,7 +224,10 @@ const ContentOverview = ({
             flexDirection: 'row',
             left: 12,
             position: 'absolute',
-            top: 42,
+            // Player mode: keep the back button in the status-bar area over
+            // the video; backdrop mode: fixed 42pt like before.
+            top: playerNode ? 46 : 42,
+            zIndex: 10,
           }}>
           <HeaderIconButton
             icon="arrow-left"
@@ -353,6 +371,11 @@ const ContentOverview = ({
               onPress={() => Linking.openURL(trailerUrl)}
             />
           ) : null}
+          <InfoAction
+            icon="share-variant-outline"
+            label="Share"
+            onPress={onShare}
+          />
           <InfoAction
             icon={inLibrary ? 'bookmark' : 'bookmark-outline'}
             label={inLibrary ? 'In watchlist' : 'Watchlist'}

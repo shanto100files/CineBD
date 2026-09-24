@@ -1,8 +1,11 @@
-import {SafeAreaView, RefreshControl, View} from 'react-native';
+import {SafeAreaView, RefreshControl, View, Pressable} from 'react-native';
 import Slider from '../../components/Slider';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {useFocusEffect} from '@react-navigation/native';
 import HeroOptimized from '../../components/Hero';
+import HeroStrip, {HeroStripItem} from '../../components/HeroStrip';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {mainStorage, settingsStorage} from '../../lib/storage';
 import useContentStore from '../../lib/zustand/contentStore';
 import useHeroStore from '../../lib/zustand/herostore';
@@ -27,13 +30,14 @@ import {StatusBar} from 'expo-status-bar';
 import AppText from '../../components/ui/Text';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import ContinueWatching from '../../components/ContinueWatching';
+import FriendsActivityRow from '../../components/FriendsActivityRow';
 import StatusBarScrim from '../../components/ui/StatusBarScrim';
 import {WebView} from 'react-native-webview';
 import WelcomePopup from '../../components/WelcomePopup';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'Home'>;
 
-const Home = ({}: Props) => {
+const Home = ({navigation}: Props) => {
   const colors = useM3Colors();
   const {isPremium} = useAuthStore();
   const [statusBarScrimVisible, setStatusBarScrimVisible] = useState(false);
@@ -50,6 +54,8 @@ const Home = ({}: Props) => {
   const provider = useContentStore(state => state.provider);
   const installedProviders = useContentStore(state => state.installedProviders);
   const setHero = useHeroStore(state => state.setHero);
+  const hero = useHeroStore(state => state.hero);
+  const insets = useSafeAreaInsets();
 
   // React Query for home page data with better error handling
   const {
@@ -88,6 +94,31 @@ const Home = ({}: Props) => {
       setHero({link: '', image: '', title: ''});
     }
   }, [heroPost, setHero]);
+
+  // Pool of posters for the MovieBox-style hero overlap strip: deduped,
+  // image-carrying posts from every home section (max 12 keeps the strip snappy).
+  const heroPool = useMemo<HeroStripItem[]>(() => {
+    const seen = new Set<string>();
+    const pool: HeroStripItem[] = [];
+    for (const section of homeData) {
+      for (const post of section.Posts || []) {
+        if (!post?.link || !post?.image || seen.has(post.link)) {
+          continue;
+        }
+        seen.add(post.link);
+        pool.push({
+          link: post.link,
+          title: post.title,
+          image: post.image,
+          provider: post.provider,
+        });
+        if (pool.length >= 12) {
+          return pool;
+        }
+      }
+    }
+    return pool;
+  }, [homeData]);
 
   useFocusEffect(
     useCallback(() => {
@@ -293,13 +324,63 @@ const Home = ({}: Props) => {
                   onRefresh={handleRefresh}
                 />
               }>
-              <HeroOptimized
-                isDrawerOpen={isDrawerOpen}
-                onOpenDrawer={handleOpenDrawer}
-                disableDrawer={disableDrawer}
-              />
+              <View>
+                <HeroOptimized
+                  isDrawerOpen={isDrawerOpen}
+                  onOpenDrawer={handleOpenDrawer}
+                  disableDrawer={disableDrawer}
+                />
+
+                {/* MovieBox-style pill search shortcut floating over the hero */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Search"
+                  onPress={() => (navigation as any).navigate('SearchStack')}
+                  style={({pressed}) => ({
+                    position: 'absolute',
+                    top: insets.top + 6,
+                    left: 16,
+                    right: 64,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    backgroundColor: 'rgba(0,0,0,0.45)',
+                    borderColor: 'rgba(255,255,255,0.22)',
+                    borderWidth: 1,
+                    borderRadius: 22,
+                    paddingHorizontal: 14,
+                    paddingVertical: 9,
+                    opacity: pressed ? 0.85 : 1,
+                  })}>
+                  <MaterialCommunityIcons
+                    name="magnify"
+                    size={20}
+                    color="rgba(255,255,255,0.85)"
+                  />
+                  <AppText
+                    numberOfLines={1}
+                    style={{
+                      color: 'rgba(255,255,255,0.75)',
+                      fontSize: 14,
+                      flex: 1,
+                    }}>
+                    Search movies, series...
+                  </AppText>
+                </Pressable>
+
+                {/* Overlap strip floating over the hero's bottom edge */}
+                <View style={{marginTop: -34, marginHorizontal: 14, zIndex: 30}}>
+                  <HeroStrip
+                    posts={heroPool}
+                    activeLink={hero?.link || ''}
+                    onSelect={item => setHero(item as any)}
+                  />
+                </View>
+              </View>
 
               <ContinueWatching />
+
+              <FriendsActivityRow />
 
               {!isPremium && homeAds.enabled && homeAds.top ? (
                 <View style={{marginHorizontal: 14, marginTop: 8, borderRadius: 12, overflow: 'hidden', height: 80}}>

@@ -1,8 +1,9 @@
 import React, {useState} from 'react';
-import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image, ToastAndroid} from 'react-native';
-import {CommonActions} from '@react-navigation/native';
+import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image} from 'react-native';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
+import MaterialDialogSurface from '../components/ui/MaterialDialogSurface';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function RegisterScreen({navigation}: any) {
   const [username, setUsername] = useState('');
@@ -10,6 +11,8 @@ export default function RegisterScreen({navigation}: any) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showCelebrate, setShowCelebrate] = useState(false);
+  const [celebrateName, setCelebrateName] = useState('');
   const register = useAuthStore(s => s.register);
   const colors = useM3Colors();
 
@@ -23,21 +26,9 @@ export default function RegisterScreen({navigation}: any) {
     const result = await register(username.trim(), email.trim(), password);
     setLoading(false);
     if (result.success) {
-      ToastAndroid.show('Registration successful!', ToastAndroid.SHORT);
-      // 1) Navigate now while this screen is still mounted.
-      navigation.navigate('Profile');
-      // 2) Belt-and-braces reset only if the navigate didn't take effect.
-      setTimeout(() => {
-        const current = navigation.getParent()?.getState()?.routes.at(-1)?.name;
-        if (current !== 'Profile') {
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 1,
-              routes: [{name: 'Settings'}, {name: 'Profile'}],
-            }),
-          );
-        }
-      }, 400);
+      // Celebration dialog; the Back button returns to the previous page.
+      setCelebrateName(username.trim());
+      setShowCelebrate(true);
     } else {
       setError(result.error || 'Registration failed');
     }
@@ -73,6 +64,30 @@ export default function RegisterScreen({navigation}: any) {
           <Text style={{color: colors.primary, fontSize: 14}}>Already have an account? Login</Text>
         </TouchableOpacity>
       </View>
+
+      <MaterialDialogSurface
+        visible={showCelebrate}
+        dismissible={false}
+        onDismiss={() => {}}>
+        <View style={{alignItems: 'center', gap: 10}}>
+          <Text style={{fontSize: 52}}>🎉</Text>
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+            <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+            <Text style={{color: colors.onSurface, fontSize: 20, fontWeight: '800'}}>
+              Registration Successful!
+            </Text>
+          </View>
+          <Text style={{color: colors.onSurfaceVariant, fontSize: 14, textAlign: 'center'}}>
+            স্বাগতম{celebrateName ? `, ${celebrateName}` : ''}! আপনার একাউন্ট তৈরি হয়েছে।
+          </Text>
+          <TouchableOpacity
+            style={[styles.celebrateBtn, {backgroundColor: colors.primary}]}
+            onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={18} color={colors.onPrimary} />
+            <Text style={{color: colors.onPrimary, fontSize: 15, fontWeight: '700'}}>Back</Text>
+          </TouchableOpacity>
+        </View>
+      </MaterialDialogSurface>
     </KeyboardAvoidingView>
   );
 }
@@ -88,4 +103,5 @@ const styles = StyleSheet.create({
   input: {width: '100%', padding: 14, borderRadius: 12, borderWidth: 1, fontSize: 15},
   btn: {width: '100%', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 4},
   btnText: {fontSize: 16, fontWeight: '700'},
+  celebrateBtn: {flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 24, marginTop: 8},
 });

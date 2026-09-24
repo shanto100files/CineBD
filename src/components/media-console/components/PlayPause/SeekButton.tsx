@@ -386,13 +386,15 @@ const styles = {
     left: 0,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    // Buttons hug the left/right edges; the centre stays free for the big
+    // play/pause circle (YouTube-style layout).
+    justifyContent: 'space-between' as const,
+    paddingHorizontal: '7%' as const,
     zIndex: 100000,
   },
-  // Matches the play/pause control width so the buttons keep the same
-  // positions they had inside the PlayPause row.
+  // Flex spacer keeps the two buttons pinned to opposite edges at any width.
   spacer: {
-    width: '35%' as const,
+    flex: 1 as const,
   },
   control: {
     opacity: 0.7,

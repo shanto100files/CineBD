@@ -51,6 +51,11 @@ import {queryClient} from './lib/client';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import notifee, {EventType} from '@notifee/react-native';
 import notificationService from './lib/services/Notification';
+import {
+  getMessaging,
+  registerForPushNotifications,
+  onTokenRefresh,
+} from './lib/services/pushService';
 import WafWebViewDialog from './components/WafWebViewDialog';
 import ProviderSandboxHost from './components/ProviderSandboxHost';
 import {syncDohSettings} from './lib/services/dohService';
@@ -85,6 +90,7 @@ import {useAuthStore} from './lib/zustand/authStore';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import FriendsScreen from './screens/settings/FriendsScreen';
 import PremiumScreen from './screens/settings/PremiumScreen';
 import ForceUpdateScreen from './screens/ForceUpdateScreen';
 import AppText from './components/ui/Text';
@@ -166,6 +172,7 @@ export type SettingsStackParamList = {
   Extensions: undefined;
   DownloadsStack: undefined;
   ProviderSelect: undefined;
+  Friends: undefined;
   Login: undefined;
   Register: undefined;
   Profile: undefined;
@@ -190,6 +197,25 @@ export type TabStackParamList = {
 const Tab = createBottomTabNavigator<TabStackParamList>();
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 let pendingDownloadsNavigation = false;
+
+// Deep-link helper for promo push notifications: opens the Info page for the
+// advertised title (used from notificationService.actionHandler).
+export const openInfoScreen = (link: string, provider?: string, poster?: string) => {
+  try {
+    navigationRef.dispatch(
+      // Imported lazily to avoid a circular import at module load.
+      require('@react-navigation/native').CommonActions.navigate('TabStack', {
+        screen: 'HomeStack',
+        params: {
+          screen: 'Info',
+          params: {link, provider: provider || undefined, poster: poster || undefined},
+        },
+      }),
+    );
+  } catch (error) {
+    console.warn('[Push] failed to open info screen:', error);
+  }
+};
 
 const HomeStackNav = createNativeStackNavigator<HomeStackParamList>();
 const RootStackNav = createNativeStackNavigator<RootStackParamList>();
@@ -251,6 +277,7 @@ const SettingsStackScreen = React.memo(() => {
       <SettingsStackNav.Screen name="DownloadsStack" component={DownloadsStackScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="SubTitlesPreferences" component={SubtitlePreference} options={subpageOptions} />
       <SettingsStackNav.Screen name="ProviderSelect" component={ProviderSelect} options={subpageOptions} />
+      <SettingsStackNav.Screen name="Friends" component={FriendsScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="Login" component={LoginScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="Register" component={RegisterScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="Profile" component={ProfileScreen} options={subpageOptions} />
@@ -384,7 +411,65 @@ const App = () => {
         console.warn('Failed to handle initial notification:', error),
     );
 
-    return () => unsubscribe();
+    // --- FCM promo push (MovieBox-style rich notifications) ---
+    // Everything below is a no-op without google-services.json / new native
+    // build, so this effect stays safe on every variant.
+    let unsubscribeFcm: (() => void) | undefined;
+    let unsubscribeTokenRefresh: (() => void) | undefined;
+    try {
+      const messaging = getMessaging();
+      if (messaging) {
+        // App in foreground: FCM delivers the message to JS instead of the
+        // system tray - render it ourselves as a rich promo notification.
+        unsubscribeFcm = messaging.onMessage(async (remoteMessage: any) => {
+          try {
+            const n = remoteMessage?.notification || {};
+            const d = remoteMessage?.data || {};
+            await notificationService.showPromoNotification({
+              id: `promo-${remoteMessage?.messageId || Date.now()}`,
+              title: d.title || n.title || 'Cinepix',
+              body: d.body || n.body || '',
+              imageUrl: d.image || d.imageUrl || '',
+              link: d.link || '',
+              provider: d.provider || '',
+              poster: d.poster || '',
+            });
+          } catch (error) {
+            console.warn('[Push] foreground render failed:', error);
+          }
+        });
+
+        // Background/quit: showPromo runs in the background handler context.
+        messaging.setBackgroundMessageHandler(async (remoteMessage: any) => {
+          try {
+            const d = remoteMessage?.data || {};
+            await notificationService.showPromoNotification({
+              id: `promo-${remoteMessage?.messageId || Date.now()}`,
+              title: d.title || 'Cinepix',
+              body: d.body || '',
+              imageUrl: d.image || '',
+              link: d.link || '',
+              provider: d.provider || '',
+              poster: d.poster || '',
+            });
+          } catch {}
+        });
+
+        registerForPushNotifications();
+        unsubscribeTokenRefresh = onTokenRefresh(() => {
+          // Token rotated: force re-registration on next launch.
+          require('./lib/services/pushService').resetPushRegistration();
+        });
+      }
+    } catch (error) {
+      console.warn('[Push] FCM init skipped:', error);
+    }
+
+    return () => {
+      unsubscribe();
+      unsubscribeFcm?.();
+      unsubscribeTokenRefresh?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -498,18 +583,22 @@ const App = () => {
 
   // When the user returns from the All-files-access settings screen,
   // finish the auto-setup silently (dialog stays closed).
+  // Android doesn't propagate the MANAGE_EXTERNAL_STORAGE toggle instantly
+  // after returning — it can lag a few seconds — so retry the check for up
+  // to 4s instead of failing once and forcing the user to toggle twice.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    const sub = AppState.addEventListener('change', async state => {
-      if (state !== 'active' || !showDownloadSetup) return;
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const finishSetup = async () => {
       try {
-        if (await hasAllFilesAccess()) {
-          const path = await getAutoDownloadDir();
-          settingsStorage.setDownloadLocation({
-            type: 'path',
-            path,
-            label: `Internal storage/Download/${AUTO_DOWNLOAD_DIRNAME}`,
-          });
+        const path = await getAutoDownloadDir();
+        settingsStorage.setDownloadLocation({
+          type: 'path',
+          path,
+          label: `Internal storage/Download/${AUTO_DOWNLOAD_DIRNAME}`,
+        });
+        if (!cancelled) {
           setShowDownloadSetup(false);
           ToastAndroid.show(
             'ডাউনলোড ফোল্ডার সেট হয়েছে: Download/CineBD',
@@ -517,13 +606,35 @@ const App = () => {
           );
         }
       } catch {}
+    };
+    const checkWithRetry = async (attempt: number) => {
+      if (cancelled) return;
+      try {
+        if (await hasAllFilesAccess()) {
+          await finishSetup();
+          return;
+        }
+      } catch {}
+      if (attempt < 8) {
+        retryTimer = setTimeout(() => checkWithRetry(attempt + 1), 500);
+      }
+    };
+    const sub = AppState.addEventListener('change', state => {
+      if (state !== 'active' || !showDownloadSetup) return;
+      checkWithRetry(0);
     });
-    return () => sub.remove();
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      sub.remove();
+    };
   }, [showDownloadSetup]);
 
   const handleSelectDownloadFolder = async () => {
     setIsPickingFolder(true);
-    setShowDownloadSetup(false);
+    // Keep the setup dialog open: the AppState listener above retries the
+    // permission check for up to 4s after the user returns and completes
+    // the setup itself (single toggle — no second visit needed).
     try {
       const apiLevel = Number(Platform.Version);
       if (apiLevel >= 30) {
@@ -531,6 +642,7 @@ const App = () => {
         // file picker). When the user comes back, the AppState listener
         // above completes the auto-setup. If already granted, finish now.
         if (await requestAllFilesAccess()) {
+          setShowDownloadSetup(false);
           const path = await getAutoDownloadDir();
           settingsStorage.setDownloadLocation({
             type: 'path',

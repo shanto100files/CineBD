@@ -26,7 +26,9 @@ import {M3PaletteContext, useM3Colors} from '../../theme/M3PaletteContext';
 import type {MaterialColors} from '../../theme/colors';
 import {mixHex} from '../../theme/seeds';
 import ContentOverview from './components/ContentOverview';
+import InlinePlayer from './components/InlinePlayer';
 import InfoStoryModal from './components/InfoStoryModal';
+import ShareWithFriendsSheet from './components/ShareWithFriendsSheet';
 import InfoSkeleton from './components/InfoSkeleton';
 import StatusBarScrim from '../../components/ui/StatusBarScrim';
 
@@ -56,6 +58,7 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   );
   const [readMore, setReadMore] = useState(false);
   const [storyVisible, setStoryVisible] = useState(false);
+  const [shareVisible, setShareVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshVersion, setRefreshVersion] = useState(0);
 
@@ -336,7 +339,25 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                   }
                   onSearchTitle={searchTitle}
                   onToggleLibrary={toggleLibrary}
+                  onShare={() => setShareVisible(true)}
                   onToggleSynopsis={() => setReadMore(value => !value)}
+                  playerNode={
+                    filteredLinkList.length > 0 ? (
+                      <InlinePlayer
+                        backdrop={backgroundImage || posterImage}
+                        title={displayTitle}
+                        linkList={filteredLinkList}
+                        providerValue={providerValue}
+                        type={info?.type || 'series'}
+                        infoUrl={route.params.link}
+                        poster={{
+                          logo: displayLogo,
+                          poster: posterImage,
+                          background: backgroundImage,
+                        }}
+                      />
+                    ) : undefined
+                  }
                   providerName={contentProviderName}
                   rating={meta?.imdbRating || info?.rating}
                   readMore={readMore}
@@ -416,6 +437,20 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
             tmdbId={info?.tmdbId}
             type={info?.type}
             visible={storyVisible}
+          />
+          <ShareWithFriendsSheet
+            visible={shareVisible}
+            onClose={() => setShareVisible(false)}
+            content={
+              info
+                ? {
+                    link: route.params.link,
+                    provider: providerValue,
+                    title: displayTitle,
+                    poster: posterImage || backgroundImage || '',
+                  }
+                : null
+            }
           />
         </View>
       </M3PaletteContext.Provider>

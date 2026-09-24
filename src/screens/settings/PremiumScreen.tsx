@@ -17,6 +17,8 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppText from '../../components/ui/Text';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import {useAuthStore} from '../../lib/zustand/authStore';
+import PremiumHeroCard from '../../components/PremiumHeroCard';
+import PremiumPlanPills from '../../components/PremiumPlanPills';
 import axios from 'axios';
 
 const API = 'https://cinepix.top/api/app';
@@ -211,30 +213,54 @@ const PremiumScreen = ({navigation}: Props) => {
         contentContainerStyle={{paddingBottom: insets.bottom + 20}}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
 
-        {/* Current Status */}
+        {/* Premium Hero (MovieBox-style) */}
         <View style={{marginHorizontal: 16, marginBottom: 20}}>
-          <View style={{backgroundColor: isPremium ? 'rgba(251,191,36,0.1)' : colors.surfaceContainerLow, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: isPremium ? 'rgba(251,191,36,0.3)' : colors.outlineVariant}}>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
-              <View style={{width: 48, height: 48, borderRadius: 24, backgroundColor: isPremium ? '#f59e0b' : colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center'}}>
-                <MaterialIcons name={isPremium ? 'star' : 'person'} size={24} color={isPremium ? '#fff' : colors.onSurfaceVariant} />
-              </View>
-              <View style={{flex: 1}}>
-                <AppText role="titleMedium" style={{color: isPremium ? '#f59e0b' : colors.onSurface, fontWeight: '700'}}>
-                  {isPremium ? 'প্রিমিয়াম সক্রিয়' : 'ফ্রি অ্যাকাউন্ট'}
+          <PremiumHeroCard
+            planLabel={isPremium ? 'PRO' : 'FREE'}
+            title={isPremium ? 'Cinepix Premium' : 'ফ্রি অ্যাকাউন্ট'}
+            subtitle={
+              isPremium
+                ? 'বিজ্ঞাপনমুক্ত স্ট্রিমিং ও সব প্রোভাইডার'
+                : 'প্রিমিয়ামে আপগ্রেড করুন — বিজ্ঞাপনমুক্ত স্ট্রিমিং ও সব প্রোভাইডার'
+            }
+            expiryLabel={
+              isPremium && expiresAt
+                ? `মেয়াদ শেষ: ${formatDate(expiresAt)} • ${getDaysLeft(expiresAt)} দিন বাকি`
+                : undefined
+            }
+            daysLeft={isPremium && expiresAt ? getDaysLeft(expiresAt) : undefined}
+            totalDays={
+              isPremium && expiresAt && subscriptions[0]?.duration_days
+                ? subscriptions[0].duration_days
+                : undefined
+            }
+            footer={
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  const firstPkg = packages[0];
+                  if (firstPkg) setSelectedPkg(firstPkg);
+                }}
+                style={{
+                  alignItems: 'center',
+                  backgroundColor: '#F7D774',
+                  borderRadius: 24,
+                  paddingVertical: 13,
+                }}>
+                <AppText style={{color: '#4a2f0d', fontSize: 15, fontWeight: '800'}}>
+                  {isPremium ? 'Renew করুন' : 'আপগ্রেড করুন'}
                 </AppText>
-                {isPremium && expiresAt && (
-                  <AppText role="bodySmall" style={{color: colors.onSurfaceVariant, marginTop: 2}}>
-                    মেয়াদ শেষ: {formatDate(expiresAt)} ({getDaysLeft(expiresAt)} দিন বাকি)
-                  </AppText>
-                )}
-                {!isPremium && (
-                  <AppText role="bodySmall" style={{color: colors.onSurfaceVariant, marginTop: 2}}>
-                    প্রিমিয়ামে আপগ্রেড করুন — বিজ্ঞাপনমুক্ত স্ট্রিমিং ও সব প্রোভাইডার পাবেন
-                  </AppText>
-                )}
-              </View>
-            </View>
-          </View>
+              </TouchableOpacity>
+            }>
+            <PremiumPlanPills
+              items={[
+                {icon: 'crown-outline', label: 'Ad-free'},
+                {icon: 'lightning-bolt', label: 'Fast', badge: '⚡'},
+                {icon: 'cellphone-arrow-down', label: 'সব Provider'},
+                {icon: 'shield-check-outline', label: 'Priority', badge: '★'},
+              ]}
+            />
+          </PremiumHeroCard>
         </View>
 
         {/* Payment Instructions */}

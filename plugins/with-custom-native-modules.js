@@ -81,6 +81,7 @@ function withCustomNativeModules(config) {
       'HttpDownloadPackage()',
       'LauncherIconPackage()',
       'VideoThumbnailPackage()',
+      'ReadMediaVideoPackage()',
     ];
     if (includeTorrent) {
       packagesToAdd.push('TorrentPackage()');

@@ -1,14 +1,17 @@
 import React, {useState} from 'react';
-import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image, ToastAndroid} from 'react-native';
-import {CommonActions} from '@react-navigation/native';
+import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image} from 'react-native';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
+import MaterialDialogSurface from '../components/ui/MaterialDialogSurface';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function LoginScreen({navigation}: any) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showCelebrate, setShowCelebrate] = useState(false);
+  const [celebrateName, setCelebrateName] = useState('');
   const login = useAuthStore(s => s.login);
   const colors = useM3Colors();
 
@@ -22,24 +25,10 @@ export default function LoginScreen({navigation}: any) {
     const result = await login(username.trim(), password);
     setLoading(false);
     if (result.success) {
-      ToastAndroid.show('Login successful!', ToastAndroid.SHORT);
-      // 1) Navigate now — this screen is still mounted, so the call always
-      // reaches a live navigator.
-      navigation.navigate('Profile');
-      // 2) Belt-and-braces: if a navigator bug left us on Login anyway
-      //    (some react-native-screens versions no-op navigate from a
-      //    screen mid-freeze), rebuild the stack deterministically.
-      setTimeout(() => {
-        const current = navigation.getParent()?.getState()?.routes.at(-1)?.name;
-        if (current !== 'Profile') {
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 1,
-              routes: [{name: 'Settings'}, {name: 'Profile'}],
-            }),
-          );
-        }
-      }, 400);
+      // Celebration dialog first; the Back button returns to the previous
+      // page (this screen stays mounted, so the dialog is always visible).
+      setCelebrateName(username.trim());
+      setShowCelebrate(true);
     } else {
       setError(result.error || 'Login failed');
     }
@@ -72,6 +61,30 @@ export default function LoginScreen({navigation}: any) {
           <Text style={{color: colors.primary, fontSize: 14}}>Don't have an account? Register</Text>
         </TouchableOpacity>
       </View>
+
+      <MaterialDialogSurface
+        visible={showCelebrate}
+        dismissible={false}
+        onDismiss={() => {}}>
+        <View style={{alignItems: 'center', gap: 10}}>
+          <Text style={{fontSize: 52}}>🎉</Text>
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+            <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+            <Text style={{color: colors.onSurface, fontSize: 20, fontWeight: '800'}}>
+              Login Successful!
+            </Text>
+          </View>
+          <Text style={{color: colors.onSurfaceVariant, fontSize: 14, textAlign: 'center'}}>
+            স্বাগতম{celebrateName ? `, ${celebrateName}` : ''}! আপনি সফলভাবে লগইন করেছেন।
+          </Text>
+          <TouchableOpacity
+            style={[styles.celebrateBtn, {backgroundColor: colors.primary}]}
+            onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={18} color={colors.onPrimary} />
+            <Text style={{color: colors.onPrimary, fontSize: 15, fontWeight: '700'}}>Back</Text>
+          </TouchableOpacity>
+        </View>
+      </MaterialDialogSurface>
     </KeyboardAvoidingView>
   );
 }
@@ -87,4 +100,5 @@ const styles = StyleSheet.create({
   input: {width: '100%', padding: 14, borderRadius: 12, borderWidth: 1, fontSize: 15},
   btn: {width: '100%', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 4},
   btnText: {fontSize: 16, fontWeight: '700'},
+  celebrateBtn: {flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 24, marginTop: 8},
 });

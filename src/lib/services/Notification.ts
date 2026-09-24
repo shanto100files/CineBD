@@ -1,6 +1,7 @@
 import notifee, {
   AndroidImportance,
   AndroidGroupAlertBehavior,
+  AndroidStyle,
   EventDetail,
   EventType,
   AndroidForegroundServiceType,
@@ -61,6 +62,7 @@ class NotificationService {
   private _defaultChannelId = 'default';
   private _downloadChannelId = 'download';
   private _updateChannelId = 'update';
+  private _promoChannelId = 'promo';
   private _downloadForegroundId = 'downloadForegroundService';
   private initialized = false;
   private permissionRequest?: Promise<boolean>;
@@ -120,6 +122,14 @@ class NotificationService {
       name: 'Update Notifications',
       importance: AndroidImportance.DEFAULT,
       description: 'Notifications for app and provider updates',
+    });
+
+    // Promo/content channel (MovieBox-style rich recommendations)
+    await notifee.createChannel({
+      id: this._promoChannelId,
+      name: 'New & Trending',
+      importance: AndroidImportance.HIGH,
+      description: 'New releases and recommendations from Cinepix',
     });
   }
 
@@ -439,6 +449,50 @@ class NotificationService {
   }
 
   /**
+   * Rich promo/content notification with a big poster picture
+   * (MovieBox-style). Fired from FCM pushes handled in App.tsx.
+   */
+  async showPromoNotification(payload: {
+    id?: string;
+    title: string;
+    body: string;
+    imageUrl?: string;
+    link?: string;
+    provider?: string;
+    poster?: string;
+  }): Promise<void> {
+    await this.ensureInitialized();
+    const id = payload.id || `promo-${Date.now()}`;
+    const largeUrl = payload.imageUrl || payload.poster || '';
+    await notifee.displayNotification({
+      id,
+      title: payload.title,
+      body: payload.body,
+      data: {
+        navigationTarget: payload.link ? 'info' : 'home',
+        link: payload.link || '',
+        provider: payload.provider || '',
+        poster: payload.poster || '',
+      },
+      android: {
+        channelId: this._promoChannelId,
+        smallIcon: 'ic_notification',
+        color: settingsStorage.getPrimaryColor(),
+        pressAction: this.getAppLaunchPressAction(),
+        ...(largeUrl
+          ? {
+              largeIcon: largeUrl,
+              style: {
+                type: AndroidStyle.BIGPICTURE,
+                picture: largeUrl,
+              },
+            }
+          : {}),
+      },
+    });
+  }
+
+  /**
    * Helper method to show update available notification
    */
   async showUpdateAvailable(
@@ -530,6 +584,22 @@ class NotificationService {
       return;
     }
     if (
+      type === EventType.PRESS &&
+      detail.notification?.data?.navigationTarget === 'info'
+    ) {
+      const link = String(detail.notification.data.link || '');
+      if (link) {
+        const {openInfoScreen} =
+          require('../../App') as typeof import('../../App');
+        openInfoScreen(
+          link,
+          String(detail.notification.data.provider || ''),
+          String(detail.notification.data.poster || ''),
+        );
+      }
+      return;
+    }
+    if (
       type === EventType.ACTION_PRESS &&
       (downloadAction === 'cancel-download' ||
         downloadAction === 'pause-download' ||
@@ -607,6 +677,10 @@ class NotificationService {
       body: body,
       progress: progress,
     });
+  }
+
+  getPromoChannelId(): string {
+    return this._promoChannelId;
   }
 
   /**

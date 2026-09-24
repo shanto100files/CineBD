@@ -103,7 +103,7 @@ module.exports = () => {
       autolinking: { exclude: ['expo-splash-screen', 'react-native-fullscreen-chz', 'react-native-worklets', 'react-native-reanimated'] },
       plugins,
       slug: 'cinepix',
-       version: '5.7.5',
+       version: '5.7.6',
       userInterfaceStyle: 'dark',
       experiments: {
         reactCompiler: true,
@@ -114,7 +114,7 @@ module.exports = () => {
           : {}),
         minSdkVersion: 28,
         package: PACKAGE_NAME,
-        versionCode: 207,
+        versionCode: 208,
         permissions: [
           'FOREGROUND_SERVICE',
           'FOREGROUND_SERVICE_DATA_SYNC',
@@ -122,13 +122,16 @@ module.exports = () => {
           'ACCESS_NETWORK_STATE',
           'INTERNET',
           'WRITE_SETTINGS',
+          // MovieBox-style one-tap "Allow limited / Allow all" dialog so users
+          // can browse their own video files in the Downloads screen.
+          'android.permission.READ_MEDIA_VIDEO',
+          'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
           // Required for the one-time "All files access" toggle so downloads can
           // auto-save into Download/CineBD without the SAF picker.
           'MANAGE_EXTERNAL_STORAGE',
         ],
         blockedPermissions: [
           'android.permission.READ_EXTERNAL_STORAGE',
-          'android.permission.READ_MEDIA_VIDEO',
           'android.permission.WRITE_EXTERNAL_STORAGE',
           // Play Protect flags APKs requesting install rights / overlay / secure settings.
           // Updates are delivered via the browser + package installer UI instead.

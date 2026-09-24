@@ -115,38 +115,27 @@ const Slider = ({
           <Pressable
             accessibilityRole="button"
             onPress={handleMorePress}
+            hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
             style={({pressed}) => ({
               alignItems: 'center',
-              backgroundColor: pressed
-                ? colors.surfaceContainerHighest
-                : colors.surfaceContainerHigh,
-              borderRadius: 18,
+              flexDirection: 'row',
               flexShrink: 0,
-              justifyContent: 'center',
-              minHeight: 36,
-              width: 92,
+              gap: 2,
+              opacity: pressed ? 0.7 : 1,
+              paddingHorizontal: 4,
+              paddingVertical: 8,
             })}>
-            <View
-              style={{
-                alignItems: 'center',
-                flexDirection: 'row',
-                flexWrap: 'nowrap',
-                height: 36,
-                justifyContent: 'center',
-                width: 72,
-              }}>
-              <AppText
-                numberOfLines={1}
-                style={{color: colors.primary, fontSize: 13, fontWeight: '700', width: 50}}>
-                See all
-              </AppText>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                color={colors.primary}
-                size={16}
-                style={{height: 16, width: 16}}
-              />
-            </View>
+            <AppText
+              numberOfLines={1}
+              style={{color: colors.primary, fontSize: 14, fontWeight: '700'}}>
+              All
+            </AppText>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              color={colors.primary}
+              size={16}
+              style={{height: 16, width: 16}}
+            />
           </Pressable>
         )}
       </View>

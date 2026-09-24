@@ -441,10 +441,11 @@ const Extensions = ({navigation}: Props) => {
     await refreshProviders(activeSourceAuthor);
   };
   const currentData = useMemo(() => {
+    const adultAllowed = settingsStorage.isAdultEnabled();
     const allProviders = [
       ...(availableProviders || []),
       ...(installedProviders || []),
-    ].filter(item => item && item.value);
+    ].filter(item => item && item.value && (adultAllowed || !item.is_adult));
 
     const providersMap = new Map<string, ProviderExtension>();
     for (const item of allProviders) {

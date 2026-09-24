@@ -8,7 +8,10 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
+  Image,
   Platform,
+  Pressable,
+  ScrollView,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -37,12 +40,166 @@ import useDownloadsStore, {
   selectCompletedDownloads,
 } from '../../lib/zustand/downloadsStore';
 import {useM3Colors} from '../../theme/M3PaletteContext';
+import {
+  hasVideoPermission,
+  listDeviceVideos,
+  requestVideoPermission,
+  DeviceVideo,
+} from '../../lib/deviceVideos';
+import {showAppDialog} from '../../lib/zustand/appDialogStore';
 import CurrentDownloadsSection from '../settings/components/CurrentDownloadsSection';
 import MissingDownloadsSection from '../settings/components/MissingDownloadsSection';
 
 const GRID_PADDING = 12;
 const GRID_GAP = 10;
 const MIN_CARD_WIDTH = 100;
+
+/** Device video grid for the "Local files" tab. */
+const LocalVideosGrid = ({
+  videos,
+  loading,
+  permissionAsked,
+  onRetryPermission,
+  cardWidth,
+  columns,
+}: {
+  videos: DeviceVideo[];
+  loading: boolean;
+  permissionAsked: boolean;
+  onRetryPermission: () => void;
+  cardWidth: number;
+  columns: number;
+}) => {
+  const colors = useM3Colors();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<DownloadsStackParamList>>();
+
+  if (loading) {
+    return (
+      <View style={{alignItems: 'center', paddingVertical: 60}}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (videos.length === 0) {
+    return (
+      <View style={{alignItems: 'center', paddingVertical: 48}}>
+        <MaterialCommunityIcons
+          name="video-off-outline"
+          size={64}
+          color={colors.onSurfaceVariant}
+        />
+        <AppText
+          role="bodyLarge"
+          style={{color: colors.onSurfaceVariant, marginTop: 12, textAlign: 'center'}}>
+          {permissionAsked
+            ? 'কোনো ভিডিও পাওয়া যায়নি বা অনুমতি এখনো দেওয়া হয়নি'
+            : 'ভিডিও দেখতে অনুমতি দিন'}
+        </AppText>
+        <TouchableOpacity
+          onPress={onRetryPermission}
+          style={{
+            backgroundColor: colors.primary,
+            borderRadius: 20,
+            marginTop: 16,
+            paddingHorizontal: 22,
+            paddingVertical: 10,
+          }}>
+          <AppText style={{color: colors.onPrimary, fontWeight: '700'}}>
+            অনুমতি দিন
+          </AppText>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={videos}
+      key={columns}
+      numColumns={columns}
+      keyExtractor={(item, i) => item.uri + i}
+      columnWrapperStyle={{gap: GRID_GAP}}
+      contentContainerStyle={{
+        gap: 14,
+        paddingBottom: 80,
+        paddingHorizontal: GRID_PADDING,
+      }}
+      renderItem={({item}) => (
+        <Pressable
+          onPress={() =>
+            navigation.navigate('TabStack' as never, {
+              screen: 'HomeStack',
+              params: {screen: 'Webview', params: {link: item.uri}} as never,
+            } as never)
+          }
+          style={{width: cardWidth, gap: 6}}>
+          <View
+            style={{
+              backgroundColor: colors.surfaceContainerHigh,
+              borderRadius: 12,
+              height: cardWidth * 0.62,
+              overflow: 'hidden',
+              width: '100%',
+            }}>
+            <Image
+              source={{
+                uri: `https://invalid.local/thumb-${encodeURIComponent(item.uri)}`,
+              }}
+              style={{height: '100%', opacity: 0, width: '100%'}}
+            />
+            <View
+              style={{
+                alignItems: 'center',
+                backgroundColor: colors.surfaceContainerHighest,
+                flex: 1,
+                justifyContent: 'center',
+                position: 'absolute',
+                width: '100%',
+              }}>
+              <MaterialCommunityIcons
+                name="play-circle-outline"
+                size={40}
+                color={colors.primary}
+              />
+            </View>
+            {item.durationMs > 0 ? (
+              <View
+                style={{
+                  backgroundColor: 'rgba(0,0,0,0.7)',
+                  borderRadius: 6,
+                  bottom: 6,
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  position: 'absolute',
+                  right: 6,
+                }}>
+                <AppText style={{color: '#fff', fontSize: 11}}>
+                  {formatDuration(item.durationMs)}
+                </AppText>
+              </View>
+            ) : null}
+          </View>
+          <AppText numberOfLines={1} style={{color: colors.onSurface, fontSize: 12}}>
+            {item.name}
+          </AppText>
+        </Pressable>
+      )}
+      showsVerticalScrollIndicator={false}
+    />
+  );
+};
+
+const formatDuration = (ms: number): string => {
+  const total = Math.round(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    : `${m}:${String(s).padStart(2, '0')}`;
+};
 
 const Downloads = () => {
   const colors = useM3Colors();
@@ -54,6 +211,63 @@ const Downloads = () => {
     new Set(),
   );
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // --- Local files tab (device video library) ---
+  const [activeTab, setActiveTab] = useState<'cinebd' | 'local'>('cinebd');
+  const [localVideos, setLocalVideos] = useState<DeviceVideo[]>([]);
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localPermissionAsked, setLocalPermissionAsked] = useState(false);
+
+  const loadLocalVideos = useCallback(async () => {
+    setLocalLoading(true);
+    try {
+      const videos = await listDeviceVideos();
+      setLocalVideos(videos);
+    } finally {
+      setLocalLoading(false);
+    }
+  }, []);
+
+  const openLocalTab = useCallback(async () => {
+    if (await hasVideoPermission()) {
+      loadLocalVideos();
+      return;
+    }
+    // MovieBox-style explainer (Bangla) before the system one-tap dialog.
+    showAppDialog({
+      title: 'ভিডিও ফাইলের অনুমতি দরকার',
+      message:
+        'আপনার ফোনে থাকা ভিডিওগুলো এখানে দেখাতে ও চালাতে অ্যাপের "ভিডিও দেখার" অনুমতি লাগে।\n\nপরের ধাপে "Allow all" চাপলেই হবে — এটা শুধু ভিডিও দেখার জন্য, কোনো ফাইল ডিলিট বা পরিবর্তন হবে না।',
+      variant: 'info',
+      actions: [
+        {label: 'এখন না'},
+        {
+          label: 'অনুমতি দিন',
+          variant: 'primary',
+          onPress: async () => {
+            setLocalPermissionAsked(true);
+            await requestVideoPermission();
+            // Give the system dialog a beat, then check-and-load.
+            setTimeout(async () => {
+              if (await hasVideoPermission()) {
+                loadLocalVideos();
+              }
+            }, 1200);
+          },
+        },
+      ],
+    });
+  }, [loadLocalVideos]);
+
+  const handleTabChange = useCallback(
+    (tab: 'cinebd' | 'local') => {
+      setActiveTab(tab);
+      if (tab === 'local') {
+        openLocalTab();
+      }
+    },
+    [openLocalTab],
+  );
 
   const isSelectionMode = selectedGroupIds.size > 0;
   const availableWidth = Dimensions.get('window').width - GRID_PADDING * 2;
@@ -288,6 +502,16 @@ const Downloads = () => {
         </View>
       ) : null}
 
+      {activeTab === 'local' ? (
+        <LocalVideosGrid
+          videos={localVideos}
+          loading={localLoading}
+          permissionAsked={localPermissionAsked}
+          onRetryPermission={openLocalTab}
+          cardWidth={cardWidth}
+          columns={columns}
+        />
+      ) : (
       <FlatList
         data={groups}
         key={columns}
@@ -308,17 +532,61 @@ const Downloads = () => {
             <View>
               <AppText
                 role="headlineLargeEmphasized"
-                className="mb-6 mt-2 text-center text-m3-on-background">
+                className="mb-4 mt-2 text-center text-m3-on-background">
                 Downloads
               </AppText>
-              <CurrentDownloadsSection primary={colors.primary} />
-              <MissingDownloadsSection primary={colors.primary} />
-              {groups.length > 0 ? (
-                <AppText
-                  role="titleLargeEmphasized"
-                  className="mb-4 text-m3-on-background">
-                  Downloaded
-                </AppText>
+
+              {/* Tab chips: CineBD downloads vs device's own videos */}
+              <View style={{alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: 14, paddingHorizontal: 4}}>
+                {([
+                  {key: 'cinebd' as const, label: 'CineBD'},
+                  {key: 'local' as const, label: 'Local files'},
+                ]).map(tab => (
+                  <Pressable
+                    key={tab.key}
+                    onPress={() => handleTabChange(tab.key)}
+                    style={({pressed}) => ({
+                      backgroundColor:
+                        activeTab === tab.key
+                          ? colors.primary
+                          : colors.surfaceContainerHigh,
+                      borderColor:
+                        activeTab === tab.key
+                          ? colors.primary
+                          : colors.outlineVariant,
+                      borderRadius: 18,
+                      borderWidth: 1,
+                      opacity: pressed ? 0.8 : 1,
+                      paddingHorizontal: 16,
+                      paddingVertical: 7,
+                    })}>
+                    <AppText
+                      style={{
+                        color:
+                          activeTab === tab.key
+                            ? colors.onPrimary
+                            : colors.onSurface,
+                        fontSize: 13,
+                        fontWeight: '600',
+                      }}>
+                      {tab.label}
+                    </AppText>
+                  </Pressable>
+                ))}
+              </View>
+
+              {activeTab === 'cinebd' ? (
+                <>
+                  <CurrentDownloadsSection primary={colors.primary} />
+                  <MissingDownloadsSection primary={colors.primary} />
+                  {groups.length > 0 ? (
+                    <AppText
+                      role="titleLargeEmphasized"
+                      className="mb-4 text-m3-on-background">
+                      Downloaded
+                    </AppText>
+                  ) : null}
+                </>
               ) : null}
             </View>
           ) : null
@@ -353,6 +621,7 @@ const Downloads = () => {
         }
         showsVerticalScrollIndicator={false}
       />
+      )}
 
       {/* Bottom Action Bar in Selection Mode */}
       {isSelectionMode ? (

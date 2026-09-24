@@ -52,6 +52,7 @@ export enum SettingsKeys {
   SUBTITLE_EDGE_TYPE = 'subtitleEdgeType',
   SUBTITLE_EDGE_COLOR = 'subtitleEdgeColor',
   SUBTITLE_OUTLINE_WIDTH = 'subtitleOutlineWidth',
+  ADULT_ENABLED = 'adultEnabled',
 
   LIST_VIEW_TYPE = 'viewType',
 
@@ -246,6 +247,15 @@ export class SettingsStorage {
 
   setExcludedQualities(qualities: string[]): void {
     mainStorage.setArray(SettingsKeys.EXCLUDED_QUALITIES, qualities);
+  }
+
+  /** 18+ providers are hidden until the user passes the age gate. */
+  isAdultEnabled(): boolean {
+    return mainStorage.getBool(SettingsKeys.ADULT_ENABLED, false);
+  }
+
+  setAdultEnabled(enabled: boolean): void {
+    mainStorage.setBool(SettingsKeys.ADULT_ENABLED, enabled);
   }
 
   getPreferredLanguage(): string {

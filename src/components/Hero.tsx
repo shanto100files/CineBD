@@ -241,7 +241,9 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
         entering={FadeInDown.delay(100).springify().damping(18).stiffness(180)}
         style={{
           alignItems: 'center',
-          bottom: 22,
+          // Lifted so the overlap strip (HeroStrip) floating over the hero's
+          // bottom edge never covers the Play / My List actions.
+          bottom: 64,
           left: 20,
           position: 'absolute',
           right: 20,
