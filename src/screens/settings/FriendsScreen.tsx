@@ -21,6 +21,7 @@ import {
   FriendsData,
   SearchUser,
   SharedItem,
+  ActivityData,
 } from '../../lib/services/friendsService';
 
 type Tab = 'friends' | 'received';
@@ -73,15 +74,18 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
   const [searching, setSearching] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [busyId, setBusyId] = useState(0);
+  const [activityVisible, setActivityVisible] = useState(0);
 
   const load = useCallback(async () => {
     try {
-      const [d, f] = await Promise.all([
+      const [d, f, a] = await Promise.all([
         friendsService.list(),
         friendsService.feed(),
+        friendsService.getActivity().catch(() => null),
       ]);
       setData(d);
       setFeed(f);
+      if (a) setActivityVisible(a.activity_visible);
       // Auto-mark received items as read once they're visible.
       const unreadIds = f.filter(i => !i.is_read).map(i => i.id);
       if (unreadIds.length > 0) {
@@ -155,6 +159,22 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
       ToastAndroid.show('ব্যর্থ হয়েছে', ToastAndroid.SHORT);
     } finally {
       setBusyId(0);
+    }
+  };
+
+  const toggleActivityVisible = async (visible: boolean) => {
+    setActivityVisible(visible ? 1 : 0); // optimistic
+    try {
+      await friendsService.setActivityVisible(visible);
+      ToastAndroid.show(
+        visible
+          ? 'আপনার দেখার activity এখন বন্ধুরা দেখবে'
+          : 'আপনার activity এখন ব্যক্তিগত',
+        ToastAndroid.SHORT,
+      );
+    } catch {
+      setActivityVisible(visible ? 0 : 1); // revert
+      ToastAndroid.show('ব্যর্থ হয়েছে', ToastAndroid.SHORT);
     }
   };
 
@@ -611,6 +631,67 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
             ))}
           </>
         ) : null}
+
+        {/* Privacy card: watch-activity sharing is opt-in (default private). */}
+        <View
+          style={{
+            backgroundColor: colors.surfaceContainerLow,
+            borderColor: colors.outlineVariant,
+            borderRadius: 14,
+            borderWidth: 1,
+            marginTop: 14,
+            padding: 12,
+          }}>
+          <View style={{alignItems: 'center', flexDirection: 'row', gap: 10}}>
+            <MaterialCommunityIcons
+              name={activityVisible ? 'eye' : 'eye-off'}
+              size={22}
+              color={activityVisible ? colors.primary : colors.onSurfaceVariant}
+            />
+            <View style={{flex: 1}}>
+              <AppText
+                role="titleSmallEmphasized"
+                style={{color: colors.onBackground}}>
+                দেখার activity শেয়ার
+              </AppText>
+              <AppText
+                role="labelSmallEmphasized"
+                style={{color: colors.onSurfaceVariant, marginTop: 2}}>
+                {activityVisible
+                  ? 'বন্ধুরা দেখতে পাবে আপনি কী দেখছেন (৪৮ ঘণ্টা)'
+                  : 'ব্যক্তিগত — আপনি কী দেখছেন তা কেউ দেখবে না'}
+              </AppText>
+            </View>
+            <TouchableOpacity
+              onPress={() => toggleActivityVisible(!(activityVisible === 1))}
+              style={{
+                backgroundColor: activityVisible
+                  ? colors.primary
+                  : colors.surfaceContainerHighest,
+                borderRadius: 16,
+                paddingHorizontal: 14,
+                paddingVertical: 7,
+              }}>
+              <AppText
+                role="labelMediumEmphasized"
+                style={{
+                  color: activityVisible ? colors.onPrimary : colors.onSurfaceVariant,
+                }}>
+                {activityVisible ? 'চালু' : 'বন্ধ'}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+          <AppText
+            role="labelSmallEmphasized"
+            style={{
+              color: colors.onSurfaceVariant,
+              marginTop: 8,
+              fontStyle: 'italic',
+            }}>
+            🔒 ডিফল্টভাবে আপনার দেখা কন্টেন্ট সম্পূর্ণ ব্যক্তিগত। আপনি নিজে Share
+            বাটনে পাঠালে সেটাই বন্ধুরা দেখবে।
+          </AppText>
+        </View>
       </View>
     </>
   );

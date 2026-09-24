@@ -31,6 +31,12 @@ export interface FriendsData {
   unread: number;
 }
 
+export interface ActivityData {
+  activity: FriendActivity[];
+  recs: FriendRec[];
+  activity_visible: number;
+}
+
 export interface FriendActivity {
   user_id: number;
   username: string;
@@ -136,13 +142,29 @@ export const friendsService = {
     return res.data.items || [];
   },
 
-  async getActivity(): Promise<{activity: FriendActivity[]; recs: FriendRec[]}> {
+  async getActivity(): Promise<ActivityData> {
     const res = await axios.get(API, {
       params: {action: 'activity'},
       headers: authHeaders(),
       timeout: 10000,
     });
-    return {activity: res.data.activity || [], recs: res.data.recs || []};
+    return {
+      activity: res.data.activity || [],
+      recs: res.data.recs || [],
+      activity_visible: res.data.activity_visible ?? 0,
+    };
+  },
+
+  async setActivityVisible(visible: boolean): Promise<void> {
+    await axios.post(
+      API,
+      {visible: visible ? 1 : 0},
+      {
+        params: {action: 'set_activity_visible'},
+        headers: authHeaders(),
+        timeout: 10000,
+      },
+    );
   },
 
   async markRead(ids?: number[]): Promise<void> {
