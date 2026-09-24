@@ -1,5 +1,5 @@
 import {View, TouchableOpacity, Pressable, useWindowDimensions} from 'react-native';
-import React, {useEffect, useState, useRef} from 'react';
+import React, {useEffect, useState, useRef, useMemo} from 'react';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {HomeStackParamList, SearchStackParamList} from '../App';
 import {Post} from '../lib/providers/types';
