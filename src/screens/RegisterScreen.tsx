@@ -82,7 +82,14 @@ export default function RegisterScreen({navigation}: any) {
           </Text>
           <TouchableOpacity
             style={[styles.celebrateBtn, {backgroundColor: colors.primary}]}
-            onPress={() => navigation.goBack()}>
+            onPress={() => {
+              setShowCelebrate(false);
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('Settings' as never);
+              }
+            }}>
             <Ionicons name="arrow-back" size={18} color={colors.onPrimary} />
             <Text style={{color: colors.onPrimary, fontSize: 15, fontWeight: '700'}}>Back</Text>
           </TouchableOpacity>
