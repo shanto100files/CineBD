@@ -79,10 +79,9 @@ export enum SettingsKeys {
  * Settings storage manager
  */
 export class SettingsStorage {
-  // Theme settings — Netflix red is the default accent (matches the OLED-black
-  // Netflix-accurate palette in M3ThemeProvider).
+  // Theme settings
   getPrimaryColor(): string {
-    return mainStorage.getString(SettingsKeys.PRIMARY_COLOR) || '#E50914';
+    return mainStorage.getString(SettingsKeys.PRIMARY_COLOR) || '#FFFFFF';
   }
 
   setPrimaryColor(color: string): void {
