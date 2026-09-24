@@ -4,7 +4,6 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {useFocusEffect} from '@react-navigation/native';
 import HeroOptimized from '../../components/Hero';
 import HeroStrip, {HeroStripItem} from '../../components/HeroStrip';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {mainStorage, settingsStorage} from '../../lib/storage';
 import useContentStore from '../../lib/zustand/contentStore';
@@ -55,7 +54,6 @@ const Home = ({navigation}: Props) => {
   const installedProviders = useContentStore(state => state.installedProviders);
   const setHero = useHeroStore(state => state.setHero);
   const hero = useHeroStore(state => state.hero);
-  const insets = useSafeAreaInsets();
 
   // React Query for home page data with better error handling
   const {
@@ -330,43 +328,6 @@ const Home = ({navigation}: Props) => {
                   onOpenDrawer={handleOpenDrawer}
                   disableDrawer={disableDrawer}
                 />
-
-                {/* MovieBox-style pill search shortcut floating over the hero */}
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Search"
-                  onPress={() => (navigation as any).navigate('SearchStack')}
-                  style={({pressed}) => ({
-                    position: 'absolute',
-                    top: insets.top + 6,
-                    left: 16,
-                    right: 64,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 8,
-                    backgroundColor: 'rgba(0,0,0,0.45)',
-                    borderColor: 'rgba(255,255,255,0.22)',
-                    borderWidth: 1,
-                    borderRadius: 22,
-                    paddingHorizontal: 14,
-                    paddingVertical: 9,
-                    opacity: pressed ? 0.85 : 1,
-                  })}>
-                  <MaterialCommunityIcons
-                    name="magnify"
-                    size={20}
-                    color="rgba(255,255,255,0.85)"
-                  />
-                  <AppText
-                    numberOfLines={1}
-                    style={{
-                      color: 'rgba(255,255,255,0.75)',
-                      fontSize: 14,
-                      flex: 1,
-                    }}>
-                    Search movies, series...
-                  </AppText>
-                </Pressable>
 
                 {/* Overlap strip floating over the hero's bottom edge */}
                 <View style={{marginTop: -34, marginHorizontal: 14, zIndex: 30}}>
