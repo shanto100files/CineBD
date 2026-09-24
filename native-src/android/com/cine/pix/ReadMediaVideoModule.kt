@@ -51,7 +51,7 @@ class ReadMediaVideoModule(private val reactContext: ReactApplicationContext) :
     @ReactMethod
     fun request(promise: Promise) {
         try {
-            val activity = currentActivity
+            val activity = reactApplicationContext.currentActivity
                 ?: return promise.reject("NO_ACTIVITY", "Activity not available")
 
             if (Build.VERSION.SDK_INT >= 33) {
