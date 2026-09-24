@@ -26,7 +26,6 @@ import {M3PaletteContext, useM3Colors} from '../../theme/M3PaletteContext';
 import type {MaterialColors} from '../../theme/colors';
 import {mixHex} from '../../theme/seeds';
 import ContentOverview from './components/ContentOverview';
-import InlinePlayer from './components/InlinePlayer';
 import InfoStoryModal from './components/InfoStoryModal';
 import ShareWithFriendsSheet from './components/ShareWithFriendsSheet';
 import InfoSkeleton from './components/InfoSkeleton';
@@ -341,23 +340,6 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                   onToggleLibrary={toggleLibrary}
                   onShare={() => setShareVisible(true)}
                   onToggleSynopsis={() => setReadMore(value => !value)}
-                  playerNode={
-                    filteredLinkList.length > 0 ? (
-                      <InlinePlayer
-                        backdrop={backgroundImage || posterImage}
-                        title={displayTitle}
-                        linkList={filteredLinkList}
-                        providerValue={providerValue}
-                        type={info?.type || 'series'}
-                        infoUrl={route.params.link}
-                        poster={{
-                          logo: displayLogo,
-                          poster: posterImage,
-                          background: backgroundImage,
-                        }}
-                      />
-                    ) : undefined
-                  }
                   providerName={contentProviderName}
                   rating={meta?.imdbRating || info?.rating}
                   readMore={readMore}
