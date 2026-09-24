@@ -1,9 +1,9 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React, {useEffect, useState} from 'react';
 import {ActivityIndicator, Modal, Pressable, ToastAndroid, View} from 'react-native';
-import AppText from '../ui/Text';
-import {useM3Colors} from '../../theme/M3PaletteContext';
-import {friendsService, FriendUser} from '../../lib/services/friendsService';
+import AppText from '../../../components/ui/Text';
+import {useM3Colors} from '../../../theme/M3PaletteContext';
+import {friendsService, FriendUser} from '../../../lib/services/friendsService';
 
 interface ShareWithFriendsSheetProps {
   visible: boolean;

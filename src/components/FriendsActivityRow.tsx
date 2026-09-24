@@ -3,14 +3,14 @@ import React, {useCallback, useEffect, useState} from 'react';
 import {Image, Pressable, Text as RNText, View} from 'react-native';
 import {useFocusEffect, CommonActions} from '@react-navigation/native';
 import {navigationRef} from '../App';
-import AppText from '../ui/Text';
-import {useM3Colors} from '../../theme/M3PaletteContext';
-import {useAuthStore} from '../../lib/zustand/authStore';
+import AppText from './ui/Text';
+import {useM3Colors} from '../theme/M3PaletteContext';
+import {useAuthStore} from '../lib/zustand/authStore';
 import {
   friendsService,
   FriendActivity,
   FriendRec,
-} from '../../lib/services/friendsService';
+} from '../lib/services/friendsService';
 
 // "Friends are watching" strip + friend-based recommendation row for Home.
 // Hidden entirely when logged out, no friends, or nothing recent.

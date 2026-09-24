@@ -46,7 +46,6 @@ import {
   requestVideoPermission,
   DeviceVideo,
 } from '../../lib/deviceVideos';
-import {showAppDialog} from '../../lib/zustand/appDialogStore';
 import CurrentDownloadsSection from '../settings/components/CurrentDownloadsSection';
 import MissingDownloadsSection from '../settings/components/MissingDownloadsSection';
 
