@@ -58,6 +58,33 @@ export interface FriendRec {
   last_watched: string;
 }
 
+export interface FriendProfile {
+  id: number;
+  username: string;
+  is_friend: boolean;
+  blocked_by_me: boolean;
+  i_am_blocked: boolean;
+  shared_to_me: number;
+  recent_items: number;
+  activity_visible: boolean;
+}
+
+export interface ChatMessage {
+  id: number;
+  mine: boolean;
+  message: string;
+  is_read: number;
+  created_at: string;
+}
+
+export interface InboxItem {
+  user_id: number;
+  username: string;
+  last_message: string;
+  last_at: string;
+  unread: number;
+}
+
 export interface SharedItem {
   id: number;
   sender_id: number;
@@ -173,6 +200,59 @@ export const friendsService = {
       ids && ids.length > 0 ? {ids} : {},
       {params: {action: 'mark_read'}, headers: authHeaders(), timeout: 10000},
     );
+  },
+
+  // ---- Social: profile / chat / block ----
+
+  async getProfile(userId: number): Promise<FriendProfile> {
+    const res = await axios.get(API, {
+      params: {action: 'profile', user_id: userId},
+      headers: authHeaders(),
+      timeout: 10000,
+    });
+    return res.data;
+  },
+
+  async blockUser(userId: number): Promise<void> {
+    await axios.post(
+      API,
+      {user_id: userId},
+      {params: {action: 'block'}, headers: authHeaders(), timeout: 10000},
+    );
+  },
+
+  async unblockUser(userId: number): Promise<void> {
+    await axios.post(
+      API,
+      {user_id: userId},
+      {params: {action: 'unblock'}, headers: authHeaders(), timeout: 10000},
+    );
+  },
+
+  async sendMessage(toId: number, message: string): Promise<void> {
+    await axios.post(
+      API,
+      {to: toId, message},
+      {params: {action: 'send_message'}, headers: authHeaders(), timeout: 10000},
+    );
+  },
+
+  async messages(withId: number): Promise<ChatMessage[]> {
+    const res = await axios.get(API, {
+      params: {action: 'messages', with: withId},
+      headers: authHeaders(),
+      timeout: 10000,
+    });
+    return res.data.items || [];
+  },
+
+  async inbox(): Promise<InboxItem[]> {
+    const res = await axios.get(API, {
+      params: {action: 'inbox'},
+      headers: authHeaders(),
+      timeout: 10000,
+    });
+    return res.data.items || [];
   },
 
   async removeShared(id: number): Promise<void> {

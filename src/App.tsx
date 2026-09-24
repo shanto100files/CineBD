@@ -91,6 +91,8 @@ import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import FriendsScreen from './screens/settings/FriendsScreen';
+import FriendProfileScreen from './screens/settings/FriendProfileScreen';
+import FriendChatScreen from './screens/settings/FriendChatScreen';
 import PremiumScreen from './screens/settings/PremiumScreen';
 import ForceUpdateScreen from './screens/ForceUpdateScreen';
 import AppText from './components/ui/Text';
@@ -173,6 +175,8 @@ export type SettingsStackParamList = {
   DownloadsStack: undefined;
   ProviderSelect: undefined;
   Friends: undefined;
+  FriendProfile: {userId: number; username: string};
+  FriendChat: {userId: number; username: string};
   Login: undefined;
   Register: undefined;
   Profile: undefined;
@@ -278,6 +282,8 @@ const SettingsStackScreen = React.memo(() => {
       <SettingsStackNav.Screen name="SubTitlesPreferences" component={SubtitlePreference} options={subpageOptions} />
       <SettingsStackNav.Screen name="ProviderSelect" component={ProviderSelect} options={subpageOptions} />
       <SettingsStackNav.Screen name="Friends" component={FriendsScreen} options={subpageOptions} />
+      <SettingsStackNav.Screen name="FriendProfile" component={FriendProfileScreen} options={subpageOptions} />
+      <SettingsStackNav.Screen name="FriendChat" component={FriendChatScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="Login" component={LoginScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="Register" component={RegisterScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="Profile" component={ProfileScreen} options={subpageOptions} />

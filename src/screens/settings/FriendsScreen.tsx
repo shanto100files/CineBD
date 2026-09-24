@@ -562,8 +562,17 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
               paddingHorizontal: 10,
               paddingVertical: 8,
             }}>
-            <Avatar name={f.username} size={40} />
-            <View style={{flex: 1}}>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate('FriendProfile', {userId: f.id, username: f.username})
+              }>
+              <Avatar name={f.username} size={40} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate('FriendProfile', {userId: f.id, username: f.username})
+              }
+              style={{flex: 1}}>
               <AppText
                 role="bodyLargeEmphasized"
                 style={{color: colors.onBackground}}
@@ -573,24 +582,38 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
               <AppText
                 role="labelSmallEmphasized"
                 style={{color: colors.onSurfaceVariant}}>
-                ✓ বন্ধু
+                ✓ বন্ধু • প্রোফাইল দেখুন
               </AppText>
-            </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate('FriendChat', {userId: f.id, username: f.username})
+              }
+              style={{
+                backgroundColor: colors.primaryContainer,
+                borderRadius: 18,
+                height: 36,
+                width: 36,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <MaterialCommunityIcons name="message-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
             <TouchableOpacity
               disabled={busyId === f.id}
               onPress={() => confirmUnfriend(f.id, f.username)}
               style={{
                 backgroundColor: colors.errorContainer,
                 borderRadius: 18,
-                paddingHorizontal: 14,
-                paddingVertical: 7,
+                height: 36,
+                width: 36,
+                alignItems: 'center',
+                justifyContent: 'center',
               }}>
               {busyId === f.id ? (
                 <ActivityIndicator size="small" color={colors.error} />
               ) : (
-                <AppText role="labelMediumEmphasized" style={{color: colors.error}}>
-                  Remove
-                </AppText>
+                <MaterialCommunityIcons name="account-minus" size={20} color={colors.error} />
               )}
             </TouchableOpacity>
           </View>
