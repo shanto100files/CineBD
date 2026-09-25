@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import React, {useEffect, useState, useCallback, memo} from 'react';
+import React, {useEffect, useState, useCallback, memo, useRef} from 'react';
 import './global.css';
 import Home from './screens/home/Home';
 import Info from './screens/home/Info';
@@ -26,7 +26,7 @@ import {enableFreeze, enableScreens} from 'react-native-screens';
 import Preferences from './screens/settings/Preference';
 import Appearance from './screens/settings/Appearance';
 import {M3ThemeProvider} from './theme/M3ThemeProvider';
-import {AppState, LogBox, useWindowDimensions, View, Image, Modal, Pressable, Text, Platform} from 'react-native';
+import {AppState, LogBox, useWindowDimensions, View, Image, Modal, Pressable, Text, Platform, Animated as RNAnimated, Easing} from 'react-native';
 import {sendHeartbeat} from './lib/services/heartbeatService';
 import {initAnalytics, resumeAnalytics, pauseAnalytics, flushBatch, trackScreen} from './lib/services/analyticsService';
 import {EpisodeLink} from './lib/providers/types';
@@ -755,6 +755,32 @@ const App = () => {
     }
   }, [nativeSplashHidden]);
 
+  // Keep the InitSplash mounted as an overlay while the main UI (Home etc.)
+  // mounts underneath — otherwise there is a multi-second black gap between
+  // the splash disappearing and the first frame of the Home screen on
+  // low-RAM devices. The overlay fades out once the UI is ready.
+  const [splashOverlayVisible, setSplashOverlayVisible] = useState(true);
+  const splashOverlayOpacity = useRef(new RNAnimated.Value(1)).current;
+  useEffect(() => {
+    if (!appReady) {
+      return;
+    }
+    // Let the Home tab mount + paint at least one frame before fading.
+    const t = setTimeout(() => {
+      RNAnimated.timing(splashOverlayOpacity, {
+        toValue: 0,
+        duration: 320,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start(({finished}) => {
+        if (finished) {
+          setSplashOverlayVisible(false);
+        }
+      });
+    }, 420);
+    return () => clearTimeout(t);
+  }, [appReady, splashOverlayOpacity]);
+
   // Priority Rendering Logic
   if (appShutdown) {
     return (
@@ -790,6 +816,21 @@ const App = () => {
       />
     );
   }
+
+  // Splash overlay while main UI mounts underneath (no black gap)
+  const splashOverlay = splashOverlayVisible ? (
+    <View
+      pointerEvents="none"
+      style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, elevation: 9999}}>
+      <RNAnimated.View style={{flex: 1, opacity: splashOverlayOpacity}}>
+        <InitSplash
+          progress={100}
+          status={'Ready!'}
+          onMounted={() => {}}
+        />
+      </RNAnimated.View>
+    </View>
+  ) : null;
 
   const hasFirebase = Boolean(Constants?.expoConfig?.extra?.hasFirebase) && isFirebaseNativeReady();
 
@@ -943,6 +984,7 @@ const App = () => {
               <WafWebViewDialog />
               <ProviderSandboxHost />
               <PremiumActivatedAlert />
+              {splashOverlay}
             </View>
           </QueryClientProvider>
         </GlobalErrorBoundary>
