@@ -3,6 +3,7 @@ import {
   ensureDownloadLocationAccess,
   getDownloadFileName,
 } from './downloadLocation';
+import {ToastAndroid} from 'react-native';
 import {scheduleQueuedDownloads} from './downloadManager';
 import {settingsStorage} from './storage';
 import useDownloadsStore, {
@@ -74,10 +75,30 @@ export const downloadManager = async ({
     return;
   }
 
-  const downloadLocation = await ensureDownloadLocationAccess(
-    settingsStorage.getDownloadLocationConfig(),
-  );
+  let downloadLocation: Awaited<
+    ReturnType<typeof ensureDownloadLocationAccess>
+  >;
+  try {
+    downloadLocation = await ensureDownloadLocationAccess(
+      settingsStorage.getDownloadLocationConfig(),
+    );
+  } catch (error) {
+    // A throw here (native bridge hiccup, storage parse failure) previously
+    // vanished silently — surface it so the user knows why nothing started.
+    ToastAndroid.show(
+      `ডাউনলোড শুরু করা যায়নি: ${error instanceof Error ? error.message : String(error)}`,
+      ToastAndroid.LONG,
+    );
+    return;
+  }
   if (!downloadLocation) {
+    // Never fail silently: a broken saved location (e.g. after reinstall
+    // wiped SAF grants) previously returned quietly and the download just
+    // sat as "failed" with no cause shown.
+    ToastAndroid.show(
+      'ডাউনলোড ফোল্ডার নির্বাচন করা হয়নি — Settings > Download location সেট করুন',
+      ToastAndroid.LONG,
+    );
     return;
   }
   settingsStorage.setDownloadLocation(downloadLocation);
