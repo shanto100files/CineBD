@@ -533,6 +533,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
     setExternalSubs,
     isLoading: streamLoading,
     error: streamError,
+    refetch: refetchStreams,
     switchToNextStream,
   } = useStream({
     activeEpisode,
@@ -1183,6 +1184,9 @@ const Player = ({ route }: Props): React.JSX.Element => {
   selectedStreamRef.current = selectedStream;
   const streamDataRef = useRef(streamData);
   streamDataRef.current = streamData;
+  // Tracks the episode we already did one fresh-scrape retry for, so a
+  // failing source cannot loop refresh -> error forever.
+  const freshRetryEpisodeRef = useRef('');
 
   const handleVideoError = useCallback(
     (e: any) => {
@@ -1208,6 +1212,36 @@ const Player = ({ route }: Props): React.JSX.Element => {
       }
 
       if (!switchToNextStream()) {
+        // Every known stream failed — commonly expired signed links (HTTP
+        // 403) or an undecodable quality on this device. Scrape fresh links
+        // once per episode and restart from the first stream before giving
+        // up.
+        if (freshRetryEpisodeRef.current !== activeEpisodeKey) {
+          freshRetryEpisodeRef.current = activeEpisodeKey;
+          ToastAndroid.show('নতুন সার্ভার লিঙ্ক আনা হচ্ছে...', ToastAndroid.SHORT);
+          refetchStreams()
+            .then((res: any) => {
+              const items = (res?.data || []) as Stream[];
+              if (items.length > 0) {
+                setSelectedStream(items[0]);
+                setShowControls(true);
+              } else {
+                ToastAndroid.show(
+                  'Video could not be played, try again later',
+                  ToastAndroid.SHORT,
+                );
+                navigation.goBack();
+              }
+            })
+            .catch(() => {
+              ToastAndroid.show(
+                'Video could not be played, try again later',
+                ToastAndroid.SHORT,
+              );
+              navigation.goBack();
+            });
+          return;
+        }
         ToastAndroid.show(
           'Video could not be played, try again later',
           ToastAndroid.SHORT,
@@ -1220,6 +1254,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
       activeEpisodeKey,
       clearLocalVideoAssociation,
       navigation,
+      refetchStreams,
       setSelectedStream,
       setShowControls,
       switchToNextStream,
