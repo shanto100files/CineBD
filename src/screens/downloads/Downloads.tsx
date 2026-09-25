@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import {useFocusEffect, useNavigation} from '@react-navigation/native';
+import {useFocusEffect, useNavigation, useSafeAreaInsets} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useMemo, useState} from 'react';
@@ -124,6 +124,7 @@ const LocalVideosGrid = ({
         gap: 14,
         paddingBottom: 80,
         paddingHorizontal: GRID_PADDING,
+        paddingTop: topInset + 12,
       }}
       renderItem={({item}) => (
         <Pressable
@@ -202,6 +203,9 @@ const formatDuration = (ms: number): string => {
 
 const Downloads = () => {
   const colors = useM3Colors();
+  // DownloadsStack renders without a header, so the screen must respect the
+  // status-bar inset itself — otherwise the title hides under the system bar.
+  const topInset = useSafeAreaInsets().top;
   const navigation =
     useNavigation<NativeStackNavigationProp<DownloadsStackParamList>>();
   const completed = useDownloadsStore(selectCompletedDownloads);
@@ -455,7 +459,7 @@ const Downloads = () => {
             justifyContent: 'space-between',
             paddingBottom: 12,
             paddingHorizontal: 16,
-            paddingTop: Platform.OS === 'android' ? 36 : 14,
+            paddingTop: Platform.OS === 'android' ? topInset + 14 : 14,
             zIndex: 10,
           }}>
           <View style={{alignItems: 'center', flexDirection: 'row', gap: 16}}>
@@ -520,10 +524,10 @@ const Downloads = () => {
         contentContainerStyle={{
           paddingHorizontal: GRID_PADDING,
           paddingTop: isSelectionMode
-            ? 14
+            ? topInset + 14
             : Platform.OS === 'android'
-            ? 28
-            : 12,
+            ? topInset + 28
+            : topInset + 12,
           paddingBottom: isSelectionMode ? 120 : 80,
         }}
         ListHeaderComponent={

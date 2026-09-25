@@ -12,6 +12,7 @@ interface User {
   is_admin: boolean;
   watchlist_count?: number;
   member_since?: string;
+  avatar_url?: string | null;
 }
 
 interface AuthState {
@@ -28,6 +29,8 @@ interface AuthState {
   refreshProfile: () => Promise<void>;
   updateEmail: (email: string) => Promise<{success: boolean; error?: string}>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{success: boolean; error?: string}>;
+  uploadAvatar: (uri: string, mimeType?: string) => Promise<{success: boolean; error?: string; url?: string}>;
+  removeAvatar: () => Promise<{success: boolean; error?: string}>;
   dismissPremiumAlert: () => void;
 }
 
@@ -171,6 +174,56 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return {success: true};
       }
       return {success: false, error: res.data.error || 'Failed to change password'};
+    } catch (e: any) {
+      return {success: false, error: e.response?.data?.error || 'Network error'};
+    }
+  },
+
+  uploadAvatar: async (uri, mimeType) => {
+    const token = get().token;
+    if (!token) return {success: false, error: 'Not logged in'};
+    try {
+      const name = uri.split('/').pop() || 'avatar.jpg';
+      const form = new FormData();
+      form.append('avatar', {
+        uri,
+        name,
+        type: mimeType || 'image/jpeg',
+      } as any);
+      const res = await axios.post(`${API}/avatar`, form, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000,
+      });
+      if (res.data.ok) {
+        const user = {...get().user, avatar_url: res.data.avatar_url} as User;
+        authStorage.setString('user', JSON.stringify(user));
+        set({user});
+        return {success: true, url: res.data.avatar_url};
+      }
+      return {success: false, error: res.data.error || 'Failed to upload avatar'};
+    } catch (e: any) {
+      return {success: false, error: e.response?.data?.error || 'Network error'};
+    }
+  },
+
+  removeAvatar: async () => {
+    const token = get().token;
+    if (!token) return {success: false, error: 'Not logged in'};
+    try {
+      const res = await axios.delete(`${API}/avatar`, {
+        headers: {Authorization: `Bearer ${token}`},
+        timeout: 10000,
+      });
+      if (res.data.ok) {
+        const user = {...get().user, avatar_url: null} as User;
+        authStorage.setString('user', JSON.stringify(user));
+        set({user});
+        return {success: true};
+      }
+      return {success: false, error: res.data.error || 'Failed to remove avatar'};
     } catch (e: any) {
       return {success: false, error: e.response?.data?.error || 'Network error'};
     }

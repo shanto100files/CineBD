@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View} from 'react-native';
+import {Alert, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View} from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {useAuthStore} from '../lib/zustand/authStore';
@@ -10,9 +10,11 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../App';
 import {friendsService} from '../lib/services/friendsService';
 import {useContinueWatchingStore} from '../lib/zustand/continueWatchingStore';
+import * as DocumentPicker from 'expo-document-picker';
 
 export default function ProfileScreen() {
-  const {user, isPremium, refreshProfile, updateEmail, changePassword} = useAuthStore();
+  const {user, isPremium, refreshProfile, updateEmail, changePassword, uploadAvatar, removeAvatar} = useAuthStore();
+  const avatarUri = user?.avatar_url || '';
   const colors = useM3Colors();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -56,17 +58,80 @@ export default function ProfileScreen() {
           paddingBottom: 22,
           paddingTop: 48,
         }}>
-        <View
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={async () => {
+            try {
+              const result = await DocumentPicker.getDocumentAsync({
+                type: ['image/jpeg', 'image/png', 'image/webp'],
+                copyToCacheDirectory: true,
+              });
+              if (result.canceled || !result.assets?.length) {
+                return;
+              }
+              const asset = result.assets[0];
+              const res = await uploadAvatar(asset.uri, asset.mimeType || 'image/jpeg');
+              if (res.success) {
+                Alert.alert('সফল', 'প্রোফাইল ছবি আপডেট হয়েছে');
+              } else {
+                Alert.alert('সমস্যা', res.error || 'ছবি আপলোড হয়নি');
+              }
+            } catch {
+              Alert.alert('সমস্যা', 'ছবি বাছাই করা যায়নি');
+            }
+          }}
+          onLongPress={() => {
+            if (!avatarUri) {
+              return;
+            }
+            Alert.alert('প্রোফাইল ছবি', 'ছবিটা সরাবো?', [
+              {text: 'বাতিল', style: 'cancel'},
+              {
+                text: 'সরাও',
+                style: 'destructive',
+                onPress: async () => {
+                  const res = await removeAvatar();
+                  if (!res.success) {
+                    Alert.alert('সমস্যা', res.error || 'ছবি সরানো যায়নি');
+                  }
+                },
+              },
+            ]);
+          }}
           style={[
             styles.avatar,
             {backgroundColor: colors.primaryContainer, borderColor: colors.primary},
           ]}>
-          <AppText
-            role="displayMediumEmphasized"
-            style={{color: colors.onPrimaryContainer}}>
-            {initial}
-          </AppText>
-        </View>
+          {avatarUri ? (
+            <Image
+              source={{uri: avatarUri}}
+              style={{height: '100%', width: '100%'}}
+            />
+          ) : (
+            <AppText
+              role="displayMediumEmphasized"
+              style={{color: colors.onPrimaryContainer}}>
+              {initial}
+            </AppText>
+          )}
+          {/* Small camera badge hints the avatar is tappable */}
+          <View
+            style={{
+              alignItems: 'center',
+              backgroundColor: colors.primary,
+              borderColor: colors.surfaceContainerLowest,
+              borderRadius: 14,
+              borderWidth: 2,
+              bottom: -2,
+              height: 28,
+              justifyContent: 'center',
+              position: 'absolute',
+              right: -2,
+              width: 28,
+            }}>
+            <MaterialIcons name="photo-camera" size={13} color={colors.onPrimary} />
+          </View>
+        </TouchableOpacity>
 
         <AppText
           role="headlineMedium"
@@ -421,6 +486,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     height: 104,
     justifyContent: 'center',
+    overflow: 'hidden',
     width: 104,
   },
   badge: {
