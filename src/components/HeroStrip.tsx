@@ -168,8 +168,8 @@ const HeroStrip = ({posts, activeLink, onSelect}: HeroStripProps) => {
         keyExtractor={(item, i) => `${item.link}-${i}`}
         ItemSeparatorComponent={() => <View style={{width: ITEM_GAP}} />}
         renderItem={renderItem}
-        initialNumToRender={8}
-        maxToRenderPerBatch={8}
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
         windowSize={5}
         removeClippedSubviews={false}
         onScrollToIndexFailed={info => {

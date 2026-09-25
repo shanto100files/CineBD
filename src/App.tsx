@@ -98,6 +98,7 @@ import PremiumScreen from './screens/settings/PremiumScreen';
 import ForceUpdateScreen from './screens/ForceUpdateScreen';
 import AppText from './components/ui/Text';
 import InitSplash from './components/InitSplash';
+import {onHomeReady} from './lib/bootSignal';
 import {initializeApp, InitProgress, checkForceUpdateOnly} from './lib/services/initService';
 import RNBootSplash from 'react-native-bootsplash';
 
@@ -758,28 +759,44 @@ const App = () => {
   // Keep the InitSplash mounted as an overlay while the main UI (Home etc.)
   // mounts underneath — otherwise there is a multi-second black gap between
   // the splash disappearing and the first frame of the Home screen on
-  // low-RAM devices. The overlay fades out once the UI is ready.
+  // low-RAM devices. The overlay fades once the navigation tree reports it
+  // is ready AND a grace period lets the first frame paint (event-driven,
+  // not a fixed timer — with a safety fallback if onReady never fires).
   const [splashOverlayVisible, setSplashOverlayVisible] = useState(true);
+  const [navTreeReady, setNavTreeReady] = useState(false);
   const splashOverlayOpacity = useRef(new RNAnimated.Value(1)).current;
   useEffect(() => {
     if (!appReady) {
       return;
     }
-    // Let the Home tab mount + paint at least one frame before fading.
-    const t = setTimeout(() => {
-      RNAnimated.timing(splashOverlayOpacity, {
-        toValue: 0,
-        duration: 320,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start(({finished}) => {
-        if (finished) {
-          setSplashOverlayVisible(false);
-        }
-      });
-    }, 420);
-    return () => clearTimeout(t);
-  }, [appReady, splashOverlayOpacity]);
+    // Safety fallback: never hold the splash longer than this even if the
+    // navigation onReady signal is missed for any reason.
+    const fallback = setTimeout(() => setNavTreeReady(true), 4000);
+    return () => clearTimeout(fallback);
+  }, [appReady]);
+  // Home fires bootSignal after its first frames paint (cached content or
+  // skeleton) — fade the overlay exactly then. Fallback keeps a worst-case
+  // cap so a missed signal can never trap the user on the splash.
+  useEffect(() => {
+    if (!appReady || !navTreeReady) {
+      return;
+    }
+    const off = onHomeReady(() => {
+      const t = setTimeout(() => {
+        RNAnimated.timing(splashOverlayOpacity, {
+          toValue: 0,
+          duration: 320,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }).start(({finished}) => {
+          if (finished) {
+            setSplashOverlayVisible(false);
+          }
+        });
+      }, 180);
+    });
+    return off;
+  }, [appReady, navTreeReady, splashOverlayOpacity]);
 
   // Priority Rendering Logic
   if (appShutdown) {
@@ -923,6 +940,7 @@ const App = () => {
               <NavigationContainer
                 ref={navigationRef}
                 onReady={async () => {
+                  setNavTreeReady(true);
                   if (pendingDownloadsNavigation) {
                     openDownloadsScreen();
                   }

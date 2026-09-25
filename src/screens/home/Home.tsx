@@ -1,4 +1,4 @@
-import {SafeAreaView, RefreshControl, View, Pressable} from 'react-native';
+import {SafeAreaView, RefreshControl, View, Pressable, InteractionManager, Animated} from 'react-native';
 import Slider from '../../components/Slider';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {useFocusEffect, useIsFocused} from '@react-navigation/native';
@@ -33,6 +33,7 @@ import FriendsActivityRow from '../../components/FriendsActivityRow';
 import StatusBarScrim from '../../components/ui/StatusBarScrim';
 import {WebView} from 'react-native-webview';
 import WelcomePopup from '../../components/WelcomePopup';
+import {markHomeReady} from '../../lib/bootSignal';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'Home'>;
 
@@ -263,13 +264,19 @@ const Home = ({navigation}: Props) => {
       .finally(() => setAutoInstalling(false));
   }, []);
 
-  // Fetch ads
+  // Fetch ads (deferred until after first paint so startup stays light)
+  const [adsReady, setAdsReady] = useState(false);
   useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => setAdsReady(true));
+    return () => task.cancel();
+  }, []);
+  useEffect(() => {
+    if (!adsReady) return;
     fetch('https://cinepix.top/api/app/ads', {headers: {'X-App-Key': '78a0e573dfd894d443685159b2e71e2f'}})
       .then(r => r.json())
       .then(d => setHomeAds(d))
       .catch(() => {});
-  }, []);
+  }, [adsReady]);
 
   // Show loading state while providers are being installed
   if (
@@ -292,6 +299,35 @@ const Home = ({navigation}: Props) => {
             <AppText style={{color: '#666', fontSize: 12, textAlign: 'center'}}>Pull to refresh</AppText>
           </>
         )}
+      </SafeAreaView>
+    );
+  }
+
+  // Startup fast path: render an empty shell first so the splash overlay can
+  // fade to a *visible* screen instead of a black one, then mount the heavy
+  // tree (hero + sliders + ads) right after. Cache-backed content appears
+  // immediately afterwards because React Query's initialData is already there.
+  const [deferredMount, setDeferredMount] = useState(true);
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => setDeferredMount(false));
+    return () => task.cancel();
+  }, []);
+
+  // Signal App to fade the splash: the shell painted, heavy content follows.
+  useEffect(() => {
+    if (!deferredMount) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      markHomeReady();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [deferredMount]);
+
+  if (deferredMount) {
+    return (
+      <SafeAreaView style={{flex: 1, backgroundColor: '#000'}}>
+        <StatusBar style="light" />
       </SafeAreaView>
     );
   }
