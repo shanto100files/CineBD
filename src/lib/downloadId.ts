@@ -27,10 +27,13 @@ export const createDirectDownloadId = (
 const MAX_FILE_NAME_LENGTH = 160;
 
 export const sanitizeDownloadFileName = (value: string): string => {
+  // Also strips URI-hostile characters ([ ] { } # % ^ `): the native
+  // Android download task builds a file:// URI from these names and
+  // java.net.URI throws "Illegal character in path" on them.
   const sanitized = value
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[\\/:*?"<>|\x00-\x1f\x7f-\x9f]/g, ' ')
+    .replace(/[\\/:*?"<>|\[\]{}#%^`\x00-\x1f\x7f-\x9f]/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/\.+$/g, '')
     .trim()

@@ -199,7 +199,12 @@ const getRecord = (downloadId: string): DownloadItem => {
 };
 
 const getOutputName = (record: DownloadItem): string =>
-  record.displayFileName?.replace(/\.[^.]+$/, '') || record.title;
+  // Must be sanitized: the native download task turns this into a file://
+  // URI, and characters like [ ] (common in release names) crash it with
+  // "Illegal character in path".
+  sanitizeDownloadFileName(
+    record.displayFileName?.replace(/\.[^.]+$/, '') || record.title,
+  );
 
 const getOutputDirectoryNames = (record: DownloadItem): string[] => [
   createDownloadDirectoryName(record.showName || record.title),
