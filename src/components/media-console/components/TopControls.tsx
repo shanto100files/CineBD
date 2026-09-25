@@ -67,10 +67,9 @@ export const TopControls = memo(
         <SafeAreaView style={_styles.topControlGroup}>
           <View style={_styles.sideControl} pointerEvents="box-none">
             {backControl}
-            {/* Centered floating title (YouTube-style): absolutely positioned
-                so the back button and volume sit at the edges without pushing
-                the title off-center. */}
-            <View pointerEvents="none" style={_styles.centerTitle}>
+            {/* Title sits right next to the back button (never cover the
+                back arrow) and shrinks before it can push controls away. */}
+            <View pointerEvents="none" style={_styles.titleWrap}>
               <Title {...title} />
             </View>
           </View>
@@ -104,11 +103,11 @@ const _styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centerTitle: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
     justifyContent: 'flex-start',
+  },
+  titleWrap: {
+    flex: 1,
+    flexShrink: 1,
+    alignItems: 'flex-start',
   },
 });

@@ -1779,17 +1779,18 @@ const Player = ({ route }: Props): React.JSX.Element => {
             ? processedStreamUrl
             : selectedStream.link) || '',
         bufferConfig: {
-          minBufferMs: 15000,
-          maxBufferMs: 50000,
-          bufferForPlaybackMs: 1500,
-          bufferForPlaybackAfterRebufferMs: 2500,
-          backBufferDurationMs: 5000,
-          maxHeapAllocationPercent: 0.25,
-          minBufferMemoryReservePercent: 0.15,
-          minBackBufferMemoryReservePercent: 0.15,
-          cacheSizeMB: 50,
+          // Lean buffering: starts faster and seeks feel snappier. The old
+          // 50s/50MB config pre-buffered too aggressively on mid-range phones.
+          minBufferMs: 8000,
+          maxBufferMs: 20000,
+          bufferForPlaybackMs: 1000,
+          bufferForPlaybackAfterRebufferMs: 1500,
+          backBufferDurationMs: 0,
+          maxHeapAllocationPercent: 0.18,
+          minBufferMemoryReservePercent: 0.2,
+          minBackBufferMemoryReservePercent: 0.25,
+          cacheSizeMB: 0,
         },
-        shouldCache: true,
         ...(selectedStream?.type === 'm3u8' && { type: 'm3u8' }),
         ...(selectedStream?.type === 'mpd' && { type: 'mpd' }),
         headers: selectedStream?.headers,
