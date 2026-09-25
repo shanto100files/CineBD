@@ -205,10 +205,11 @@ const Home = ({navigation}: Props) => {
         return (
           <Slider
             isLoading={false}
-            key={`content-${item.filter}-${index}`}
+            key={`content-${item.provider || provider?.value}-${item.filter}-${index}`}
             title={item.title}
             posts={posts}
             filter={item.filter}
+            providerValue={item.provider}
           />
         );
       })

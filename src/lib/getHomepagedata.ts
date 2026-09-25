@@ -6,6 +6,8 @@ export interface HomePageData {
   title: string;
   Posts: Post[];
   filter: string;
+  /** Provider this section was fetched from (set in aggregate home mode). */
+  provider?: string;
   error?: string;
 }
 
@@ -28,7 +30,7 @@ export const getHomePageDataOptimized = async (
         signal,
       });
       if (signal.aborted) throw new Error('Request aborted');
-      return {title: item.title, Posts: data || [], filter: item.filter};
+      return {title: item.title, Posts: data || [], filter: item.filter, provider: activeProvider.value};
     } catch (error) {
       return {
         title: item.title,

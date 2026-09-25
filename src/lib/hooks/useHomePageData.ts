@@ -84,6 +84,10 @@ export const useHomePageData = ({
           return data.map(section => ({
             ...section,
             title: section.title,
+            // Section-level provider tag: the "All" page must load posts from
+            // the provider the section actually came from, not the currently
+            // selected provider in the store.
+            provider: prov.value,
             Posts: (section.Posts || []).map(post => ({
               ...post,
               provider: prov.value,
