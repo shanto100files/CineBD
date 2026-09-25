@@ -92,4 +92,4 @@ google-services.json
 
 #env
 .env
-.env.*
+.env.*.ota-export/

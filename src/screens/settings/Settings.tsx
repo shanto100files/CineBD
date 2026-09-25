@@ -196,6 +196,10 @@ const Settings = ({navigation}: Props) => {
     ToastAndroid.show('App cache cleared', ToastAndroid.SHORT);
   }, []);
 
+  const [otaState, setOtaState] = useState<
+    'idle' | 'checking' | 'downloading' | 'ready' | 'updated'
+  >('idle');
+
   const eraseAllLocalData = useCallback(async () => {
     clearAllMMKVStorage();
     if (Updates.isEnabled) {
@@ -619,6 +623,62 @@ const Settings = ({navigation}: Props) => {
         {/* Data Management section */}
         <AnimatedSection delay={300}>
           <SettingsSection title="Data Management">
+            <SettingsRow
+              title="Check for updates"
+              description={
+                otaState === 'checking'
+                  ? 'Checking…'
+                  : otaState === 'downloading'
+                    ? 'Downloading update…'
+                    : otaState === 'ready'
+                      ? 'Update ready — restart to apply'
+                      : otaState === 'updated'
+                        ? 'Already up to date'
+                        : 'OTA update from cinepix.top'
+              }
+              icon="cloud-download-outline"
+              iconBg={colors.primaryContainer}
+              iconColor={colors.primary}
+              onPress={() => {
+                if (otaState === 'checking' || otaState === 'downloading') {
+                  return;
+                }
+                setOtaState('checking');
+                (async () => {
+                  try {
+                    if (!Updates.isEnabled) {
+                      setOtaState('updated');
+                      return;
+                    }
+                    const check = await Updates.checkForUpdateAsync();
+                    if (!check.isAvailable) {
+                      setOtaState('updated');
+                      return;
+                    }
+                    setOtaState('downloading');
+                    await Updates.fetchUpdateAsync();
+                    setOtaState('ready');
+                    showAppDialog({
+                      title: 'Update ready',
+                      message:
+                        'নতুন আপডেট ডাউনলোড হয়েছে। এখনই রিস্টার্ট করে apply করবেন?',
+                      actions: [
+                        {label: 'পরে'},
+                        {
+                          label: 'রিস্টার্ট',
+                          onPress: () => {
+                            Updates.reloadAsync().catch(() => {});
+                          },
+                        },
+                      ],
+                    });
+                  } catch {
+                    setOtaState('idle');
+                    ToastAndroid.show('Update check failed', ToastAndroid.SHORT);
+                  }
+                })();
+              }}
+            />
             <SettingsRow
               title="Clear Cache"
               icon="broom"

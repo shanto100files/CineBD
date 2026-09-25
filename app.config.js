@@ -104,6 +104,16 @@ module.exports = () => {
       plugins,
       slug: 'cinepix',
        version: '5.7.6',
+      updates: {
+        // Self-hosted OTA (expo-updates protocol) served from cinepix.top.
+        url: 'https://cinepix.top/ota-endpoint/index.php?action=manifest',
+        fallbackToCacheTimeout: 0,
+        checkAutomatically: 'ON_LOAD',
+        requestHeaders: {
+          'X-App-Key': '78a0e573dfd894d443685159b2e71e2f',
+        },
+      },
+      runtimeVersion: { policy: 'appVersion' },
       userInterfaceStyle: 'dark',
       experiments: {
         reactCompiler: true,

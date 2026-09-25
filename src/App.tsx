@@ -46,6 +46,7 @@ import {settingsStorage} from './lib/storage';
 import {updateProvidersService} from './lib/services/UpdateProviders';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {initNetStatus} from './lib/netStatus';
+import * as ExpoUpdates from 'expo-updates';
 import OfflineBanner from './components/OfflineBanner';
 import {queryClient} from './lib/client';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
@@ -517,6 +518,32 @@ const App = () => {
       unsubscribeFcm?.();
       unsubscribeTokenRefresh?.();
     };
+  }, []);
+
+  // Self-hosted OTA: silently check cinepix.top for a JS update on launch;
+  // if found early enough, download + reload now, otherwise stage it for
+  // the next launch so the user is never interrupted mid-use.
+  useEffect(() => {
+    if (!ExpoUpdates.isEnabled) {
+      return;
+    }
+    const launchedAt = Date.now();
+    (async () => {
+      try {
+        const check = await ExpoUpdates.checkForUpdateAsync();
+        if (!check.isAvailable) {
+          return;
+        }
+        await ExpoUpdates.fetchUpdateAsync();
+        // Apply right away only while the app is still fresh (<10s in);
+        // a slow download after that waits for the next restart.
+        if (Date.now() - launchedAt < 10000) {
+          await ExpoUpdates.reloadAsync();
+        }
+      } catch {
+        // OTA is best-effort; never disturb the user.
+      }
+    })();
   }, []);
 
   useEffect(() => {
