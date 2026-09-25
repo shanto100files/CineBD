@@ -9,6 +9,9 @@ jobs:
     env:
       APP_VARIANT: playstore
       NODE_ENV: production
+      # Torrent engine (libtorrent4j + stream proxy) is wanted in these APKs:
+      # without it torrent sources fail to resolve and torrent downloads fail.
+      INCLUDE_TORRENT: '1'
     permissions:
       contents: write
 

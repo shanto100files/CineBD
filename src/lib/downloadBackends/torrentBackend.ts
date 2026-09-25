@@ -43,6 +43,14 @@ const waitForTorrent = async (
 export const torrentDownloadBackend: DownloadBackend = {
   async start({record, destination}: DownloadBackendContext): Promise<void> {
     activeTorrents.set(record.id, {cancelled: false});
+    // Fail fast (and clearly) when the build ships without the engine:
+    // otherwise the download sits in progress until a network timeout.
+    const {TorrentModule} = require('react-native').NativeModules;
+    if (!TorrentModule) {
+      throw new Error(
+        'Torrent engine এই build-এ নেই — নতুন APK install করুন',
+      );
+    }
     const addData = await torrentManager.addTorrent(record.url, {
       output_folder: destination.stagingDirectory,
       file_name: record.displayFileName?.replace(/\.[^.]+$/, '') || record.id,
