@@ -18,7 +18,25 @@ import {settingsStorage} from './storage';
 import {
   createDownloadDirectoryName,
   createDownloadSeasonDirectoryName,
+  sanitizeDownloadFileName,
 } from './downloadId';
+
+// Defensive wrapper: never let a stale-bundle import binding break downloads.
+const sanitizeFileNameSafe = (value: string): string => {
+  try {
+    if (typeof sanitizeDownloadFileName === 'function') {
+      return sanitizeDownloadFileName(value);
+    }
+  } catch {}
+  return (
+    String(value || '')
+      .replace(/[\\/:*?"<>|\[\]{}#%^`\x00-\x1f\x7f-\x9f]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/\.+$/g, '')
+      .trim()
+      .slice(0, 160) || 'download'
+  );
+};
 import {getImageAccent} from './imageAccent';
 import {formatDownloadProgressLabel} from './downloadFormatting';
 
@@ -202,7 +220,7 @@ const getOutputName = (record: DownloadItem): string =>
   // Must be sanitized: the native download task turns this into a file://
   // URI, and characters like [ ] (common in release names) crash it with
   // "Illegal character in path".
-  sanitizeDownloadFileName(
+  sanitizeFileNameSafe(
     record.displayFileName?.replace(/\.[^.]+$/, '') || record.title,
   );
 

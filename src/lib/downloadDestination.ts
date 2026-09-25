@@ -14,6 +14,25 @@ import {
 } from './downloadLocation';
 import {sanitizeDownloadFileName} from './downloadId';
 
+// Defensive: if the import binding is ever undefined at runtime (stale OTA
+// bundle mixing old/new module copies), fall back to an inline sanitizer so
+// a download never hard-fails with "sanitizeDownloadFileName doesn't exist".
+const sanitizeName = (value: string): string => {
+  try {
+    if (typeof sanitizeDownloadFileName === 'function') {
+      return sanitizeDownloadFileName(value);
+    }
+  } catch {}
+  return (
+    String(value || '')
+      .replace(/[\\/:*?"<>|\[\]{}#%^`\x00-\x1f\x7f-\x9f]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/\.+$/g, '')
+      .trim()
+      .slice(0, 160) || 'download'
+  );
+};
+
 const DOWNLOAD_STAGING_ROOT = `${RNFS.CachesDirectoryPath}/downloads`;
 
 type SafCopyModule = {
@@ -38,7 +57,7 @@ const getSafCopyModule = (): SafCopyModule | undefined =>
     | undefined;
 
 export const getDownloadStagingDirectory = (downloadId: string): string =>
-  `${DOWNLOAD_STAGING_ROOT}/${sanitizeDownloadFileName(downloadId)}`;
+  `${DOWNLOAD_STAGING_ROOT}/${sanitizeName(downloadId)}`;
 
 export const getDownloadStagingPath = (
   downloadId: string,
@@ -255,7 +274,7 @@ const finalizePathDownload = async ({
 
   let finalDirectory = location.path;
   for (const directoryName of outputDirectoryNames || []) {
-    finalDirectory = `${finalDirectory}/${sanitizeDownloadFileName(directoryName)}`;
+    finalDirectory = `${finalDirectory}/${sanitizeName(directoryName)}`;
   }
   const finalPath = `${finalDirectory}/${getDownloadFileName(fileName, fileType)}`;
   await moveToPublicStorage(stagingPath, finalPath);
