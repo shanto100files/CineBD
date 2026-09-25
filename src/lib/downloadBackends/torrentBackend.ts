@@ -51,6 +51,16 @@ export const torrentDownloadBackend: DownloadBackend = {
         'Torrent engine এই build-এ নেই — নতুন APK install করুন',
       );
     }
+    // Dummy/empty magnets (placeholder hashes some scrapers emit) can stall
+    // metadata for minutes; reject them instantly like the Player does.
+    const url = String(record.url || '');
+    if (
+      !url ||
+      url.includes('d41d0cfbf8baa3ce04a7074b0c486243dd5fbd00') ||
+      url.includes('d41d8cd98f00b204e9800998ecf8427e')
+    ) {
+      throw new Error('Invalid torrent source');
+    }
     const addData = await torrentManager.addTorrent(record.url, {
       output_folder: destination.stagingDirectory,
       file_name: record.displayFileName?.replace(/\.[^.]+$/, '') || record.id,

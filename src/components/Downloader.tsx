@@ -524,7 +524,7 @@ const DownloadComponent = ({
       } catch (fallbackError) {
         console.log('Fallback intent error:', fallbackError);
         ToastAndroid.show(
-          'No app found to handle this download',
+          'ডাউনলোড খোলার কোনো অ্যাপ পাওয়া যায়নি',
           ToastAndroid.SHORT,
         );
       }
