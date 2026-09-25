@@ -926,6 +926,10 @@ const Player = ({ route }: Props): React.JSX.Element => {
   );
   const isCasting = Boolean(remoteMediaClient);
   const [isResolvingStream, setIsResolvingStream] = useState(false);
+  // First-frame tracking: covers the gap between "source URL ready" and the
+  // first frame actually rendered by the player (previously a long black screen).
+  const [isWaitingForFirstFrame, setIsWaitingForFirstFrame] = useState(false);
+  const firstFrameReceivedRef = useRef(false);
   const progressIntervalRef = useRef<any>(null);
   const [torrentState, setTorrentState] = useState<string>('');
   const [torrentDownloaded, setTorrentDownloaded] = useState<number>(0);
@@ -1041,9 +1045,12 @@ const Player = ({ route }: Props): React.JSX.Element => {
               infoHash,
               videoFileIndex,
             );
+            // Wait until the native proxy has fully prepared the file before
+            // handing the URL to the player. Setting it earlier made the loader
+            // disappear while the player was still showing a black screen.
+            await preparation;
             setProcessedStreamUrl(streamUrl);
             setIsResolvingStream(false);
-            await preparation;
           }
         } catch (error) {
           console.error('Failed to start torrent stream:', error);
@@ -1604,11 +1611,11 @@ const Player = ({ route }: Props): React.JSX.Element => {
   // Animation effects
   useEffect(() => {
     // Loading animations
-    if (streamLoading || isResolvingStream) {
+    if (streamLoading || isResolvingStream || isWaitingForFirstFrame) {
       loadingOpacity.value = withTiming(1, { duration: 800 });
       loadingScale.value = withTiming(1, { duration: 800 });
     }
-  }, [isResolvingStream, streamLoading]);
+  }, [isResolvingStream, streamLoading, isWaitingForFirstFrame]);
 
   useEffect(() => {
     // Lock button animations
@@ -1786,6 +1793,13 @@ const Player = ({ route }: Props): React.JSX.Element => {
         resumeAppliedRef.current = true;
       }
       playerRef?.current?.resume();
+      // Safety net: if onReadyForDisplay never fires (some formats/streams),
+      // drop the first-frame overlay after 8s so the user is never stuck.
+      setTimeout(() => {
+        if (!firstFrameReceivedRef.current) {
+          setIsWaitingForFirstFrame(false);
+        }
+      }, 8000);
     },
     [
       handleVideoLoad,
@@ -1794,6 +1808,20 @@ const Player = ({ route }: Props): React.JSX.Element => {
       setTextTracks,
     ],
   );
+
+  // New source attached to the player: the first frame is not rendered yet.
+  useEffect(() => {
+    if (!processedStreamUrl) {
+      return;
+    }
+    firstFrameReceivedRef.current = false;
+    setIsWaitingForFirstFrame(true);
+  }, [processedStreamUrl]);
+
+  const handleVideoReadyForDisplay = useCallback(() => {
+    firstFrameReceivedRef.current = true;
+    setIsWaitingForFirstFrame(false);
+  }, []);
 
   // Memoized video player props
   const videoPlayerProps = useMemo(
@@ -1835,6 +1863,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
       onProgress: handleProgressWithTime,
       skips: combinedSkips,
       onLoad: handleVideoLoadCallback,
+      onReadyForDisplay: handleVideoReadyForDisplay,
       videoRef: playerRef,
       rate: playbackRate,
       subtitleStyle: {
@@ -1896,6 +1925,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
       handleProgressWithTime,
       combinedSkips,
       handleVideoLoadCallback,
+      handleVideoReadyForDisplay,
       playbackRate,
       primary,
       navigation,
@@ -2052,6 +2082,32 @@ const Player = ({ route }: Props): React.JSX.Element => {
               </Text>
             )}
           </Animated.View>
+        )}
+
+      {/* First-frame overlay: visible until the player actually renders the
+          first frame, so the user never stares at a plain black screen */}
+      {!isCasting &&
+        processedStreamUrl &&
+        !streamLoading &&
+        !streamError &&
+        isWaitingForFirstFrame && (
+          <View
+            className="absolute top-0 left-0 right-0 bottom-0 z-30 bg-black justify-center items-center"
+            pointerEvents="none">
+            <Animated.View
+              style={[loadingContainerStyle]}
+              className="justify-center items-center">
+              <View className="mb-2">
+                <AnimatedHourglass sandColor={hourglassSandColor} />
+              </View>
+              <Text className="text-white text-base mt-4 opacity-90">
+                ভিডিও শুরু হচ্ছে...
+              </Text>
+              <Text className="text-white text-sm mt-1 opacity-60">
+                অপেক্ষা করুন
+              </Text>
+            </Animated.View>
+          </View>
         )}
 
       {/* Full-screen overlay to detect taps when locked */}

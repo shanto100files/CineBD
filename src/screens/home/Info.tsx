@@ -1,4 +1,4 @@
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useIsFocused} from '@react-navigation/native';
 import {
   NativeStackNavigationProp,
   NativeStackScreenProps,
@@ -42,6 +42,9 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   const addItem = useWatchListStore(state => state.addItem);
   const removeItem = useWatchListStore(state => state.removeItem);
   const {isPremium} = useAuthStore();
+  // Ad WebViews are expensive on low-RAM phones: unmount them while the
+  // Player screen is on top so video playback gets the full device resources.
+  const isScreenFocused = useIsFocused();
   const providerValue = route.params.provider || provider.value;
   const {
     info,
@@ -351,13 +354,27 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                   trailerUrl={info?.trailerUrl?.trim()}
                   year={meta?.year}
                 />
-                {!isPremium && appAds.enabled && appAds.top ? (
-                  <View style={{marginHorizontal: 18, marginTop: 16, borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
-                    {appAds.top.startsWith('http') ? (
-                      <WebView source={{uri: appAds.top}} style={{flex: 1, backgroundColor: '#0a0a0a', minHeight: 100}} scrollEnabled={false} />
-                    ) : (
-                      <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:100px;">${appAds.top}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
-                    )}
+                {!isPremium && appAds.enabled && appAds.top && isScreenFocused ? (
+                  <View style={{marginHorizontal: 18, marginTop: 16}}>
+                    <AppText
+                      style={{
+                        color: detailColors.onSurfaceVariant,
+                        fontSize: 11,
+                        fontWeight: '600',
+                        letterSpacing: 0.3,
+                        marginBottom: 4,
+                        marginLeft: 4,
+                        opacity: 0.75,
+                      }}>
+                      এড এটিকে এড়িয়ে চলুন
+                    </AppText>
+                      <View style={{borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
+                        {appAds.top.startsWith('http') ? (
+                          <WebView source={{uri: appAds.top}} style={{flex: 1, backgroundColor: '#0a0a0a', minHeight: 100}} scrollEnabled={false} />
+                        ) : (
+                          <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:100px;">${appAds.top}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                        )}
+                      </View>
                   </View>
                 ) : null}
                 <View style={{paddingHorizontal: 18, paddingTop: 24}}>
@@ -386,13 +403,27 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                     />
                   )}
                 </View>
-                {!isPremium && appAds.enabled && appAds.bottom ? (
-                  <View style={{marginHorizontal: 18, marginTop: 16, marginBottom: 16, borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
-                    {appAds.bottom.startsWith('http') ? (
-                      <WebView source={{uri: appAds.bottom}} style={{flex: 1, backgroundColor: '#0a0a0a', minHeight: 100}} scrollEnabled={false} />
-                    ) : (
-                      <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:100px;">${appAds.bottom}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
-                    )}
+                {!isPremium && appAds.enabled && appAds.bottom && isScreenFocused ? (
+                  <View style={{marginHorizontal: 18, marginBottom: 16, marginTop: 16}}>
+                    <AppText
+                      style={{
+                        color: detailColors.onSurfaceVariant,
+                        fontSize: 11,
+                        fontWeight: '600',
+                        letterSpacing: 0.3,
+                        marginBottom: 4,
+                        marginLeft: 4,
+                        opacity: 0.75,
+                      }}>
+                      এড এটিকে এড়িয়ে চলুন
+                    </AppText>
+                    <View style={{borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
+                      {appAds.bottom.startsWith('http') ? (
+                        <WebView source={{uri: appAds.bottom}} style={{flex: 1, backgroundColor: '#0a0a0a', minHeight: 100}} scrollEnabled={false} />
+                      ) : (
+                        <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:100px;">${appAds.bottom}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                      )}
+                    </View>
                   </View>
                 ) : null}
               </>

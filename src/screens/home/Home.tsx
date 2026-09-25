@@ -1,7 +1,7 @@
 import {SafeAreaView, RefreshControl, View, Pressable} from 'react-native';
 import Slider from '../../components/Slider';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {useFocusEffect} from '@react-navigation/native';
+import {useFocusEffect, useIsFocused} from '@react-navigation/native';
 import HeroOptimized from '../../components/Hero';
 import HeroStrip, {HeroStripItem} from '../../components/HeroStrip';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -39,6 +39,9 @@ type Props = NativeStackScreenProps<HomeStackParamList, 'Home'>;
 const Home = ({navigation}: Props) => {
   const colors = useM3Colors();
   const {isPremium} = useAuthStore();
+  // Ad WebViews are expensive on low-RAM phones: unmount them while another
+  // screen (e.g. Player) is on top so playback gets the full device resources.
+  const isScreenFocused = useIsFocused();
   const [statusBarScrimVisible, setStatusBarScrimVisible] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
@@ -349,7 +352,7 @@ const Home = ({navigation}: Props) => {
 
               <FriendsActivityRow />
 
-              {!isPremium && homeAds.enabled && homeAds.top ? (
+              {!isPremium && homeAds.enabled && homeAds.top && isScreenFocused ? (
                 <View style={{marginHorizontal: 14, marginTop: 8}}>
                   <AppText
                     role="labelSmallEmphasized"
@@ -373,7 +376,7 @@ const Home = ({navigation}: Props) => {
 
               <View className="h-8" />
 
-              {!isPremium && homeAds.enabled && homeAds.bottom ? (
+              {!isPremium && homeAds.enabled && homeAds.bottom && isScreenFocused ? (
                 <View style={{marginHorizontal: 14, marginBottom: 16}}>
                   <AppText
                     role="labelSmallEmphasized"
