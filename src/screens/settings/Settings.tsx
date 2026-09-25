@@ -35,6 +35,7 @@ import {useM3Colors} from '../../theme/M3PaletteContext';
 import {showAppDialog} from '../../lib/zustand/appDialogStore';
 import {clearAppCache} from '../../lib/clearAppCache';
 import {useAuthStore} from '../../lib/zustand/authStore';
+import {friendsService} from '../../lib/services/friendsService';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'Settings'>;
 
@@ -59,6 +60,8 @@ const Settings = ({navigation}: Props) => {
   const [preferredLanguage, setPreferredLanguage] = useState(settingsStorage.getPreferredLanguage());
   const [adultEnabled, setAdultEnabled] = useState(settingsStorage.isAdultEnabled());
   const {user, isPremium, isLoggedIn, logout} = useAuthStore();
+  const authUserId = user?.id;
+  const [friendsUnread, setFriendsUnread] = useState(0);
   const provider = useContentStore(state => state.provider);
   const homeProviderValue = useContentStore(state => state.homeProviderValue);
   const setProvider = useContentStore(state => state.setProvider);
@@ -66,6 +69,35 @@ const Settings = ({navigation}: Props) => {
   const hideDownloadsTab = useNavigationPreferencesStore(
     state => state.hideDownloadsTab,
   );
+
+  // Unread friends/chat badge (shares + chat messages) for the বন্ধুরা row.
+  useEffect(() => {
+    if (!authUserId) {
+      setFriendsUnread(0);
+      return;
+    }
+    let alive = true;
+    const load = () => {
+      Promise.all([
+        friendsService
+          .list()
+          .then(d => d.unread || 0)
+          .catch(() => 0),
+        friendsService
+          .inbox()
+          .then(items => items.reduce((s, c) => s + c.unread, 0))
+          .catch(() => 0),
+      ]).then(([shareUnread, chatUnread]) => {
+        if (alive) setFriendsUnread(shareUnread + chatUnread);
+      });
+    };
+    load();
+    const iv = setInterval(load, 30000);
+    return () => {
+      alive = false;
+      clearInterval(iv);
+    };
+  }, [authUserId, isFocused]);
 
   // 18+ toggle: immediately drop adult providers from the active list so the
   // change applies without an app restart.
@@ -303,6 +335,27 @@ const Settings = ({navigation}: Props) => {
                 iconBg="#10b98122"
                 iconColor="#10b981"
                 onPress={() => navigation.navigate('Friends')}
+                trailing={
+                  friendsUnread > 0 ? (
+                    <View
+                      style={{
+                        alignItems: 'center',
+                        backgroundColor: colors.primary,
+                        borderRadius: 12,
+                        height: 22,
+                        justifyContent: 'center',
+                        marginRight: 8,
+                        minWidth: 22,
+                        paddingHorizontal: 6,
+                      }}>
+                      <AppText
+                        role="labelSmallEmphasized"
+                        style={{color: colors.onPrimary}}>
+                        {friendsUnread > 99 ? '99+' : friendsUnread}
+                      </AppText>
+                    </View>
+                  ) : undefined
+                }
               />
               <SettingsRow
                 title={isPremium ? '★ Premium Active' : 'Upgrade to Premium'}

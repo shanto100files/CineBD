@@ -10,8 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {CommonActions} from '@react-navigation/native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import {CommonActions} from '@react-navigation/native';
 import {SettingsStackParamList} from '../../App';
 import AppText from '../../components/ui/Text';
 import {useM3Colors} from '../../theme/M3PaletteContext';
@@ -22,9 +22,10 @@ import {
   SearchUser,
   SharedItem,
   ActivityData,
+  InboxItem,
 } from '../../lib/services/friendsService';
 
-type Tab = 'friends' | 'received';
+type Tab = 'friends' | 'chats' | 'received';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'Friends'>;
 
@@ -75,16 +76,19 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
   const [searchFocused, setSearchFocused] = useState(false);
   const [busyId, setBusyId] = useState(0);
   const [activityVisible, setActivityVisible] = useState(0);
+  const [inbox, setInbox] = useState<InboxItem[]>([]);
 
   const load = useCallback(async () => {
     try {
-      const [d, f, a] = await Promise.all([
+      const [d, f, a, ib] = await Promise.all([
         friendsService.list(),
         friendsService.feed(),
         friendsService.getActivity().catch(() => null),
+        friendsService.inbox().catch(() => [] as InboxItem[]),
       ]);
       setData(d);
       setFeed(f);
+      setInbox(ib);
       if (a) setActivityVisible(a.activity_visible);
       // Auto-mark received items as read once they're visible.
       const unreadIds = f.filter(i => !i.is_read).map(i => i.id);
@@ -103,6 +107,18 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
     if (token) load();
     else setLoading(false);
   }, [token, load]);
+
+  // Light inbox refresh so chat unread counts stay fresh while the screen is open.
+  useEffect(() => {
+    if (!token) return;
+    const iv = setInterval(() => {
+      friendsService
+        .inbox()
+        .then(setInbox)
+        .catch(() => {});
+    }, 15000);
+    return () => clearInterval(iv);
+  }, [token]);
 
   useEffect(() => {
     const q = search.trim();
@@ -719,6 +735,105 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
     </>
   );
 
+  const totalUnreadChats = inbox.reduce((s, c) => s + c.unread, 0);
+
+  const renderChatsTab = () => (
+    <View style={{paddingHorizontal: 16, paddingBottom: 24, paddingTop: 4}}>
+      {loading ? (
+        <ActivityIndicator style={{marginTop: 40}} size="large" color={colors.primary} />
+      ) : null}
+      {!loading && inbox.length === 0 ? (
+        <View style={{alignItems: 'center', marginTop: 60}}>
+          <MaterialCommunityIcons
+            name="message-off-outline"
+            size={56}
+            color={colors.onSurfaceVariant}
+          />
+          <AppText
+            role="bodyMedium"
+            style={{
+              color: colors.onSurfaceVariant,
+              marginTop: 12,
+              textAlign: 'center',
+            }}>
+            এখনো কোনো কথোপকথন নেই{'\n'}বন্ধু ট্যাব থেকে 💬 আইকনে চেপে মেসেজ পাঠান
+          </AppText>
+        </View>
+      ) : null}
+      {!loading &&
+        inbox.map(c => (
+          <TouchableOpacity
+            key={c.user_id}
+            activeOpacity={0.8}
+            onPress={() =>
+              navigation.navigate('FriendChat', {
+                userId: c.user_id,
+                username: c.username,
+              })
+            }
+            style={{
+              alignItems: 'center',
+              backgroundColor: colors.surfaceContainerLow,
+              borderRadius: 14,
+              flexDirection: 'row',
+              gap: 12,
+              marginBottom: 8,
+              paddingHorizontal: 10,
+              paddingVertical: 10,
+            }}>
+            <Avatar name={c.username} size={42} />
+            <View style={{flex: 1}}>
+              <AppText
+                role="bodyLargeEmphasized"
+                style={{color: colors.onBackground}}
+                numberOfLines={1}>
+                {c.username}
+              </AppText>
+              <AppText
+                role="bodySmall"
+                style={{
+                  color: c.unread > 0 ? colors.onSurface : colors.onSurfaceVariant,
+                  fontWeight: c.unread > 0 ? '700' : '400',
+                  marginTop: 2,
+                }}
+                numberOfLines={1}>
+                {c.last_message}
+              </AppText>
+            </View>
+            <AppText
+              role="labelSmallEmphasized"
+              style={{color: colors.onSurfaceVariant}}>
+              {timeAgo(c.last_at)}
+            </AppText>
+            {c.unread > 0 ? (
+              <View
+                style={{
+                  alignItems: 'center',
+                  backgroundColor: colors.primary,
+                  borderRadius: 12,
+                  justifyContent: 'center',
+                  minWidth: 22,
+                  height: 22,
+                  paddingHorizontal: 6,
+                }}>
+                <AppText
+                  role="labelSmallEmphasized"
+                  style={{color: colors.onPrimary}}>
+                  {c.unread > 99 ? '99+' : c.unread}
+                </AppText>
+              </View>
+            ) : (
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={22}
+                color={colors.onSurfaceVariant}
+              />
+            )}
+          </TouchableOpacity>
+        ))}
+    </View>
+  );
+
   const renderReceivedTab = () => (
     <View style={{paddingHorizontal: 16, paddingBottom: 24, paddingTop: 4}}>
       {loading ? (
@@ -855,7 +970,7 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
           paddingHorizontal: 16,
           paddingVertical: 10,
         }}>
-        {(['friends', 'received'] as Tab[]).map(t => (
+        {(['friends', 'chats', 'received'] as Tab[]).map(t => (
           <TouchableOpacity
             key={t}
             onPress={() => setTab(t)}
@@ -868,7 +983,12 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
             <AppText
               role="labelLargeEmphasized"
               style={{color: tab === t ? colors.onPrimary : colors.onSurfaceVariant}}>
-              {t === 'friends' ? 'বন্ধু / সার্চ' : 'শেয়ারড'}
+              {t === 'friends'
+                ? 'বন্ধু / সার্চ'
+                : t === 'chats'
+                  ? 'চ্যাট'
+                  : 'শেয়ারড'}
+              {t === 'chats' && totalUnreadChats > 0 ? ` ${totalUnreadChats}` : ''}
               {t === 'received' && (data?.unread ?? 0) > 0
                 ? ` (${data!.unread})`
                 : ''}
@@ -888,7 +1008,11 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
           style={{flex: 0}}
         />
         <View style={{flex: 1}}>
-          {tab === 'friends' ? renderFriendsTab() : renderReceivedTab()}
+          {tab === 'friends'
+            ? renderFriendsTab()
+            : tab === 'chats'
+              ? renderChatsTab()
+              : renderReceivedTab()}
         </View>
       </View>
     </View>
