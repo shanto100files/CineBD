@@ -19,8 +19,9 @@ const proxyApiUrl =
 
 module.exports = () => {
   const IS_PLAYSTORE = process.env.APP_VARIANT === 'playstore';
-  const HAS_FIREBASE =
-    !IS_PLAYSTORE && (hasAndroidGoogleServices || hasIosGooglePlist);
+  // Firebase (FCM push) is required on every distributed variant; it must not
+  // depend on the Play Store toggle — CI builds run with APP_VARIANT=playstore.
+  const HAS_FIREBASE = hasAndroidGoogleServices || hasIosGooglePlist;
   const PACKAGE_NAME = 'com.cine.pix';
   const APP_SCHEME = 'cinepix';
   const plugins = [
@@ -119,7 +120,7 @@ module.exports = () => {
         reactCompiler: true,
       },
       android: {
-        ...(!IS_PLAYSTORE && hasAndroidGoogleServices
+        ...(hasAndroidGoogleServices
           ? { googleServicesFile: androidGoogleServicesFile }
           : {}),
         minSdkVersion: 28,
@@ -171,7 +172,7 @@ module.exports = () => {
         supportsPictureInPicture: true,
       },
       ios: {
-        ...(!IS_PLAYSTORE && hasIosGooglePlist
+        ...(hasIosGooglePlist
           ? { googleServicesFile: iosGoogleServicesFile }
           : {}),
       },

@@ -57,6 +57,15 @@ jobs:
       - name: Generate native project
         run: npx expo prebuild --platform android --clean --no-install
 
+      - name: Decode Firebase config (google-services.json)
+        run: |
+          if [ -n "${{ secrets.FIREBASE_GOOGLE_SERVICES_B64 }}" ]; then
+            echo "${{ secrets.FIREBASE_GOOGLE_SERVICES_B64 }}" | base64 --decode > google-services.json
+            echo "Firebase config decoded ($(wc -c < google-services.json) bytes)"
+          else
+            echo "No FIREBASE_GOOGLE_SERVICES_B64 secret: building WITHOUT Firebase push"
+          fi
+
       - name: Decode keystore
         run: |
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
