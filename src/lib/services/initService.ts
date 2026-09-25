@@ -121,15 +121,29 @@ export async function initializeApp(
     const installed = adultAllowed
       ? installedAll
       : installedAll.filter(p => !p.is_adult);
+    useContentStore.setState({installedProviders: installed});
     const contentStore = useContentStore.getState();
-    if (installed.length > 0) {
-      useContentStore.setState({installedProviders: installed});
-      if (!contentStore.provider?.value || (!adultAllowed && contentStore.provider.is_adult)) {
-        useContentStore.setState({provider: installed[0]});
-      }
-    } else if (installedAll.length > 0 && !adultAllowed) {
-      // Everything installed was 18+ — keep list empty-safe.
-      useContentStore.setState({installedProviders: []});
+    const activeInvalid =
+      !contentStore.provider?.value ||
+      (!adultAllowed && contentStore.provider.is_adult) ||
+      (contentStore.provider?.value &&
+        !installed.some(p => p.value === contentStore.provider.value));
+    if (activeInvalid) {
+      useContentStore.setState({
+        provider:
+          installed[0] || {
+            value: '',
+            display_name: '',
+            type: 'global',
+            installed: false,
+            disabled: false,
+            version: '0.0.1',
+            icon: '',
+            source: {author: '', url: ''},
+            installedAt: 0,
+            lastUpdated: 0,
+          },
+      });
     }
 
     onProgress({progress: 100, status: 'Ready!'});

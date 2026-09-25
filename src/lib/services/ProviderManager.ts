@@ -82,6 +82,17 @@ export class ProviderManager {
     providerValue: string,
     key: 'catalog' | 'posts' | 'meta' | 'stream' | 'episodes' | 'settings',
   ): string | undefined {
+    // Hard 18+ gate: even if a stale provider list somewhere still contains
+    // an adult provider, no module code can execute for it while the age
+    // gate is off. This is the single choke point for every fetch.
+    try {
+      const meta = extensionStorage
+        .getInstalledProviders()
+        .find(p => p.value === providerValue);
+      if (meta?.is_adult && !settingsStorage.isAdultEnabled()) {
+        return undefined;
+      }
+    } catch {}
     return extensionManager.getProviderModules(providerValue)?.modules[key];
   }
 

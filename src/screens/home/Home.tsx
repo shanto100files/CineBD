@@ -52,6 +52,7 @@ const Home = ({navigation}: Props) => {
 
   const provider = useContentStore(state => state.provider);
   const installedProviders = useContentStore(state => state.installedProviders);
+  const adultEnabled = settingsStorage.isAdultEnabled();
   const setHero = useHeroStore(state => state.setHero);
   const hero = useHeroStore(state => state.hero);
 
@@ -235,12 +236,17 @@ const Home = ({navigation}: Props) => {
 
   const [autoInstalling, setAutoInstalling] = useState(false);
 
-  // Auto-select provider if none selected but providers are installed
+  // Auto-select provider if none selected but providers are installed.
+  // Never auto-pick an 18+ provider while the age gate is off.
   useEffect(() => {
-    if (!provider?.value && installedProviders.length > 0) {
-      useContentStore.setState({provider: installedProviders[0]});
+    if (provider?.value) return;
+    const pickable = adultEnabled
+      ? installedProviders
+      : installedProviders.filter(p => !p.is_adult);
+    if (pickable.length > 0) {
+      useContentStore.setState({provider: pickable[0]});
     }
-  }, [provider?.value, installedProviders.length]);
+  }, [provider?.value, installedProviders, adultEnabled]);
 
   // Auto-install / auto-update providers from server on every app open
   useEffect(() => {
