@@ -20,6 +20,7 @@ import RNReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Clipboard } from 'react-native';
 import { TextTrackType } from 'react-native-video';
 import { settingsStorage } from '../lib/storage';
+import { useAuthStore } from '../lib/zustand/authStore';
 import { useM3Colors } from '../theme/M3PaletteContext';
 import { fetchFileSizes } from '../lib/download/fetchFileSize';
 import { formatDownloadBytes } from '../lib/downloadFormatting';
@@ -127,6 +128,7 @@ const DownloadBottomSheet = ({
 }: Props) => {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const colors = useM3Colors();
+  const isAdmin = useAuthStore(s => s.user?.is_admin === true);
   const [activeTab, setActiveTab] = React.useState<1 | 2>(1);
   const [fileSizes, setFileSizes] = React.useState<Map<string, number>>(
     new Map(),
@@ -546,9 +548,10 @@ const DownloadBottomSheet = ({
           ) : null}
         </View>
 
-        {/* Action buttons */}
+        {/* Action buttons - copy + external are admin-only */}
         <View style={{ alignItems: 'center', flexDirection: 'row', gap: 6 }}>
-          {/* Copy Button */}
+          {/* Copy Button (admin only) */}
+          {isAdmin ? (
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => handleCopy(item.link)}
@@ -566,8 +569,10 @@ const DownloadBottomSheet = ({
               color={colors.onSurfaceVariant}
             />
           </TouchableOpacity>
+          ) : null}
 
-          {/* External / Internal Button */}
+          {/* External / Internal Button (admin only) */}
+          {isAdmin ? (
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => {
@@ -592,6 +597,7 @@ const DownloadBottomSheet = ({
               color={colors.onPrimaryContainer}
             />
           </TouchableOpacity>
+          ) : null}
         </View>
       </TouchableOpacity>
     ))}
@@ -794,7 +800,8 @@ const DownloadBottomSheet = ({
                       flexDirection: 'row',
                       gap: 6,
                     }}>
-                    {/* Copy Subtitle Link Button */}
+                    {/* Copy Subtitle Link Button (admin only) */}
+                    {isAdmin ? (
                     <TouchableOpacity
                       activeOpacity={0.7}
                       onPress={() => handleCopy(sub.uri)}
@@ -812,8 +819,10 @@ const DownloadBottomSheet = ({
                         color={colors.onSurfaceVariant}
                       />
                     </TouchableOpacity>
+                    ) : null}
 
-                    {/* External Subtitle Button */}
+                    {/* External Subtitle Button (admin only) */}
+                    {isAdmin ? (
                     <TouchableOpacity
                       activeOpacity={0.7}
                       onPress={() => {
@@ -838,6 +847,7 @@ const DownloadBottomSheet = ({
                         color={colors.onSurfaceVariant}
                       />
                     </TouchableOpacity>
+                    ) : null}
 
                     {/* Download / Delete Subtitle Button */}
                     {subDownloaded ? (
