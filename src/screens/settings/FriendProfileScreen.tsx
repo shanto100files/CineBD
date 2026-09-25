@@ -12,6 +12,7 @@ import {SettingsStackParamList} from '../../App';
 import AppText from '../../components/ui/Text';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import {friendsService, FriendProfile} from '../../lib/services/friendsService';
+import {showAppDialog} from '../../lib/zustand/appDialogStore';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'FriendProfile'>;
 
@@ -34,6 +35,20 @@ const FriendProfileScreen = ({navigation, route}: Props) => {
     load();
   }, [load]);
 
+  const confirmRemove = () => {
+    showAppDialog({
+      title: 'Remove Friend?',
+      message: `${
+        profile?.username || username
+      } কে বন্ধু তালিকা থেকে সরাবেন? আপনারা আর একে অপরকে মেসেজ বা কন্টেন্ট শেয়ার করতে পারবেন না।`,
+      variant: 'warning',
+      actions: [
+        {label: 'Cancel'},
+        {label: 'Remove', variant: 'destructive', onPress: doRemove},
+      ],
+    });
+  };
+
   const doRemove = () => {
     setBusy(true);
     friendsService
@@ -44,6 +59,20 @@ const FriendProfileScreen = ({navigation, route}: Props) => {
       })
       .catch(() => ToastAndroid.show('ব্যর্থ হয়েছে', ToastAndroid.SHORT))
       .finally(() => setBusy(false));
+  };
+
+  const confirmBlock = () => {
+    showAppDialog({
+      title: 'Block?',
+      message: `${
+        profile?.username || username
+      } কে ব্লক করবেন? বন্ধুত্ব বাতিল হবে এবং আপনারা আর একে অপরকে মেসেজ বা কন্টেন্ট পাঠাতে পারবেন না।`,
+      variant: 'warning',
+      actions: [
+        {label: 'Cancel'},
+        {label: 'Block', variant: 'destructive', onPress: doBlock},
+      ],
+    });
   };
 
   const doBlock = () => {
@@ -198,7 +227,7 @@ const FriendProfileScreen = ({navigation, route}: Props) => {
             {profile?.is_friend ? (
               <TouchableOpacity
                 disabled={busy}
-                onPress={doRemove}
+                onPress={confirmRemove}
                 style={{
                   alignItems: 'center',
                   backgroundColor: colors.errorContainer,
@@ -241,7 +270,7 @@ const FriendProfileScreen = ({navigation, route}: Props) => {
             ) : (
               <TouchableOpacity
                 disabled={busy}
-                onPress={doBlock}
+                onPress={confirmBlock}
                 style={{
                   alignItems: 'center',
                   backgroundColor: colors.errorContainer,

@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {CommonActions} from '@react-navigation/native';
+import {CommonActions, useFocusEffect} from '@react-navigation/native';
 import {SettingsStackParamList} from '../../App';
 import AppText from '../../components/ui/Text';
 import {useM3Colors} from '../../theme/M3PaletteContext';
@@ -103,10 +103,17 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
     }
   }, []);
 
-  useEffect(() => {
-    if (token) load();
-    else setLoading(false);
-  }, [token, load]);
+  // Reload every time the screen gains focus (e.g. returning from a friend
+  // profile after removing/blocking them) so the list is never stale.
+  useFocusEffect(
+    useCallback(() => {
+      if (token) {
+        load();
+      } else {
+        setLoading(false);
+      }
+    }, [token, load]),
+  );
 
   // Light inbox refresh so chat unread counts stay fresh while the screen is open.
   useEffect(() => {
@@ -192,18 +199,6 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
       setActivityVisible(visible ? 0 : 1); // revert
       ToastAndroid.show('ব্যর্থ হয়েছে', ToastAndroid.SHORT);
     }
-  };
-
-  const confirmUnfriend = (id: number, name: string) => {
-    setBusyId(id);
-    friendsService
-      .unfriend(id)
-      .then(() => {
-        ToastAndroid.show(`${name} বন্ধু তালিকা থেকে সরানো হয়েছে`, ToastAndroid.SHORT);
-        load();
-      })
-      .catch(() => ToastAndroid.show('ব্যর্থ হয়েছে', ToastAndroid.SHORT))
-      .finally(() => setBusyId(0));
   };
 
   const openShared = (item: SharedItem) => {
@@ -614,23 +609,6 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
                 justifyContent: 'center',
               }}>
               <MaterialCommunityIcons name="message-outline" size={20} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              disabled={busyId === f.id}
-              onPress={() => confirmUnfriend(f.id, f.username)}
-              style={{
-                backgroundColor: colors.errorContainer,
-                borderRadius: 18,
-                height: 36,
-                width: 36,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-              {busyId === f.id ? (
-                <ActivityIndicator size="small" color={colors.error} />
-              ) : (
-                <MaterialCommunityIcons name="account-minus" size={20} color={colors.error} />
-              )}
             </TouchableOpacity>
           </View>
         ))}
