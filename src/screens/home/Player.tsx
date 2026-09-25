@@ -1939,7 +1939,12 @@ const Player = ({ route }: Props): React.JSX.Element => {
               <View className="mb-2">
                 <AnimatedHourglass sandColor={hourglassSandColor} />
               </View>
-              <Text className="text-white text-lg mt-4">Loading stream...</Text>
+              <Text className="text-white text-lg mt-4">
+                সোর্স থেকে ভিডিও লোড হচ্ছে...
+              </Text>
+              <Text className="text-white text-sm mt-1 opacity-60">
+                অপেক্ষা করুন
+              </Text>
             </Animated.View>
           </View>
         </TouchableNativeFeedback>
@@ -1998,6 +2003,9 @@ const Player = ({ route }: Props): React.JSX.Element => {
         <View className="flex-1 justify-center items-center">
           <Animated.View style={[loadingContainerStyle]}>
             <AnimatedHourglass sandColor={hourglassSandColor} />
+            <Text className="text-white text-base mt-4 opacity-90">
+              সোর্স থেকে ভিডিও লোড হচ্ছে... অপেক্ষা করুন
+            </Text>
           </Animated.View>
           <TouchableOpacity
             className="mt-6 flex-row items-center gap-2 px-4 py-2"
