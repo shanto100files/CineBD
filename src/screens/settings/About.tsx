@@ -1,6 +1,7 @@
 import {View, ToastAndroid, Linking} from 'react-native';
 // import pkg from '../../../package.json';
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
+import * as Updates from 'expo-updates';
 import {settingsStorage} from '../../lib/storage';
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import * as Application from 'expo-application';
@@ -127,6 +128,28 @@ export const checkForUpdate = async (
 
 const About = () => {
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [otaLabel, setOtaLabel] = useState('');
+
+  // Show which bundle is actually running (APK built-in vs an OTA update).
+  // Compare this ID with the latest ID in releases.json to confirm an OTA
+  // has applied: same ID = applied.
+  useEffect(() => {
+    try {
+      if (!Updates.isEnabled) {
+        setOtaLabel('OTA disabled');
+        return;
+      }
+      const isOta = !Updates.isEmbeddedLaunch;
+      const id = (Updates.updateId || '').slice(0, 8);
+      setOtaLabel(
+        isOta && id
+          ? `OTA চালু • ${id}`
+          : 'APK built-in (OTA নেই)',
+      );
+    } catch {
+      setOtaLabel('APK built-in (OTA নেই)');
+    }
+  }, []);
   const [autoDownload, setAutoDownload] = useState(
     settingsStorage.isAutoDownloadEnabled(),
   );
@@ -188,6 +211,15 @@ const About = () => {
                   ? undefined
                   : () => checkForUpdate(setUpdateLoading, autoDownload, true)
               }
+            />
+            <SettingsRow
+              title="OTA update"
+              description={
+                otaLabel ||
+                (Updates.isEmbeddedLaunch ? 'APK built-in (OTA নেই)' : 'OTA চালু')
+              }
+              icon="cloud-download-outline"
+              divider={false}
             />
           </>
         )}
