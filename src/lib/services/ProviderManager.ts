@@ -23,6 +23,12 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
   }
 };
 
+// Cancellation of an in-flight provider request (user left the page, list
+// remounted, etc.) is a normal control-flow event, not an error worth a red
+// console.error.
+const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && error.message === 'Provider request aborted';
+
 export class ProviderManager {
   private readonly providerState = new Map<string, Record<string, unknown>>();
   private readonly settingsSchemaCache = new Map<string, SettingsField[]>();
@@ -194,7 +200,9 @@ export class ProviderManager {
       );
       return this.requireArray<Post>(posts, providerValue, 'getPosts');
     } catch (error) {
-      console.error('Error in posts function:', error);
+      if (!isAbortError(error)) {
+        console.error('Error in posts function:', error);
+      }
       throw new Error(
         getErrorMessage(
           error,
@@ -228,7 +236,9 @@ export class ProviderManager {
       );
       return this.requireArray<Post>(posts, providerValue, 'getSearchPosts');
     } catch (error) {
-      console.error('Error in search posts function:', error);
+      if (!isAbortError(error)) {
+        console.error('Error in search posts function:', error);
+      }
       throw new Error(
         getErrorMessage(
           error,
@@ -256,7 +266,9 @@ export class ProviderManager {
         {link, provider},
       );
     } catch (error) {
-      console.error('Error in meta data function:', error);
+      if (!isAbortError(error)) {
+        console.error('Error in meta data function:', error);
+      }
       throw new Error(
         getErrorMessage(
           error,
@@ -292,7 +304,9 @@ export class ProviderManager {
       );
       return this.requireArray<Stream>(streams, providerValue, 'getStream');
     } catch (error) {
-      console.error('Error in stream function:', error);
+      if (!isAbortError(error)) {
+        console.error('Error in stream function:', error);
+      }
       throw new Error(
         getErrorMessage(
           error,
@@ -327,7 +341,9 @@ export class ProviderManager {
         'getEpisodes',
       );
     } catch (error) {
-      console.error('Error in episodes function:', error);
+      if (!isAbortError(error)) {
+        console.error('Error in episodes function:', error);
+      }
       const errorMessage = getErrorMessage(
         error,
         `Failed to get episodes from provider: ${providerValue}`,
