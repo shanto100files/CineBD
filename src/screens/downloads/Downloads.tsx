@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import {useFocusEffect, useNavigation, useSafeAreaInsets} from '@react-navigation/native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useMemo, useState} from 'react';
