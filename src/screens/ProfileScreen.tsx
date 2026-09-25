@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
+import {Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View} from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {useAuthStore} from '../lib/zustand/authStore';
@@ -12,11 +12,20 @@ import {friendsService} from '../lib/services/friendsService';
 import {useContinueWatchingStore} from '../lib/zustand/continueWatchingStore';
 
 export default function ProfileScreen() {
-  const {user, isPremium, refreshProfile} = useAuthStore();
+  const {user, isPremium, refreshProfile, updateEmail, changePassword} = useAuthStore();
   const colors = useM3Colors();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [friendCount, setFriendCount] = useState<number | null>(null);
+
+  // Account editing (parity with website profile features)
+  const [showEmailEdit, setShowEmailEdit] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [showPasswordEdit, setShowPasswordEdit] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingAccount, setSavingAccount] = useState(false);
 
   useEffect(() => {
     refreshProfile();
@@ -155,28 +164,201 @@ export default function ProfileScreen() {
           styles.card,
           {backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant, marginTop: 18},
         ]}>
-        <View style={[styles.row, {borderBottomColor: colors.outlineVariant}]}>
+        {/* Email row (tap to edit) */}
+        <TouchableOpacity
+          style={[styles.row, {borderBottomColor: colors.outlineVariant}]}
+          onPress={() => {
+            setEmailInput(user?.email || '');
+            setShowEmailEdit(v => !v);
+            setShowPasswordEdit(false);
+          }}>
           <MaterialIcons name="email" size={20} color={colors.onSurfaceVariant} />
           <View style={{flex: 1, marginLeft: 12}}>
             <AppText role="bodyMedium" style={{color: colors.onSurface, fontWeight: '600'}}>
               Email
             </AppText>
             <AppText role="bodySmall" style={{color: colors.onSurfaceVariant, marginTop: 2}}>
-              {user?.email || 'Not set'}
+              {user?.email || 'Not set — add your email'}
             </AppText>
           </View>
-        </View>
-        <View style={styles.row}>
-          <MaterialIcons name="badge" size={20} color={colors.onSurfaceVariant} />
+          <MaterialIcons
+            name={showEmailEdit ? 'expand-less' : 'edit'}
+            size={20}
+            color={colors.onSurfaceVariant}
+          />
+        </TouchableOpacity>
+        {showEmailEdit && (
+          <View style={{padding: 14, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant}}>
+            <TextInput
+              value={emailInput}
+              onChangeText={setEmailInput}
+              placeholder="your@email.com"
+              placeholderTextColor={colors.onSurfaceVariant}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={{
+                color: colors.onSurface,
+                backgroundColor: colors.surfaceContainerHigh,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                fontSize: 14,
+              }}
+            />
+            <TouchableOpacity
+              disabled={savingAccount}
+              onPress={async () => {
+                const res = await updateEmail(emailInput.trim());
+                if (res.success) {
+                  setShowEmailEdit(false);
+                  Alert.alert('সফল', 'Email আপডেট হয়েছে');
+                } else {
+                  Alert.alert('সমস্যা', res.error || 'Email আপডেট হয়নি');
+                }
+              }}
+              style={{
+                alignSelf: 'flex-start',
+                backgroundColor: colors.primary,
+                borderRadius: 10,
+                marginTop: 10,
+                paddingHorizontal: 18,
+                paddingVertical: 8,
+                opacity: savingAccount ? 0.6 : 1,
+              }}>
+              <AppText role="labelLarge" style={{color: colors.onPrimary, fontWeight: '700'}}>
+                সেভ করুন
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Change password row */}
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => {
+            setShowPasswordEdit(v => !v);
+            setShowEmailEdit(false);
+          }}>
+          <MaterialIcons name="lock-outline" size={20} color={colors.onSurfaceVariant} />
           <View style={{flex: 1, marginLeft: 12}}>
             <AppText role="bodyMedium" style={{color: colors.onSurface, fontWeight: '600'}}>
-              Account Type
+              Password পরিবর্তন
             </AppText>
             <AppText role="bodySmall" style={{color: colors.onSurfaceVariant, marginTop: 2}}>
-              {isPremium ? 'Premium' : 'Free'}
+              নতুন password সেট করুন
             </AppText>
           </View>
-        </View>
+          <MaterialIcons
+            name={showPasswordEdit ? 'expand-less' : 'chevron-right'}
+            size={20}
+            color={colors.onSurfaceVariant}
+          />
+        </TouchableOpacity>
+        {showPasswordEdit && (
+          <View style={{padding: 14, gap: 8}}>
+            <TextInput
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              placeholder="বর্তমান password"
+              placeholderTextColor={colors.onSurfaceVariant}
+              secureTextEntry
+              style={{
+                color: colors.onSurface,
+                backgroundColor: colors.surfaceContainerHigh,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                fontSize: 14,
+              }}
+            />
+            <TextInput
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="নতুন password (min 6 অক্ষর)"
+              placeholderTextColor={colors.onSurfaceVariant}
+              secureTextEntry
+              style={{
+                color: colors.onSurface,
+                backgroundColor: colors.surfaceContainerHigh,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                fontSize: 14,
+              }}
+            />
+            <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="নতুন password আবার লিখুন"
+              placeholderTextColor={colors.onSurfaceVariant}
+              secureTextEntry
+              style={{
+                color: colors.onSurface,
+                backgroundColor: colors.surfaceContainerHigh,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                fontSize: 14,
+              }}
+            />
+            <TouchableOpacity
+              disabled={savingAccount}
+              onPress={async () => {
+                if (!currentPassword || !newPassword) {
+                  Alert.alert('সমস্যা', 'সব ঘর পূরণ করুন');
+                  return;
+                }
+                if (newPassword.length < 6) {
+                  Alert.alert('সমস্যা', 'নতুন password কমপক্ষে ৬ অক্ষরের হতে হবে');
+                  return;
+                }
+                if (newPassword !== confirmPassword) {
+                  Alert.alert('সমস্যা', 'দুটো password মিলছে না');
+                  return;
+                }
+                setSavingAccount(true);
+                const res = await changePassword(currentPassword, newPassword);
+                setSavingAccount(false);
+                if (res.success) {
+                  setCurrentPassword('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                  setShowPasswordEdit(false);
+                  Alert.alert('সফল', 'Password পরিবর্তন হয়েছে');
+                } else {
+                  Alert.alert('সমস্যা', res.error || 'Password পরিবর্তন হয়নি');
+                }
+              }}
+              style={{
+                alignSelf: 'flex-start',
+                backgroundColor: colors.primary,
+                borderRadius: 10,
+                marginTop: 4,
+                paddingHorizontal: 18,
+                paddingVertical: 8,
+                opacity: savingAccount ? 0.6 : 1,
+              }}>
+              <AppText role="labelLarge" style={{color: colors.onPrimary, fontWeight: '700'}}>
+                {savingAccount ? 'সেভ হচ্ছে...' : 'পরিবর্তন করুন'}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Member since row */}
+        {Boolean(user?.member_since) && (
+          <View style={[styles.row, {borderTopWidth: 1, borderTopColor: colors.outlineVariant, borderBottomWidth: 0}]}>
+            <MaterialIcons name="calendar-today" size={20} color={colors.onSurfaceVariant} />
+            <View style={{flex: 1, marginLeft: 12}}>
+              <AppText role="bodyMedium" style={{color: colors.onSurface, fontWeight: '600'}}>
+                সদস্য হয়েছেন
+              </AppText>
+              <AppText role="bodySmall" style={{color: colors.onSurfaceVariant, marginTop: 2}}>
+                {user?.member_since}
+              </AppText>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Premium CTA for free users */}

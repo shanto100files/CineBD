@@ -10,6 +10,8 @@ interface User {
   email: string;
   premium: boolean;
   is_admin: boolean;
+  watchlist_count?: number;
+  member_since?: string;
 }
 
 interface AuthState {
@@ -24,6 +26,8 @@ interface AuthState {
   logout: () => void;
   loadToken: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateEmail: (email: string) => Promise<{success: boolean; error?: string}>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{success: boolean; error?: string}>;
   dismissPremiumAlert: () => void;
 }
 
@@ -131,5 +135,44 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
     } catch {}
+  },
+
+  updateEmail: async email => {
+    const token = get().token;
+    if (!token) return {success: false, error: 'Not logged in'};
+    try {
+      const res = await axios.post(
+        `${API}/update-email`,
+        {email},
+        {headers: {Authorization: `Bearer ${token}`}, timeout: 10000},
+      );
+      if (res.data.ok) {
+        const user = {...get().user, email: res.data.email} as User;
+        authStorage.setString('user', JSON.stringify(user));
+        set({user});
+        return {success: true};
+      }
+      return {success: false, error: res.data.error || 'Failed to update email'};
+    } catch (e: any) {
+      return {success: false, error: e.response?.data?.error || 'Network error'};
+    }
+  },
+
+  changePassword: async (currentPassword, newPassword) => {
+    const token = get().token;
+    if (!token) return {success: false, error: 'Not logged in'};
+    try {
+      const res = await axios.post(
+        `${API}/change-password`,
+        {current_password: currentPassword, new_password: newPassword},
+        {headers: {Authorization: `Bearer ${token}`}, timeout: 10000},
+      );
+      if (res.data.ok) {
+        return {success: true};
+      }
+      return {success: false, error: res.data.error || 'Failed to change password'};
+    } catch (e: any) {
+      return {success: false, error: e.response?.data?.error || 'Network error'};
+    }
   },
 }));

@@ -36,6 +36,7 @@ import {showAppDialog} from '../../lib/zustand/appDialogStore';
 import {clearAppCache} from '../../lib/clearAppCache';
 import {useAuthStore} from '../../lib/zustand/authStore';
 import {friendsService} from '../../lib/services/friendsService';
+import {checkForUpdate} from './About';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'Settings'>;
 
@@ -674,7 +675,14 @@ const Settings = ({navigation}: Props) => {
                     });
                   } catch {
                     setOtaState('idle');
-                    ToastAndroid.show('Update check failed', ToastAndroid.SHORT);
+                    // OTA transport failed (older APK without the request
+                    // header, network error, server hiccup). Fall back to the
+                    // plain APK version check so the row is never a dead end.
+                    try {
+                      await checkForUpdate(() => {}, false, true);
+                    } catch {
+                      ToastAndroid.show('Update check failed', ToastAndroid.SHORT);
+                    }
                   }
                 })();
               }}
