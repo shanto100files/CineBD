@@ -245,6 +245,19 @@ const SeasonList: React.FC<SeasonListProps> = ({
       }
     }
 
+    // Default to a Hindi dub variant when the provider offers one
+    // (multi-audio links like "Original Audio / Hindi dub / ...");
+    // otherwise fall back to the first entry.
+    const hindiDub = LinkList.find(
+      l => /hindi/i.test(l.title || '') && /dub/i.test(l.title || ''),
+    );
+    if (hindiDub) {
+      return hindiDub;
+    }
+    const hindi = LinkList.find(l => /hindi/i.test(l.title || ''));
+    if (hindi) {
+      return hindi;
+    }
     return LinkList[0];
   });
 
