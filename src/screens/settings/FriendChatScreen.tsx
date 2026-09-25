@@ -76,7 +76,8 @@ const FriendChatScreen = ({navigation, route}: Props) => {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
       style={{backgroundColor: colors.background, flex: 1}}>
       {/* Header */}
       <View
