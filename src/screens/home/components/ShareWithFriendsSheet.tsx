@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import React, {useEffect, useState} from 'react';
-import {ActivityIndicator, Modal, Pressable, ToastAndroid, View} from 'react-native';
+import React, {useEffect, useMemo, useState} from 'react';
+import {ActivityIndicator, Modal, Pressable, TextInput, ToastAndroid, View} from 'react-native';
 import AppText from '../../../components/ui/Text';
 import {useM3Colors} from '../../../theme/M3PaletteContext';
 import {friendsService, FriendUser} from '../../../lib/services/friendsService';
@@ -21,10 +21,22 @@ const ShareWithFriendsSheet = ({
   const [selected, setSelected] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [filter, setFilter] = useState('');
+
+  const visibleFriends = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return friends;
+    return friends.filter(f => f.username.toLowerCase().includes(q));
+  }, [friends, filter]);
+
+  const allVisibleSelected =
+    visibleFriends.length > 0 &&
+    visibleFriends.every(f => selected.includes(f.id));
 
   useEffect(() => {
     if (!visible) return;
     setSelected([]);
+    setFilter('');
     setLoading(true);
     friendsService
       .list()
@@ -89,7 +101,77 @@ const ShareWithFriendsSheet = ({
             </AppText>
           ) : null}
 
-          <View style={{marginTop: 14, paddingHorizontal: 20}}>
+          {friends.length > 0 ? (
+            <View
+              style={{
+                alignItems: 'center',
+                flexDirection: 'row',
+                gap: 8,
+                marginTop: 12,
+                paddingHorizontal: 20,
+              }}>
+              <View
+                style={{
+                  alignItems: 'center',
+                  backgroundColor: colors.surfaceContainerHigh,
+                  borderRadius: 20,
+                  flexDirection: 'row',
+                  flex: 1,
+                  gap: 6,
+                  paddingHorizontal: 12,
+                }}>
+                <MaterialCommunityIcons
+                  name="account-search"
+                  size={18}
+                  color={colors.onSurfaceVariant}
+                />
+                <TextInput
+                  value={filter}
+                  onChangeText={setFilter}
+                  placeholder="বন্ধু খুঁজুন..."
+                  placeholderTextColor={colors.onSurfaceVariant}
+                  autoCapitalize="none"
+                  style={{color: colors.onBackground, flex: 1, fontSize: 14, paddingVertical: 8}}
+                />
+                {filter.length > 0 ? (
+                  <Pressable onPress={() => setFilter('')} hitSlop={8}>
+                    <MaterialCommunityIcons
+                      name="close-circle"
+                      size={18}
+                      color={colors.onSurfaceVariant}
+                    />
+                  </Pressable>
+                ) : null}
+              </View>
+              {visibleFriends.length > 0 ? (
+                <Pressable
+                  onPress={() =>
+                    setSelected(
+                      allVisibleSelected
+                        ? selected.filter(id => !visibleFriends.some(f => f.id === id))
+                        : Array.from(
+                            new Set([...selected, ...visibleFriends.map(f => f.id)]),
+                          ),
+                    )
+                  }
+                  style={{
+                    alignItems: 'center',
+                    backgroundColor: colors.secondaryContainer,
+                    borderRadius: 18,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                  }}>
+                  <AppText
+                    role="labelMediumEmphasized"
+                    style={{color: colors.onSecondaryContainer}}>
+                    {allVisibleSelected ? 'সব বাদ' : 'সব সিলেক্ট'}
+                  </AppText>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
+          <View style={{marginTop: 12, paddingHorizontal: 20}}>
             {loading ? (
               <ActivityIndicator style={{paddingVertical: 28}} color={colors.primary} />
             ) : friends.length === 0 ? (
@@ -101,7 +183,18 @@ const ShareWithFriendsSheet = ({
               </View>
             ) : (
               <View style={{maxHeight: 320}}>
-                {friends.map(f => {
+                {visibleFriends.length === 0 ? (
+                  <AppText
+                    role="bodyMedium"
+                    style={{
+                      color: colors.onSurfaceVariant,
+                      paddingVertical: 16,
+                      textAlign: 'center',
+                    }}>
+                    "{filter}" নামে কোনো বন্ধু নেই
+                  </AppText>
+                ) : null}
+                {visibleFriends.map(f => {
                   const isSel = selected.includes(f.id);
                   return (
                     <Pressable

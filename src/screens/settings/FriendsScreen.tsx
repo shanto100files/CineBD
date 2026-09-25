@@ -561,12 +561,15 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
             </AppText>
           </View>
         ) : null}
-        {(data?.friends || []).map(f => (
+        {(data?.friends || []).map(f => {
+          const conv = inbox.find(c => c.user_id === f.id);
+          const unread = conv?.unread ?? 0;
+          return (
           <View
             key={f.id}
             style={{
               alignItems: 'center',
-              backgroundColor: colors.surfaceContainerLow,
+              backgroundColor: unread > 0 ? colors.primaryContainer + '22' : colors.surfaceContainerLow,
               borderRadius: 14,
               flexDirection: 'row',
               gap: 12,
@@ -578,7 +581,30 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
               onPress={() =>
                 navigation.navigate('FriendProfile', {userId: f.id, username: f.username})
               }>
-              <Avatar name={f.username} size={40} />
+              <View>
+                <Avatar name={f.username} size={40} />
+                {unread > 0 ? (
+                  <View
+                    style={{
+                      alignItems: 'center',
+                      backgroundColor: colors.primary,
+                      borderColor: colors.background,
+                      borderRadius: 10,
+                      borderWidth: 2,
+                      height: 18,
+                      justifyContent: 'center',
+                      minWidth: 18,
+                      paddingHorizontal: 4,
+                      position: 'absolute',
+                      right: -4,
+                      top: -4,
+                    }}>
+                    <AppText style={{color: colors.onPrimary, fontSize: 9, fontWeight: '800'}}>
+                      {unread > 9 ? '9+' : unread}
+                    </AppText>
+                  </View>
+                ) : null}
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() =>
@@ -593,8 +619,16 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
               </AppText>
               <AppText
                 role="labelSmallEmphasized"
-                style={{color: colors.onSurfaceVariant}}>
-                ✓ বন্ধু • প্রোফাইল দেখুন
+                style={{
+                  color: unread > 0 ? colors.primary : colors.onSurfaceVariant,
+                  fontWeight: unread > 0 ? '700' : '400',
+                }}
+                numberOfLines={1}>
+                {unread > 0
+                  ? `${unread}টি নতুন মেসেজ`
+                  : conv?.last_message
+                    ? conv.last_message
+                    : '✓ বন্ধু • প্রোফাইল দেখুন'}
               </AppText>
             </TouchableOpacity>
             <TouchableOpacity
@@ -612,7 +646,8 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
               <MaterialCommunityIcons name="message-outline" size={20} color={colors.primary} />
             </TouchableOpacity>
           </View>
-        ))}
+          );
+        })}
         {(data?.outgoing.length ?? 0) > 0 ? (
           <>
             <AppText
@@ -941,6 +976,24 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
           style={{color: colors.onBackground, flex: 1}}>
           বন্ধুরা
         </AppText>
+        {(data?.friends.length ?? 0) > 0 ? (
+          <View
+            style={{
+              alignItems: 'center',
+              backgroundColor: colors.surfaceContainerHigh,
+              borderRadius: 16,
+              flexDirection: 'row',
+              gap: 4,
+              marginRight: 8,
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+            }}>
+            <MaterialCommunityIcons name="account-group" size={14} color={colors.onSurfaceVariant} />
+            <AppText style={{color: colors.onSurfaceVariant, fontSize: 12, fontWeight: '600'}}>
+              {data!.friends.length}
+            </AppText>
+          </View>
+        ) : null}
       </View>
       <View
         style={{
