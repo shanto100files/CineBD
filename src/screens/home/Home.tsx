@@ -348,7 +348,7 @@ const Home = ({navigation}: Props) => {
                   <AppText
                     role="labelSmallEmphasized"
                     style={{color: colors.onSurfaceVariant, marginBottom: 4, marginLeft: 4, opacity: 0.8}}>
-                    Sponsored
+                    এড এটিকে এড়িয়ে চলুন
                   </AppText>
                   <View style={{borderRadius: 12, overflow: 'hidden', height: 80}}>
                     {homeAds.top.startsWith('http') ? (
@@ -372,7 +372,7 @@ const Home = ({navigation}: Props) => {
                   <AppText
                     role="labelSmallEmphasized"
                     style={{color: colors.onSurfaceVariant, marginBottom: 4, marginLeft: 4, opacity: 0.8}}>
-                    Sponsored
+                    এড এটিকে এড়িয়ে চলুন
                   </AppText>
                   <View style={{borderRadius: 12, overflow: 'hidden', height: 150}}>
                     {homeAds.bottom.startsWith('http') ? (

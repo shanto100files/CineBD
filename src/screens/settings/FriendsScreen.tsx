@@ -5,6 +5,7 @@ import {
   Image,
   Keyboard,
   RefreshControl,
+  ScrollView,
   TextInput,
   ToastAndroid,
   TouchableOpacity,
@@ -974,25 +975,27 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
           </TouchableOpacity>
         ))}
       </View>
-      <View
+      {/* ScrollView is essential here: long friend/chat/share lists must
+          scroll, and RefreshControl only works as a ScrollView prop. */}
+      <ScrollView
         style={{
           flex: 1,
           backgroundColor: colors.surfaceContainerLowest,
-        }}>
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.primary}
-          style={{flex: 0}}
-        />
-        <View style={{flex: 1}}>
-          {tab === 'friends'
-            ? renderFriendsTab()
-            : tab === 'chats'
-              ? renderChatsTab()
-              : renderReceivedTab()}
-        </View>
-      </View>
+        }}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }>
+        {tab === 'friends'
+          ? renderFriendsTab()
+          : tab === 'chats'
+            ? renderChatsTab()
+            : renderReceivedTab()}
+      </ScrollView>
     </View>
   );
 }

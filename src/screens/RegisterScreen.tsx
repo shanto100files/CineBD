@@ -1,8 +1,7 @@
 import React, {useState} from 'react';
-import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image} from 'react-native';
+import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal} from 'react-native';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
-import MaterialDialogSurface from '../components/ui/MaterialDialogSurface';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function RegisterScreen({navigation}: any) {
@@ -65,36 +64,37 @@ export default function RegisterScreen({navigation}: any) {
         </TouchableOpacity>
       </View>
 
-      <MaterialDialogSurface
-        visible={showCelebrate}
-        dismissible={false}
-        onDismiss={() => {}}>
-        <View style={{alignItems: 'center', gap: 10}}>
-          <Text style={{fontSize: 52}}>🎉</Text>
-          <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-            <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
-            <Text style={{color: colors.onSurface, fontSize: 20, fontWeight: '800'}}>
-              Registration Successful!
+      {/* RN Modal: always renders above everything (the @expo/ui Compose
+          dialog was invisible on some devices). */}
+      <Modal visible={showCelebrate} transparent animationType="fade" onRequestClose={() => {}}>
+        <View style={{backgroundColor: 'rgba(0,0,0,0.55)', flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32}}>
+          <View style={{alignItems: 'center', backgroundColor: colors.surfaceContainerHigh, borderRadius: 28, gap: 10, maxWidth: 340, padding: 24, width: '100%'}}>
+            <Text style={{fontSize: 52}}>🎉</Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+              <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+              <Text style={{color: colors.onSurface, fontSize: 20, fontWeight: '800'}}>
+                Registration Successful!
+              </Text>
+            </View>
+            <Text style={{color: colors.onSurfaceVariant, fontSize: 14, textAlign: 'center'}}>
+              স্বাগতম{celebrateName ? `, ${celebrateName}` : ''}! আপনার একাউন্ট তৈরি হয়েছে।
             </Text>
+            <TouchableOpacity
+              style={[styles.celebrateBtn, {backgroundColor: colors.primary}]}
+              onPress={() => {
+                setShowCelebrate(false);
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  navigation.navigate('Settings' as never);
+                }
+              }}>
+              <Ionicons name="arrow-back" size={18} color={colors.onPrimary} />
+              <Text style={{color: colors.onPrimary, fontSize: 15, fontWeight: '700'}}>Back</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={{color: colors.onSurfaceVariant, fontSize: 14, textAlign: 'center'}}>
-            স্বাগতম{celebrateName ? `, ${celebrateName}` : ''}! আপনার একাউন্ট তৈরি হয়েছে।
-          </Text>
-          <TouchableOpacity
-            style={[styles.celebrateBtn, {backgroundColor: colors.primary}]}
-            onPress={() => {
-              setShowCelebrate(false);
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                navigation.navigate('Settings' as never);
-              }
-            }}>
-            <Ionicons name="arrow-back" size={18} color={colors.onPrimary} />
-            <Text style={{color: colors.onPrimary, fontSize: 15, fontWeight: '700'}}>Back</Text>
-          </TouchableOpacity>
         </View>
-      </MaterialDialogSurface>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
