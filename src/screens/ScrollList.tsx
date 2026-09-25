@@ -204,7 +204,16 @@ const ScrollList = ({route}: Props): React.ReactElement => {
           return;
         }
 
-        setPosts(prev => [...prev, ...newPosts]);
+        // Upstream providers sometimes repeat the same items on every page.
+        // Only append genuinely new links, and stop paginating when a page
+        // brings nothing new — otherwise the "All" grid fills with duplicates.
+        const seen = new Set(posts.map(p => p.link));
+        const fresh = newPosts.filter(p => p?.link && !seen.has(p.link));
+        if (fresh.length === 0) {
+          setIsEnd(true);
+        } else {
+          setPosts(prev => [...prev, ...fresh]);
+        }
       } catch (error) {
         // Skip handling if component unmounted or request was aborted
         if (!isMounted.current || (error as any)?.name === 'AbortError') return;
