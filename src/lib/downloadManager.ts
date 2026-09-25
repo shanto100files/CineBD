@@ -275,6 +275,11 @@ export const startDownload = async (
   const record = getRecord(downloadId);
   const backend = getDownloadBackend(record.sourceType);
   const store = useDownloadsStore.getState();
+  // One silent auto-retry for transient http failures (set on failure).
+  let autoRetryAttempts = 0;
+  if (useDownloadsStore.getState().downloads[downloadId]?.status === 'error') {
+    autoRetryAttempts = 1; // manual retry: no extra auto attempts
+  }
   activeDownloads.add(downloadId);
   occupiedDownloadSlots.add(downloadId);
   cancelledDownloads.delete(downloadId);
@@ -373,6 +378,39 @@ export const startDownload = async (
 
     const message = error instanceof Error ? error.message : String(error);
     const pauseUnsupported = error instanceof DownloadPauseSupportError;
+
+    // Auto-retry: transient network / server hiccups recover on their own,
+    // so give the download one silent second attempt before surfacing a
+    // failure to the user (resumable backends keep the partial data).
+    const transient =
+      !pauseUnsupported &&
+      !cancelledDownloads.has(downloadId) &&
+      record.sourceType === 'http' &&
+      autoRetryAttempts < 1 &&
+      (error instanceof Error
+        ? /network|timeout|timed out|socket|connection|http \d{3}/i.test(
+            error.message,
+          )
+        : false);
+    if (transient) {
+      autoRetryAttempts += 1;
+      await wait(3000);
+      if (cancelledDownloads.has(downloadId)) {
+        store.removeDownload(downloadId);
+        return;
+      }
+      // Release this invocation's scheduler slots first, otherwise the
+      // recursive startDownload call would bail on the active-set guard.
+      activeDownloads.delete(downloadId);
+      occupiedDownloadSlots.delete(downloadId);
+      try {
+        await startDownload(downloadId, location);
+        return;
+      } catch {
+        // fall through to the normal error path with the latest failure
+      }
+    }
+
     store.markError(downloadId, {
       code: pauseUnsupported ? 'PAUSE_UNSUPPORTED' : undefined,
       message,

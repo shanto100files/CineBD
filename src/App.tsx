@@ -221,6 +221,25 @@ export const openInfoScreen = (link: string, provider?: string, poster?: string)
   }
 };
 
+export const openFriendChat = (userId: number, username: string): void => {
+  try {
+    if (!navigationRef.isReady()) {
+      return;
+    }
+    navigationRef.dispatch(
+      require('@react-navigation/native').CommonActions.navigate('TabStack', {
+        screen: 'SettingsStack',
+        params: {
+          screen: 'FriendChat',
+          params: {userId, username},
+        },
+      }),
+    );
+  } catch (error) {
+    console.warn('[Push] failed to open friend chat:', error);
+  }
+};
+
 const HomeStackNav = createNativeStackNavigator<HomeStackParamList>();
 const RootStackNav = createNativeStackNavigator<RootStackParamList>();
 const SearchStackNav = createNativeStackNavigator<SearchStackParamList>();
@@ -439,6 +458,9 @@ const App = () => {
               link: d.link || '',
               provider: d.provider || '',
               poster: d.poster || '',
+              navigationTarget: d.navigationTarget || '',
+              withUser: d.with || '',
+              senderName: d.senderName || '',
             });
           } catch (error) {
             console.warn('[Push] foreground render failed:', error);
@@ -457,6 +479,9 @@ const App = () => {
               link: d.link || '',
               provider: d.provider || '',
               poster: d.poster || '',
+              navigationTarget: d.navigationTarget || '',
+              withUser: d.with || '',
+              senderName: d.senderName || '',
             });
           } catch {}
         });
@@ -466,6 +491,22 @@ const App = () => {
           // Token rotated: force re-registration on next launch.
           require('./lib/services/pushService').resetPushRegistration();
         });
+
+        // Tapping an FCM tray notification while the app was killed or in
+        // background (notifee can't see those) - route chat pushes straight
+        // to the conversation.
+        messaging
+          .getInitialNotification()
+          .then((remoteMessage: any) => {
+            const d = remoteMessage?.data || {};
+            if (d.navigationTarget === 'friends_chat' && d.with) {
+              openFriendChat(
+                Number(d.with),
+                String(d.senderName || ''),
+              );
+            }
+          })
+          .catch(() => {});
       }
     } catch (error) {
       console.warn('[Push] FCM init skipped:', error);

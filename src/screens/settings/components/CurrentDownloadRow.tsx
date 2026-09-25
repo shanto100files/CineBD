@@ -13,6 +13,31 @@ import type {
 import {useM3Colors} from '../../../theme/M3PaletteContext';
 import DownloadProgressBar from './DownloadProgressBar';
 
+// Maps raw native/JS error strings to short Bangla messages users can act
+// on; unmatched errors keep the original detail in parentheses.
+const friendlyDownloadError = (raw: string): string => {
+  const msg = raw || '';
+  if (/Illegal character in path/i.test(msg)) {
+    return 'ফাইলের নামে অবৈধ ক্যারেক্টার ছিল। আবার চেষ্টা করুন — নাম ঠিক করে নেওয়া হবে।';
+  }
+  if (/network|socket|connection|unreachable|ECONN/i.test(msg)) {
+    return 'নেটওয়ার্ক সমস্যা — ইন্টারনেট চেক করে আবার চেষ্টা করুন।';
+  }
+  if (/timeout|timed out/i.test(msg)) {
+    return 'সার্ভার থেকে সাড়া পাওয়া যায়নি (টাইমআউট)। আবার চেষ্টা করুন।';
+  }
+  if (/http 40[34]|403|forbidden/i.test(msg)) {
+    return 'লিঙ্কটির মেয়াদ শেষ হয়ে গেছে। আবার চেষ্টা করলে নতুন লিঙ্ক আসবে।';
+  }
+  if (/http 404|not found/i.test(msg)) {
+    return 'ফাইলটি সার্ভারে পাওয়া যায়নি।';
+  }
+  if (/storage|no space|ENOSPC/i.test(msg)) {
+    return 'ডিভাইসে পর্যাপ্ত জায়গা নেই।';
+  }
+  return `ডাউনলোড ব্যর্থ হয়েছে (${msg.slice(0, 80)})`;
+};
+
 const statusLabels: Record<DownloadStatus, string> = {
   queued: 'Queued',
   starting: 'Starting',
@@ -146,7 +171,7 @@ const CurrentDownloadRow = ({
 
       {failed && item.errorMessage && (
         <Text className="mt-3 text-sm" style={{color: colors.error}}>
-          {item.errorMessage}
+          {friendlyDownloadError(item.errorMessage)}
         </Text>
       )}
 

@@ -5,6 +5,7 @@ import {
   BackHandler,
   FlatList,
   Image,
+  Modal,
   ScrollView,
   Text,
   ToastAndroid,
@@ -1187,6 +1188,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
   // Tracks the episode we already did one fresh-scrape retry for, so a
   // failing source cannot loop refresh -> error forever.
   const freshRetryEpisodeRef = useRef('');
+  const [fatalPlaybackError, setFatalPlaybackError] = useState('');
 
   const handleVideoError = useCallback(
     (e: any) => {
@@ -1226,34 +1228,27 @@ const Player = ({ route }: Props): React.JSX.Element => {
                 setSelectedStream(items[0]);
                 setShowControls(true);
               } else {
-                ToastAndroid.show(
-                  'Video could not be played, try again later',
-                  ToastAndroid.SHORT,
+                setFatalPlaybackError(
+                  'ভিডিওটি চালানো যাচ্ছে না। পরে আবার চেষ্টা করুন।',
                 );
-                navigation.goBack();
               }
             })
             .catch(() => {
-              ToastAndroid.show(
-                'Video could not be played, try again later',
-                ToastAndroid.SHORT,
+              setFatalPlaybackError(
+                'ভিডিওটি চালানো যাচ্ছে না। পরে আবার চেষ্টা করুন।',
               );
-              navigation.goBack();
             });
           return;
         }
-        ToastAndroid.show(
-          'Video could not be played, try again later',
-          ToastAndroid.SHORT,
+        setFatalPlaybackError(
+          'ভিডিওটি চালানো যাচ্ছে না। সার্ভার লিঙ্ক ব্যর্থ হয়েছে।',
         );
-        navigation.goBack();
       }
       setShowControls(true);
     },
     [
       activeEpisodeKey,
       clearLocalVideoAssociation,
-      navigation,
       refetchStreams,
       setSelectedStream,
       setShowControls,
@@ -2849,6 +2844,99 @@ const Player = ({ route }: Props): React.JSX.Element => {
             </Animated.View>
           </>
         )}
+
+      {/* Fatal playback error: let the user retry (fresh links) or exit. */}
+      <Modal
+        visible={fatalPlaybackError.length > 0}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFatalPlaybackError('')}>
+        <View
+          style={{
+            alignItems: 'center',
+            backgroundColor: 'rgba(0,0,0,0.75)',
+            flex: 1,
+            justifyContent: 'center',
+            padding: 32,
+          }}>
+          <View
+            style={{
+              alignItems: 'center',
+              backgroundColor: '#1c1c1e',
+              borderRadius: 20,
+              gap: 10,
+              maxWidth: 340,
+              padding: 24,
+              width: '100%',
+            }}>
+            <Text style={{color: '#fff', fontSize: 40}}>{'⚠️'}</Text>
+            <Text
+              style={{
+                color: '#fff',
+                fontSize: 17,
+                fontWeight: '700',
+                textAlign: 'center',
+              }}>
+              প্লেব্যাক সমস্যা
+            </Text>
+            <Text
+              style={{
+                color: '#9ca3af',
+                fontSize: 14,
+                textAlign: 'center',
+              }}>
+              {fatalPlaybackError}
+            </Text>
+            <View style={{flexDirection: 'row', gap: 10, marginTop: 6}}>
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={{
+                  alignItems: 'center',
+                  borderRadius: 12,
+                  flex: 1,
+                  paddingVertical: 12,
+                }}>
+                <Text style={{color: '#9ca3af', fontSize: 15, fontWeight: '600'}}>
+                  বাহির
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setFatalPlaybackError('');
+                  freshRetryEpisodeRef.current = '';
+                  refetchStreams()
+                    .then((res: any) => {
+                      const items = (res?.data || []) as Stream[];
+                      if (items.length > 0) {
+                        setSelectedStream(items[0]);
+                        setShowControls(true);
+                      } else {
+                        setFatalPlaybackError(
+                          'কোনো সার্ভার পাওয়া যায়নি। পরে আবার চেষ্টা করুন।',
+                        );
+                      }
+                    })
+                    .catch(() =>
+                      setFatalPlaybackError(
+                        'কোনো সার্ভার পাওয়া যায়নি। পরে আবার চেষ্টা করুন।',
+                      ),
+                    );
+                }}
+                style={{
+                  alignItems: 'center',
+                  backgroundColor: primary,
+                  borderRadius: 12,
+                  flex: 1,
+                  paddingVertical: 12,
+                }}>
+                <Text style={{color: '#000', fontSize: 15, fontWeight: '700'}}>
+                  আবার চেষ্টা
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };

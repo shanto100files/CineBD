@@ -1,5 +1,6 @@
 import { useQuery, onlineManager } from '@tanstack/react-query';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Platform } from 'react-native';
 import { ToastAndroid } from 'react-native';
 import { providerManager } from '../services/ProviderManager';
 import { settingsStorage } from '../storage';
@@ -19,6 +20,17 @@ interface UseStreamOptions {
   provider: string;
   enabled?: boolean;
 }
+
+const totalMemoryMB = (): number => {
+  try {
+    // react-native-device-info is optional; 0 means unknown and callers
+    // must skip RAM-based filtering (name-based rule still applies).
+    const info = require('react-native-device-info');
+    return Number(info.getTotalMemorySync?.() || info.getTotalMemory?.() || 0) / (1024 * 1024);
+  } catch {
+    return 0;
+  }
+};
 
 export const isLocalPath = (path?: string): boolean => {
   if (!path || typeof path !== 'string') return false;
@@ -416,9 +428,37 @@ export const useStream = ({
 
         // Filter out excluded qualities
         const excludedQualities = settingsStorage.getExcludedQualities() || [];
-        const filteredQualities = data?.filter(
-          streamItem => !excludedQualities.includes(streamItem?.quality + 'p'),
-        );
+        const skip4k =
+          settingsStorage.getBool('autoSkip4k') !== false &&
+          !excludedQualities.includes('2160p');
+        const filteredQualities = data?.filter(streamItem => {
+          if (excludedQualities.includes(streamItem?.quality + 'p')) {
+            return false;
+          }
+          // Entry-level chipsets (Unisoc, some Helio) advertise HEVC but fail
+          // on 4K/Dolby Vision with a hard decoder error mid-playback. Drop
+          // those streams up front on low-RAM devices.
+          if (
+            skip4k &&
+            streamItem?.quality === '2160' &&
+            (streamItem?.server || '').match(/dolby|dv|4k|2160/i)
+          ) {
+            return false;
+          }
+          return true;
+        });
+
+        // Device capability guard: on low-RAM devices, drop 4K streams
+        // entirely if the filtered list still has alternatives.
+        const deviceMemMB = totalMemoryMB();
+        const isLowRamDevice =
+          Platform.Version >= 26 && deviceMemMB > 0 && deviceMemMB < 3500;
+        if (isLowRamDevice && skip4k && filteredQualities?.some(s => s?.quality === '2160')) {
+          const without4k = filteredQualities.filter(s => s?.quality !== '2160');
+          if (without4k.length > 0) {
+            return without4k;
+          }
+        }
 
         remoteStreams =
           filteredQualities?.length > 0 ? filteredQualities : data || [];

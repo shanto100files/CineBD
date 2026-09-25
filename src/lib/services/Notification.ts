@@ -460,19 +460,26 @@ class NotificationService {
     link?: string;
     provider?: string;
     poster?: string;
+    navigationTarget?: string;
+    withUser?: string;
+    senderName?: string;
   }): Promise<void> {
     await this.ensureInitialized();
     const id = payload.id || `promo-${Date.now()}`;
     const largeUrl = payload.imageUrl || payload.poster || '';
+    const target =
+      payload.navigationTarget || (payload.link ? 'info' : 'home');
     await notifee.displayNotification({
       id,
       title: payload.title,
       body: payload.body,
       data: {
-        navigationTarget: payload.link ? 'info' : 'home',
+        navigationTarget: target,
         link: payload.link || '',
         provider: payload.provider || '',
         poster: payload.poster || '',
+        withUser: payload.withUser || '',
+        senderName: payload.senderName || '',
       },
       android: {
         channelId: this._promoChannelId,
@@ -581,6 +588,19 @@ class NotificationService {
       const {openDownloadsScreen} =
         require('../../App') as typeof import('../../App');
       openDownloadsScreen();
+      return;
+    }
+    if (
+      type === EventType.PRESS &&
+      detail.notification?.data?.navigationTarget === 'friends_chat'
+    ) {
+      const withUser = String(detail.notification.data.withUser || '');
+      const senderName = String(detail.notification.data.senderName || '');
+      if (withUser) {
+        const {openFriendChat} =
+          require('../../App') as typeof import('../../App');
+        openFriendChat(Number(withUser), senderName);
+      }
       return;
     }
     if (
