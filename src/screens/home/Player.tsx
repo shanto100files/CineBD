@@ -5,7 +5,6 @@ import {
   BackHandler,
   FlatList,
   Image,
-  Modal,
   ScrollView,
   Text,
   ToastAndroid,
@@ -534,7 +533,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
     setExternalSubs,
     isLoading: streamLoading,
     error: streamError,
-    refetch: refetchStreams,
     switchToNextStream,
   } = useStream({
     activeEpisode,
@@ -926,10 +924,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
   );
   const isCasting = Boolean(remoteMediaClient);
   const [isResolvingStream, setIsResolvingStream] = useState(false);
-  // First-frame tracking: covers the gap between "source URL ready" and the
-  // first frame actually rendered by the player (previously a long black screen).
-  const [isWaitingForFirstFrame, setIsWaitingForFirstFrame] = useState(false);
-  const firstFrameReceivedRef = useRef(false);
   const progressIntervalRef = useRef<any>(null);
   const [torrentState, setTorrentState] = useState<string>('');
   const [torrentDownloaded, setTorrentDownloaded] = useState<number>(0);
@@ -1045,12 +1039,9 @@ const Player = ({ route }: Props): React.JSX.Element => {
               infoHash,
               videoFileIndex,
             );
-            // Wait until the native proxy has fully prepared the file before
-            // handing the URL to the player. Setting it earlier made the loader
-            // disappear while the player was still showing a black screen.
-            await preparation;
             setProcessedStreamUrl(streamUrl);
             setIsResolvingStream(false);
+            await preparation;
           }
         } catch (error) {
           console.error('Failed to start torrent stream:', error);
@@ -1192,10 +1183,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
   selectedStreamRef.current = selectedStream;
   const streamDataRef = useRef(streamData);
   streamDataRef.current = streamData;
-  // Tracks the episode we already did one fresh-scrape retry for, so a
-  // failing source cannot loop refresh -> error forever.
-  const freshRetryEpisodeRef = useRef('');
-  const [fatalPlaybackError, setFatalPlaybackError] = useState('');
 
   const handleVideoError = useCallback(
     (e: any) => {
@@ -1221,42 +1208,18 @@ const Player = ({ route }: Props): React.JSX.Element => {
       }
 
       if (!switchToNextStream()) {
-        // Every known stream failed — commonly expired signed links (HTTP
-        // 403) or an undecodable quality on this device. Scrape fresh links
-        // once per episode and restart from the first stream before giving
-        // up.
-        if (freshRetryEpisodeRef.current !== activeEpisodeKey) {
-          freshRetryEpisodeRef.current = activeEpisodeKey;
-          ToastAndroid.show('নতুন সার্ভার লিঙ্ক আনা হচ্ছে...', ToastAndroid.SHORT);
-          refetchStreams()
-            .then((res: any) => {
-              const items = (res?.data || []) as Stream[];
-              if (items.length > 0) {
-                setSelectedStream(items[0]);
-                setShowControls(true);
-              } else {
-                setFatalPlaybackError(
-                  'ভিডিওটি চালানো যাচ্ছে না। পরে আবার চেষ্টা করুন।',
-                );
-              }
-            })
-            .catch(() => {
-              setFatalPlaybackError(
-                'ভিডিওটি চালানো যাচ্ছে না। পরে আবার চেষ্টা করুন।',
-              );
-            });
-          return;
-        }
-        setFatalPlaybackError(
-          'ভিডিওটি চালানো যাচ্ছে না। সার্ভার লিঙ্ক ব্যর্থ হয়েছে।',
+        ToastAndroid.show(
+          'Video could not be played, try again later',
+          ToastAndroid.SHORT,
         );
+        navigation.goBack();
       }
       setShowControls(true);
     },
     [
       activeEpisodeKey,
       clearLocalVideoAssociation,
-      refetchStreams,
+      navigation,
       setSelectedStream,
       setShowControls,
       switchToNextStream,
@@ -1611,11 +1574,11 @@ const Player = ({ route }: Props): React.JSX.Element => {
   // Animation effects
   useEffect(() => {
     // Loading animations
-    if (streamLoading || isResolvingStream || isWaitingForFirstFrame) {
+    if (streamLoading || isResolvingStream) {
       loadingOpacity.value = withTiming(1, { duration: 800 });
       loadingScale.value = withTiming(1, { duration: 800 });
     }
-  }, [isResolvingStream, streamLoading, isWaitingForFirstFrame]);
+  }, [isResolvingStream, streamLoading]);
 
   useEffect(() => {
     // Lock button animations
@@ -1793,13 +1756,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
         resumeAppliedRef.current = true;
       }
       playerRef?.current?.resume();
-      // Safety net: if onReadyForDisplay never fires (some formats/streams),
-      // drop the first-frame overlay after 8s so the user is never stuck.
-      setTimeout(() => {
-        if (!firstFrameReceivedRef.current) {
-          setIsWaitingForFirstFrame(false);
-        }
-      }, 8000);
     },
     [
       handleVideoLoad,
@@ -1808,20 +1764,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
       setTextTracks,
     ],
   );
-
-  // New source attached to the player: the first frame is not rendered yet.
-  useEffect(() => {
-    if (!processedStreamUrl) {
-      return;
-    }
-    firstFrameReceivedRef.current = false;
-    setIsWaitingForFirstFrame(true);
-  }, [processedStreamUrl]);
-
-  const handleVideoReadyForDisplay = useCallback(() => {
-    firstFrameReceivedRef.current = true;
-    setIsWaitingForFirstFrame(false);
-  }, []);
 
   // Memoized video player props
   const videoPlayerProps = useMemo(
@@ -1837,18 +1779,17 @@ const Player = ({ route }: Props): React.JSX.Element => {
             ? processedStreamUrl
             : selectedStream.link) || '',
         bufferConfig: {
-          // Lean buffering: starts faster and seeks feel snappier. The old
-          // 50s/50MB config pre-buffered too aggressively on mid-range phones.
-          minBufferMs: 8000,
-          maxBufferMs: 20000,
-          bufferForPlaybackMs: 1000,
-          bufferForPlaybackAfterRebufferMs: 1500,
-          backBufferDurationMs: 0,
-          maxHeapAllocationPercent: 0.18,
-          minBufferMemoryReservePercent: 0.2,
-          minBackBufferMemoryReservePercent: 0.25,
-          cacheSizeMB: 0,
+          minBufferMs: 15000,
+          maxBufferMs: 50000,
+          bufferForPlaybackMs: 1500,
+          bufferForPlaybackAfterRebufferMs: 2500,
+          backBufferDurationMs: 5000,
+          maxHeapAllocationPercent: 0.25,
+          minBufferMemoryReservePercent: 0.15,
+          minBackBufferMemoryReservePercent: 0.15,
+          cacheSizeMB: 50,
         },
+        shouldCache: true,
         ...(selectedStream?.type === 'm3u8' && { type: 'm3u8' }),
         ...(selectedStream?.type === 'mpd' && { type: 'mpd' }),
         headers: selectedStream?.headers,
@@ -1863,7 +1804,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
       onProgress: handleProgressWithTime,
       skips: combinedSkips,
       onLoad: handleVideoLoadCallback,
-      onReadyForDisplay: handleVideoReadyForDisplay,
       videoRef: playerRef,
       rate: playbackRate,
       subtitleStyle: {
@@ -1925,7 +1865,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
       handleProgressWithTime,
       combinedSkips,
       handleVideoLoadCallback,
-      handleVideoReadyForDisplay,
       playbackRate,
       primary,
       navigation,
@@ -1969,12 +1908,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
               <View className="mb-2">
                 <AnimatedHourglass sandColor={hourglassSandColor} />
               </View>
-              <Text className="text-white text-lg mt-4">
-                সোর্স থেকে ভিডিও লোড হচ্ছে...
-              </Text>
-              <Text className="text-white text-sm mt-1 opacity-60">
-                অপেক্ষা করুন
-              </Text>
+              <Text className="text-white text-lg mt-4">Loading stream...</Text>
             </Animated.View>
           </View>
         </TouchableNativeFeedback>
@@ -2033,9 +1967,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
         <View className="flex-1 justify-center items-center">
           <Animated.View style={[loadingContainerStyle]}>
             <AnimatedHourglass sandColor={hourglassSandColor} />
-            <Text className="text-white text-base mt-4 opacity-90">
-              সোর্স থেকে ভিডিও লোড হচ্ছে... অপেক্ষা করুন
-            </Text>
           </Animated.View>
           <TouchableOpacity
             className="mt-6 flex-row items-center gap-2 px-4 py-2"
@@ -2082,32 +2013,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
               </Text>
             )}
           </Animated.View>
-        )}
-
-      {/* First-frame overlay: visible until the player actually renders the
-          first frame, so the user never stares at a plain black screen */}
-      {!isCasting &&
-        processedStreamUrl &&
-        !streamLoading &&
-        !streamError &&
-        isWaitingForFirstFrame && (
-          <View
-            className="absolute top-0 left-0 right-0 bottom-0 z-30 bg-black justify-center items-center"
-            pointerEvents="none">
-            <Animated.View
-              style={[loadingContainerStyle]}
-              className="justify-center items-center">
-              <View className="mb-2">
-                <AnimatedHourglass sandColor={hourglassSandColor} />
-              </View>
-              <Text className="text-white text-base mt-4 opacity-90">
-                ভিডিও শুরু হচ্ছে...
-              </Text>
-              <Text className="text-white text-sm mt-1 opacity-60">
-                অপেক্ষা করুন
-              </Text>
-            </Animated.View>
-          </View>
         )}
 
       {/* Full-screen overlay to detect taps when locked */}
@@ -2908,99 +2813,6 @@ const Player = ({ route }: Props): React.JSX.Element => {
             </Animated.View>
           </>
         )}
-
-      {/* Fatal playback error: let the user retry (fresh links) or exit. */}
-      <Modal
-        visible={fatalPlaybackError.length > 0}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setFatalPlaybackError('')}>
-        <View
-          style={{
-            alignItems: 'center',
-            backgroundColor: 'rgba(0,0,0,0.75)',
-            flex: 1,
-            justifyContent: 'center',
-            padding: 32,
-          }}>
-          <View
-            style={{
-              alignItems: 'center',
-              backgroundColor: '#1c1c1e',
-              borderRadius: 20,
-              gap: 10,
-              maxWidth: 340,
-              padding: 24,
-              width: '100%',
-            }}>
-            <Text style={{color: '#fff', fontSize: 40}}>{'⚠️'}</Text>
-            <Text
-              style={{
-                color: '#fff',
-                fontSize: 17,
-                fontWeight: '700',
-                textAlign: 'center',
-              }}>
-              প্লেব্যাক সমস্যা
-            </Text>
-            <Text
-              style={{
-                color: '#9ca3af',
-                fontSize: 14,
-                textAlign: 'center',
-              }}>
-              {fatalPlaybackError}
-            </Text>
-            <View style={{flexDirection: 'row', gap: 10, marginTop: 6}}>
-              <TouchableOpacity
-                onPress={() => navigation.goBack()}
-                style={{
-                  alignItems: 'center',
-                  borderRadius: 12,
-                  flex: 1,
-                  paddingVertical: 12,
-                }}>
-                <Text style={{color: '#9ca3af', fontSize: 15, fontWeight: '600'}}>
-                  বাহির
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  setFatalPlaybackError('');
-                  freshRetryEpisodeRef.current = '';
-                  refetchStreams()
-                    .then((res: any) => {
-                      const items = (res?.data || []) as Stream[];
-                      if (items.length > 0) {
-                        setSelectedStream(items[0]);
-                        setShowControls(true);
-                      } else {
-                        setFatalPlaybackError(
-                          'কোনো সার্ভার পাওয়া যায়নি। পরে আবার চেষ্টা করুন।',
-                        );
-                      }
-                    })
-                    .catch(() =>
-                      setFatalPlaybackError(
-                        'কোনো সার্ভার পাওয়া যায়নি। পরে আবার চেষ্টা করুন।',
-                      ),
-                    );
-                }}
-                style={{
-                  alignItems: 'center',
-                  backgroundColor: primary,
-                  borderRadius: 12,
-                  flex: 1,
-                  paddingVertical: 12,
-                }}>
-                <Text style={{color: '#000', fontSize: 15, fontWeight: '700'}}>
-                  আবার চেষ্টা
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 };
