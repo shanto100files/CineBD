@@ -13,8 +13,9 @@ export const Back = ({onBack, showControls}: BackProps) => {
     <Control callback={onBack} disabled={!showControls}>
       <MaterialIcons
         name="arrow-back-ios-new"
-        size={24}
-        color="rgba(255,255,255,0.68)"
+        size={22}
+        color="#FFFFFF"
+        style={{textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: {width: 0, height: 1}, textShadowRadius: 3}}
       />
     </Control>
   );

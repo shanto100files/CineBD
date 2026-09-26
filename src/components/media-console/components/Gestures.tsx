@@ -778,11 +778,15 @@ const Gestures = ({
     };
   }, []);
 
-  // Memoize container styles
+  // Memoize container styles. The gesture surface covers the middle band of
+  // the video only — top/bottom margins keep the header (back button) and
+  // footer (seekbar) controls tappable instead of triggering pause/seek.
   const containerStyle = useMemo(
     () => ({
       width: '100%' as const,
       height: '70%' as const,
+      marginTop: '12%' as const,
+      marginBottom: '12%' as const,
     }),
     [],
   );

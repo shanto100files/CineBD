@@ -1825,6 +1825,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
         secondary: activeEpisode?.title,
       },
       navigator: navigation,
+      onBack: () => navigation.goBack(),
       seekColor: primary,
       showDuration: true,
       toggleResizeModeOnFullscreen: false,
