@@ -58,7 +58,7 @@ const WelcomePopup = () => {
                   How to use
                 </AppText>
               </View>
-              <Step num={1} text="Pick a provider from the drawer (top-left on Home)" colors={colors} />
+              <Step num={1} text="Content loads from all providers automatically" colors={colors} />
               <Step num={2} text="Browse movies or series from that source" colors={colors} />
               <Step num={3} text="Tap play to stream, or download for offline" colors={colors} />
               <Step num={4} text="Switch providers anytime from Settings" colors={colors} />

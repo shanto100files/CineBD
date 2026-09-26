@@ -7,6 +7,8 @@ const APP_KEY = '78a0e573dfd894d443685159b2e71e2f';
 export interface FriendUser {
   id: number;
   username: string;
+  avatar_url?: string | null;
+  is_online?: number;
 }
 
 export interface SearchUser extends FriendUser {
@@ -17,11 +19,13 @@ export interface IncomingRequest {
   id: number;
   user_id: number;
   username: string;
+  avatar_url?: string | null;
 }
 
 export interface OutgoingRequest {
   id: number;
   username: string;
+  avatar_url?: string | null;
 }
 
 export interface FriendsData {
@@ -40,6 +44,7 @@ export interface ActivityData {
 export interface FriendActivity {
   user_id: number;
   username: string;
+  avatar_url?: string | null;
   title: string;
   link: string;
   provider: string;
@@ -61,6 +66,7 @@ export interface FriendRec {
 export interface FriendProfile {
   id: number;
   username: string;
+  avatar_url?: string | null;
   is_friend: boolean;
   blocked_by_me: boolean;
   i_am_blocked: boolean;
@@ -80,6 +86,7 @@ export interface ChatMessage {
 export interface InboxItem {
   user_id: number;
   username: string;
+  avatar_url?: string | null;
   last_message: string;
   last_at: string;
   unread: number;
@@ -89,6 +96,7 @@ export interface SharedItem {
   id: number;
   sender_id: number;
   sender: string;
+  avatar_url?: string | null;
   provider: string;
   link: string;
   title: string;

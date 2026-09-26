@@ -38,7 +38,6 @@ describe('settings defaults', () => {
     expect(settingsStorage.isNotificationsEnabled()).toBe(true);
     expect(settingsStorage.isAutoCheckUpdateEnabled()).toBe(true);
     expect(settingsStorage.showMediaControls()).toBe(true);
-    expect(settingsStorage.showHamburgerMenu()).toBe(true);
     expect(settingsStorage.isSwipeGestureEnabled()).toBe(true);
     expect(settingsStorage.isTelemetryOptIn()).toBe(true);
     expect(settingsStorage.isDohEnabled()).toBe(true);
@@ -48,6 +47,7 @@ describe('settings defaults', () => {
   it('keeps intentional default-off preferences disabled', () => {
     expect(settingsStorage.showTabBarLabels()).toBe(false);
     expect(settingsStorage.hideDownloadsTab()).toBe(false);
+    expect(settingsStorage.showHamburgerMenu()).toBe(false);
     expect(settingsStorage.isAutoDownloadEnabled()).toBe(false);
     expect(settingsStorage.hideSeekButtons()).toBe(false);
     expect(settingsStorage.isEnable2xGestureEnabled()).toBe(false);

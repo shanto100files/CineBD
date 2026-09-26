@@ -2,7 +2,6 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React, {useCallback, useEffect, useState} from 'react';
 import {
   ActivityIndicator,
-  Image,
   Keyboard,
   RefreshControl,
   ScrollView,
@@ -12,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {CommonActions, useFocusEffect} from '@react-navigation/native';
+import {useFocusEffect} from '@react-navigation/native';
 import {SettingsStackParamList} from '../../App';
 import AppText from '../../components/ui/Text';
 import {useM3Colors} from '../../theme/M3PaletteContext';
@@ -21,54 +20,22 @@ import {
   friendsService,
   FriendsData,
   SearchUser,
-  SharedItem,
-  ActivityData,
   InboxItem,
 } from '../../lib/services/friendsService';
+import FriendAvatar from '../../components/friends/FriendAvatar';
+import SharedFeed from '../../components/friends/SharedFeed';
+import {timeAgo} from '../../lib/utils/timeAgo';
 
 type Tab = 'friends' | 'chats' | 'received';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'Friends'>;
 
-const timeAgo = (dateStr: string) => {
-  const diff = Date.now() - new Date(dateStr.replace(' ', 'T') + 'Z').getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'এইমাত্র';
-  if (mins < 60) return `${mins} মিনিট আগে`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} ঘণ্টা আগে`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days} দিন আগে`;
-  return dateStr.slice(0, 10);
-};
-
-const Avatar = ({name, size = 42}: {name: string; size?: number}) => {
-  const colors = useM3Colors();
-  return (
-    <View
-      style={{
-        alignItems: 'center',
-        backgroundColor: colors.primaryContainer,
-        borderRadius: size / 2,
-        height: size,
-        justifyContent: 'center',
-        width: size,
-      }}>
-      <AppText
-        role="titleMediumEmphasized"
-        style={{color: colors.onPrimaryContainer}}>
-        {name.slice(0, 1).toUpperCase()}
-      </AppText>
-    </View>
-  );
-};
-
 export default function FriendsScreen({navigation}: Props): React.JSX.Element {
   const colors = useM3Colors();
   const token = useAuthStore(s => s.token);
+  const user = useAuthStore(s => s.user);
   const [tab, setTab] = useState<Tab>('friends');
   const [data, setData] = useState<FriendsData | null>(null);
-  const [feed, setFeed] = useState<SharedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
@@ -81,21 +48,14 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
 
   const load = useCallback(async () => {
     try {
-      const [d, f, a, ib] = await Promise.all([
+      const [d, a, ib] = await Promise.all([
         friendsService.list(),
-        friendsService.feed(),
         friendsService.getActivity().catch(() => null),
         friendsService.inbox().catch(() => [] as InboxItem[]),
       ]);
       setData(d);
-      setFeed(f);
       setInbox(ib);
       if (a) setActivityVisible(a.activity_visible);
-      // Auto-mark received items as read once they're visible.
-      const unreadIds = f.filter(i => !i.is_read).map(i => i.id);
-      if (unreadIds.length > 0) {
-        friendsService.markRead(unreadIds).catch(() => {});
-      }
     } catch {
       ToastAndroid.show('লোড করা যায়নি', ToastAndroid.SHORT);
     } finally {
@@ -200,23 +160,6 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
       setActivityVisible(visible ? 0 : 1); // revert
       ToastAndroid.show('ব্যর্থ হয়েছে', ToastAndroid.SHORT);
     }
-  };
-
-  const openShared = (item: SharedItem) => {
-    Keyboard.dismiss();
-    navigation.dispatch(
-      CommonActions.navigate('TabStack', {
-        screen: 'HomeStack',
-        params: {
-          screen: 'Info',
-          params: {
-            link: item.link,
-            provider: item.provider,
-            poster: item.poster || undefined,
-          },
-        },
-      }),
-    );
   };
 
   if (!token) {
@@ -371,14 +314,16 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
               style={{
                 alignItems: 'center',
                 backgroundColor: colors.surfaceContainerLow,
+                borderColor: colors.outlineVariant,
                 borderRadius: 14,
+                borderWidth: 1,
                 flexDirection: 'row',
                 gap: 12,
                 marginBottom: 8,
                 paddingHorizontal: 10,
                 paddingVertical: 8,
               }}>
-              <Avatar name={u.username} size={40} />
+              <FriendAvatar name={u.username} uri={u.avatar_url} size={40} />
               <AppText
                 role="bodyLargeEmphasized"
                 style={{color: colors.onBackground, flex: 1}}
@@ -481,8 +426,8 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
       {(data?.incoming.length ?? 0) > 0 ? (
         <View style={{paddingHorizontal: 16}}>
           <AppText
-            role="labelLargeEmphasized"
-            style={{color: colors.primary, marginTop: 8, marginBottom: 4}}>
+            role="titleSmallEmphasized"
+            style={{color: colors.primary, marginBottom: 8, marginTop: 8}}>
             📥 রিকোয়েস্ট ({data!.incoming.length})
           </AppText>
           {data!.incoming.map(r => (
@@ -500,7 +445,7 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
                 paddingHorizontal: 10,
                 paddingVertical: 8,
               }}>
-              <Avatar name={r.username} size={40} />
+              <FriendAvatar name={r.username} uri={r.avatar_url} size={40} />
               <View style={{flex: 1}}>
                 <AppText
                   role="bodyLargeEmphasized"
@@ -535,17 +480,20 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
               <TouchableOpacity
                 disabled={busyId === r.id}
                 onPress={() => respond(r.id, false)}
+                hitSlop={{top: 6, bottom: 6, left: 6, right: 6}}
                 style={{
+                  alignItems: 'center',
                   backgroundColor: colors.surfaceContainerHigh,
                   borderRadius: 18,
-                  paddingHorizontal: 14,
-                  paddingVertical: 7,
+                  height: 34,
+                  justifyContent: 'center',
+                  width: 34,
                 }}>
-                <AppText
-                  role="labelMediumEmphasized"
-                  style={{color: colors.onSurfaceVariant}}>
-                  Na
-                </AppText>
+                <MaterialCommunityIcons
+                  name="close"
+                  size={18}
+                  color={colors.onSurfaceVariant}
+                />
               </TouchableOpacity>
             </View>
           ))}
@@ -554,8 +502,8 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
       ) : null}
       <View style={{paddingHorizontal: 16, paddingBottom: 24}}>
         <AppText
-          role="labelLargeEmphasized"
-          style={{color: colors.onSurfaceVariant, marginBottom: 4}}>
+          role="titleSmallEmphasized"
+          style={{color: colors.onBackground, marginBottom: 8}}>
           👥 বন্ধুরা ({data?.friends.length ?? 0})
         </AppText>
         {(data?.friends.length ?? 0) === 0 && q.length < 2 ? (
@@ -586,7 +534,9 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
             style={{
               alignItems: 'center',
               backgroundColor: unread > 0 ? colors.primaryContainer + '22' : colors.surfaceContainerLow,
+              borderColor: unread > 0 ? colors.primary + '44' : colors.outlineVariant,
               borderRadius: 14,
+              borderWidth: 1,
               flexDirection: 'row',
               gap: 12,
               marginBottom: 8,
@@ -598,7 +548,22 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
                 navigation.navigate('FriendProfile', {userId: f.id, username: f.username})
               }>
               <View>
-                <Avatar name={f.username} size={40} />
+                <FriendAvatar name={f.username} uri={f.avatar_url} size={40} />
+                {f.is_online ? (
+                  <View
+                    style={{
+                      backgroundColor: '#22C55E',
+                      borderColor: colors.background,
+                      borderRadius: 7,
+                      borderWidth: 2,
+                      bottom: -1,
+                      height: 14,
+                      position: 'absolute',
+                      right: -1,
+                      width: 14,
+                    }}
+                  />
+                ) : null}
                 {unread > 0 ? (
                   <View
                     style={{
@@ -667,8 +632,8 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
         {(data?.outgoing.length ?? 0) > 0 ? (
           <>
             <AppText
-              role="labelLargeEmphasized"
-              style={{color: colors.onSurfaceVariant, marginTop: 14, marginBottom: 4}}>
+              role="titleSmallEmphasized"
+              style={{color: colors.onSurfaceVariant, marginBottom: 8, marginTop: 14}}>
               ⏳ অপেক্ষমাণ রিকোয়েস্ট
             </AppText>
             {data!.outgoing.map(o => (
@@ -677,14 +642,16 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
                 style={{
                   alignItems: 'center',
                   backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.outlineVariant,
                   borderRadius: 14,
+                  borderWidth: 1,
                   flexDirection: 'row',
                   gap: 12,
                   marginBottom: 8,
                   paddingHorizontal: 10,
                   paddingVertical: 8,
                 }}>
-                <Avatar name={o.username} size={40} />
+                <FriendAvatar name={o.username} uri={o.avatar_url} size={40} />
                 <AppText
                   role="bodyLargeEmphasized"
                   style={{color: colors.onBackground, flex: 1}}
@@ -804,14 +771,16 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
             style={{
               alignItems: 'center',
               backgroundColor: colors.surfaceContainerLow,
+              borderColor: colors.outlineVariant,
               borderRadius: 14,
+              borderWidth: 1,
               flexDirection: 'row',
               gap: 12,
               marginBottom: 8,
               paddingHorizontal: 10,
               paddingVertical: 10,
             }}>
-            <Avatar name={c.username} size={42} />
+            <FriendAvatar name={c.username} uri={c.avatar_url} size={42} />
             <View style={{flex: 1}}>
               <AppText
                 role="bodyLargeEmphasized"
@@ -864,112 +833,6 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
     </View>
   );
 
-  const renderReceivedTab = () => (
-    <View style={{paddingHorizontal: 16, paddingBottom: 24, paddingTop: 4}}>
-      {loading ? (
-        <ActivityIndicator style={{marginTop: 40}} size="large" color={colors.primary} />
-      ) : null}
-      {!loading && feed.length === 0 ? (
-        <View style={{alignItems: 'center', marginTop: 60}}>
-          <MaterialCommunityIcons
-            name="movie-open-outline"
-            size={56}
-            color={colors.onSurfaceVariant}
-          />
-          <AppText
-            role="bodyMedium"
-            style={{
-              color: colors.onSurfaceVariant,
-              marginTop: 12,
-              textAlign: 'center',
-            }}>
-            বন্ধুরা এখনো কিছু শেয়ার করেনি
-          </AppText>
-        </View>
-      ) : null}
-      {!loading &&
-        feed.map(item => (
-          <TouchableOpacity
-            key={item.id}
-            activeOpacity={0.8}
-            onPress={() => openShared(item)}
-            style={{
-              backgroundColor: colors.surfaceContainerLow,
-              borderRadius: 14,
-              flexDirection: 'row',
-              gap: 12,
-              marginBottom: 10,
-              padding: 10,
-            }}>
-            <View
-              style={{
-                backgroundColor: colors.surfaceContainerHigh,
-                borderRadius: 10,
-                height: 84,
-                width: 60,
-                overflow: 'hidden',
-              }}>
-              {item.poster ? (
-                <Image
-                  source={{uri: item.poster}}
-                  style={{height: '100%', resizeMode: 'cover', width: '100%'}}
-                />
-              ) : (
-                <View
-                  style={{
-                    alignItems: 'center',
-                    flex: 1,
-                    justifyContent: 'center',
-                  }}>
-                  <MaterialCommunityIcons
-                    name="movie-outline"
-                    size={24}
-                    color={colors.onSurfaceVariant}
-                  />
-                </View>
-              )}
-            </View>
-            <View style={{flex: 1, justifyContent: 'center'}}>
-              <AppText
-                role="titleMediumEmphasized"
-                style={{color: colors.onBackground}}
-                numberOfLines={2}>
-                {item.title || 'Unknown'}
-              </AppText>
-              <AppText
-                role="bodySmall"
-                style={{color: colors.onSurfaceVariant, marginTop: 4}}>
-                {item.sender} • {timeAgo(item.created_at)}
-              </AppText>
-              {!item.is_read ? (
-                <View
-                  style={{
-                    alignSelf: 'flex-start',
-                    backgroundColor: colors.primary,
-                    borderRadius: 8,
-                    marginTop: 5,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                  }}>
-                  <AppText
-                    role="labelSmallEmphasized"
-                    style={{color: colors.onPrimary}}>
-                    নতুন
-                  </AppText>
-                </View>
-                ) : null}
-            </View>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={24}
-              color={colors.onSurfaceVariant}
-              style={{alignSelf: 'center'}}
-            />
-          </TouchableOpacity>
-        ))}
-    </View>
-  );
-
   return (
     <View style={{backgroundColor: colors.background, flex: 1}}>
       <View
@@ -992,6 +855,18 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
           style={{color: colors.onBackground, flex: 1}}>
           বন্ধুরা
         </AppText>
+        {token ? (
+          <TouchableOpacity
+            hitSlop={8}
+            onPress={() => navigation.navigate('Profile')}
+            style={{marginRight: 4}}>
+            <FriendAvatar
+              name={user?.username || '?'}
+              uri={user?.avatar_url}
+              size={34}
+            />
+          </TouchableOpacity>
+        ) : null}
         {(data?.friends.length ?? 0) > 0 ? (
           <View
             style={{
@@ -1046,25 +921,26 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
       </View>
       {/* ScrollView is essential here: long friend/chat/share lists must
           scroll, and RefreshControl only works as a ScrollView prop. */}
-      <ScrollView
-        style={{
-          flex: 1,
-          backgroundColor: colors.surfaceContainerLowest,
-        }}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }>
-        {tab === 'friends'
-          ? renderFriendsTab()
-          : tab === 'chats'
-            ? renderChatsTab()
-            : renderReceivedTab()}
-      </ScrollView>
+      {tab === 'received' ? (
+        <SharedFeed />
+      ) : (
+        <ScrollView
+          style={{
+            flex: 1,
+            backgroundColor: colors.surfaceContainerLowest,
+          }}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{paddingBottom: 120}}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }>
+          {tab === 'friends' ? renderFriendsTab() : renderChatsTab()}
+        </ScrollView>
+      )}
     </View>
   );
 }

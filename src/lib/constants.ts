@@ -7,7 +7,7 @@ export const FLAGS = {
 
 export const themes: {name: string; color: string}[] = [
   {
-    name: 'Vega',
+    name: 'Cinepix',
     color: '#FF6347',
   },
   {
@@ -45,7 +45,7 @@ export const themes: {name: string; color: string}[] = [
 ];
 
 export const socialLinks = {
-  github: 'https://github.com/Zenda-Cross/vega-app',
+  github: 'https://github.com/shanto100files/CineBD',
   discord: 'https://discord.gg/cr42m6maWy',
   sponsor: 'https://github.com/sponsors/Zenda-Cross',
 };

@@ -10,6 +10,7 @@ import {
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {SettingsStackParamList} from '../../App';
 import AppText from '../../components/ui/Text';
+import FriendAvatar from '../../components/friends/FriendAvatar';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import {friendsService, FriendProfile} from '../../lib/services/friendsService';
 import {showAppDialog} from '../../lib/zustand/appDialogStore';
@@ -125,21 +126,11 @@ const FriendProfileScreen = ({navigation, route}: Props) => {
       ) : (
         <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 40}}>
           <View style={{alignItems: 'center', marginTop: 10}}>
-            <View
-              style={{
-                alignItems: 'center',
-                backgroundColor: colors.primaryContainer,
-                borderRadius: 48,
-                height: 96,
-                justifyContent: 'center',
-                width: 96,
-              }}>
-              <AppText
-                role="displaySmallEmphasized"
-                style={{color: colors.onPrimaryContainer}}>
-                {(profile?.username || username || '?').slice(0, 1).toUpperCase()}
-              </AppText>
-            </View>
+            <FriendAvatar
+              name={profile?.username || username || '?'}
+              uri={profile?.avatar_url}
+              size={96}
+            />
             <AppText
               role="headlineSmallEmphasized"
               style={{color: colors.onBackground, marginTop: 12}}>

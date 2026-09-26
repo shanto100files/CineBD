@@ -98,7 +98,7 @@ const Preferences = () => {
         <AppText
           role="bodyLarge"
           className="mb-7 mt-1 text-m3-on-surface-variant">
-          Shape how Vega looks, plays, and downloads
+          Shape how Cinepix looks, plays, and downloads
         </AppText>
 
         <SettingsSection title="Experience">
@@ -135,6 +135,7 @@ const Preferences = () => {
             onValueChange={next => {
               settingsStorage.setShowHamburgerMenu(next);
               setShowHamburgerMenu(next);
+              ToastAndroid.show('Restart App to Apply Changes', ToastAndroid.SHORT);
             }}
           />
           {/* <SettingsSwitchRow
@@ -152,6 +153,7 @@ const Preferences = () => {
             onValueChange={next => {
               settingsStorage.setBool('disableDrawer', next);
               setDisableDrawer(next);
+              ToastAndroid.show('Restart App to Apply Changes', ToastAndroid.SHORT);
             }}
           />
           <SettingsSwitchRow
@@ -170,7 +172,7 @@ const Preferences = () => {
           <SettingsSection title="Privacy">
             <SettingsSwitchRow
               title="Usage and crash reports"
-              description="Help improve Vega with anonymous diagnostics"
+              description="Help improve Cinepix with anonymous diagnostics"
               value={telemetryOptIn}
               divider={false}
               onValueChange={async next => {

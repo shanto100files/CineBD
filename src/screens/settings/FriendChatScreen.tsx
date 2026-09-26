@@ -12,6 +12,7 @@ import {
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {SettingsStackParamList} from '../../App';
 import AppText from '../../components/ui/Text';
+import FriendAvatar from '../../components/friends/FriendAvatar';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import {friendsService, ChatMessage} from '../../lib/services/friendsService';
 
@@ -33,6 +34,7 @@ const FriendChatScreen = ({navigation, route}: Props) => {
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const listRef = useRef<{
     scrollToEnd?: (options?: {animated?: boolean}) => void;
   }>(null);
@@ -51,6 +53,13 @@ const FriendChatScreen = ({navigation, route}: Props) => {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    friendsService
+      .getProfile(userId)
+      .then(p => setAvatarUrl(p.avatar_url ?? null))
+      .catch(() => {});
+  }, [userId]);
 
   // Light polling keeps the conversation fresh while the chat is open.
   useEffect(() => {
@@ -94,19 +103,7 @@ const FriendChatScreen = ({navigation, route}: Props) => {
         <TouchableOpacity onPress={navigation.goBack} style={{padding: 8}}>
           <MaterialCommunityIcons name="arrow-left" size={26} color={colors.onBackground} />
         </TouchableOpacity>
-        <View
-          style={{
-            alignItems: 'center',
-            backgroundColor: colors.primaryContainer,
-            borderRadius: 20,
-            height: 40,
-            justifyContent: 'center',
-            width: 40,
-          }}>
-          <AppText role="titleSmallEmphasized" style={{color: colors.onPrimaryContainer}}>
-            {username.slice(0, 1).toUpperCase()}
-          </AppText>
-        </View>
+        <FriendAvatar name={username} uri={avatarUrl} size={40} />
         <TouchableOpacity
           onPress={() => navigation.navigate('FriendProfile', {userId, username})}
           style={{flex: 1}}>

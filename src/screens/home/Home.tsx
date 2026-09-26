@@ -51,7 +51,9 @@ const Home = ({navigation}: Props) => {
 
   // Memoize static values
   const disableDrawer = useMemo(
-    () => mainStorage.getBool('disableDrawer'),
+    () =>
+      !settingsStorage.showHamburgerMenu() ||
+      mainStorage.getBool('disableDrawer'),
     [],
   );
 
@@ -127,7 +129,7 @@ const Home = ({navigation}: Props) => {
   useFocusEffect(
     useCallback(() => {
       syncFromSharedFolder().catch(e =>
-        console.warn('[VegaSync] Home focus sync failed:', e),
+        console.warn('[CinepixSync] Home focus sync failed:', e),
       );
     }, []),
   );
@@ -141,7 +143,7 @@ const Home = ({navigation}: Props) => {
       await Promise.allSettled([
         refetch(),
         syncFromSharedFolder().catch(e =>
-          console.warn('[VegaSync] Home refresh sync failed:', e),
+          console.warn('[CinepixSync] Home refresh sync failed:', e),
         ),
       ]);
     } catch (refreshError) {

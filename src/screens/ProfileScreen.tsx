@@ -9,12 +9,13 @@ import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {RootStackParamList, SettingsStackParamList} from '../App';
 import {friendsService} from '../lib/services/friendsService';
+import {absoluteAvatarUrl} from '../lib/utils/avatarUrl';
 import useContinueWatchingStore from '../lib/zustand/continueWatchingStore';
 import * as DocumentPicker from 'expo-document-picker';
 
 export default function ProfileScreen() {
   const {user, isPremium, refreshProfile, updateEmail, changePassword, uploadAvatar, removeAvatar} = useAuthStore();
-  const avatarUri = user?.avatar_url || '';
+  const avatarUri = absoluteAvatarUrl(user?.avatar_url) || '';
   const colors = useM3Colors();
   const navigation = useNavigation<
     NativeStackNavigationProp<RootStackParamList> &

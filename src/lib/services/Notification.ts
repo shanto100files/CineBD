@@ -554,7 +554,7 @@ class NotificationService {
           await this.displayUpdateNotification({
             id: 'downloadComplete',
             title: 'Install permission required',
-            body: 'Allow Vega to install unknown apps, then tap to retry',
+            body: 'Allow Cinepix to install unknown apps, then tap to retry',
             data: {filePath: apkPath, action: 'install'},
           });
           return;

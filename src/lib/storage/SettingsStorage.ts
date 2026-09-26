@@ -201,7 +201,7 @@ export class SettingsStorage {
   }
 
   showHamburgerMenu(): boolean {
-    return mainStorage.getBool(SettingsKeys.SHOW_HAMBURGER_MENU, true);
+    return mainStorage.getBool(SettingsKeys.SHOW_HAMBURGER_MENU, false);
   }
 
   setShowHamburgerMenu(show: boolean): void {

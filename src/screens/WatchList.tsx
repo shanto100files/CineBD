@@ -16,6 +16,7 @@ import ReactNativeHapticFeedback, {
 } from 'react-native-haptic-feedback';
 import type {WatchListStackParamList} from '../App';
 import MediaPosterCard from '../components/MediaPosterCard';
+import SharedFeed from '../components/friends/SharedFeed';
 import AppText from '../components/ui/Text';
 import type {WatchListItem} from '../lib/storage';
 import {settingsStorage} from '../lib/storage';
@@ -31,13 +32,15 @@ const WatchList = () => {
   const watchList = useWatchListStore(state => state.watchList);
   const removeItem = useWatchListStore(state => state.removeItem);
   const [selectedLinks, setSelectedLinks] = useState<Set<string>>(new Set());
+  const [segment, setSegment] = useState<'watchlist' | 'shared'>('watchlist');
+  const [sharedUnread, setSharedUnread] = useState(0);
 
   const isSelectionMode = selectedLinks.size > 0;
 
   useFocusEffect(
     useCallback(() => {
       syncFromSharedFolder().catch(e =>
-        console.warn('[VegaSync] WatchList sync failed:', e),
+        console.warn('[CinepixSync] WatchList sync failed:', e),
       );
     }, []),
   );
@@ -227,14 +230,45 @@ const WatchList = () => {
 
       <View className="flex-1 w-full px-3">
         {!isSelectionMode ? (
-          <AppText
-            role="headlineLargeEmphasized"
-            className="mb-6 mt-4 text-center text-m3-on-background">
-            Watchlist
-          </AppText>
+          <View
+            style={{
+              alignItems: 'center',
+              alignSelf: 'center',
+              flexDirection: 'row',
+              gap: 8,
+              marginBottom: 8,
+              marginTop: 12,
+            }}>
+            {(['watchlist', 'shared'] as const).map(s => (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                key={s}
+                onPress={() => setSegment(s)}
+                style={{
+                  backgroundColor:
+                    segment === s ? colors.primary : colors.surfaceContainerHigh,
+                  borderRadius: 20,
+                  paddingHorizontal: 18,
+                  paddingVertical: 8,
+                }}>
+                <AppText
+                  role="labelLargeEmphasized"
+                  style={{
+                    color: segment === s ? colors.onPrimary : colors.onSurfaceVariant,
+                  }}>
+                  {s === 'watchlist' ? 'Watchlist' : 'শেয়ারড'}
+                  {s === 'shared' && sharedUnread > 0 ? ` ${sharedUnread}` : ''}
+                </AppText>
+              </TouchableOpacity>
+            ))}
+          </View>
         ) : null}
 
-        {watchList.length > 0 ? (
+        {segment === 'shared' && !isSelectionMode ? (
+          <View style={{marginHorizontal: -12}}>
+            <SharedFeed onUnreadChange={setSharedUnread} />
+          </View>
+        ) : watchList.length > 0 ? (
           <FlashList
             data={watchList}
             renderItem={({item, index}) => (
