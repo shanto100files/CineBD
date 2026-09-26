@@ -1,4 +1,4 @@
-import {SafeAreaView, RefreshControl, View, Pressable, InteractionManager, Animated} from 'react-native';
+import {SafeAreaView, RefreshControl, View, Pressable, InteractionManager, Animated, Linking} from 'react-native';
 import Slider from '../../components/Slider';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {useFocusEffect, useIsFocused} from '@react-navigation/native';
@@ -42,6 +42,21 @@ const Home = ({navigation}: Props) => {
   const colors = useM3Colors();
   const {isPremium} = useAuthStore();
   // Ad WebViews are expensive on low-RAM phones: unmount them while another
+  // screen takes focus. Clicks inside an ad (the direct-link redirect chain)
+  // are handed to the system browser instead of navigating the WebView away.
+  const handleAdNav = (adUrl: string) => (event: any) => {
+    const reqUrl: string = event?.url || '';
+    if (reqUrl === adUrl) return true;
+    if (
+      reqUrl.startsWith('about:') ||
+      reqUrl.startsWith('data:') ||
+      reqUrl.startsWith('blob:')
+    ) {
+      return true;
+    }
+    Linking.openURL(reqUrl).catch(() => {});
+    return false;
+  };
   // screen (e.g. Player) is on top so playback gets the full device resources.
   const isScreenFocused = useIsFocused();
   const [statusBarScrimVisible, setStatusBarScrimVisible] = useState(false);
@@ -400,7 +415,7 @@ const Home = ({navigation}: Props) => {
                   </AppText>
                   <View style={{borderRadius: 12, overflow: 'hidden', height: 80}}>
                     {homeAds.top.startsWith('http') ? (
-                      <WebView source={{uri: homeAds.top}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                      <WebView source={{uri: homeAds.top}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} onShouldStartLoadWithRequest={handleAdNav(homeAds.top)} />
                     ) : (
                       <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:80px;">${homeAds.top}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
                     )}
@@ -424,7 +439,7 @@ const Home = ({navigation}: Props) => {
                   </AppText>
                   <View style={{borderRadius: 12, overflow: 'hidden', height: 150}}>
                     {homeAds.bottom.startsWith('http') ? (
-                      <WebView source={{uri: homeAds.bottom}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
+                      <WebView source={{uri: homeAds.bottom}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} onShouldStartLoadWithRequest={handleAdNav(homeAds.bottom)} />
                     ) : (
                       <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:150px;">${homeAds.bottom}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
                     )}
