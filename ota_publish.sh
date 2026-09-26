@@ -54,4 +54,7 @@ ls -1dt /var/www/cinepix/ota/$VERSION/*/ 2>/dev/null | tail -n +5 | xargs -r rm 
 chown -R www-data:www-data /var/www/cinepix/ota/$VERSION
 echo REGISTERED: $UPDATE_ID"
 
+echo ">> Mirroring to all other runtime versions ..."
+"$PLINK" -batch -ssh "$HOST" -pw "$PW" "for d in /var/www/cinepix/ota/*/; do rv=\$(basename \"\$d\"); [ \"\$rv\" = \"$VERSION\" ] && continue; mkdir -p \"\$d$UPDATE_ID\"; cp -a /var/www/cinepix/ota/$VERSION/$UPDATE_ID/. \"\$d$UPDATE_ID/\"; cp /var/www/cinepix/ota/$VERSION/releases.json \"\$d/releases.json\"; ls -1dt \"\$d\"*/ 2>/dev/null | tail -n +5 | xargs -r rm -rf; chown -R www-data:www-data \"\$d\"; echo mirrored: \$rv; done"
+
 echo ">> Done. Users receive this update on next app start."
