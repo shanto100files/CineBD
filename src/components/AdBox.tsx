@@ -36,11 +36,13 @@ const isHttpUrl = (value: string) => /^https?:\/\//i.test(value.trim());
  * (about:/data:/blob:/nested iframes) is CANCELLED. Taps do nothing, no
  * redirect chain ever reaches the WebView or the browser.
  *
- * Implementation notes:
- *  - Returning true from onShouldStartLoadWithRequest CANCELS a navigation.
- *    Returning false would make the WebView load the URL itself, and for
- *    custom schemes (intent://, market://, ...) that makes Android dispatch
- *    them to Chrome/Play Store — the exact bug this box exists to prevent.
+ * SEMANTICS (verified against RNCWebViewModuleImpl.java:208 —
+ * `shouldStart ? DO_NOT_OVERRIDE : SHOULD_OVERRIDE`):
+ *  - return true  → WebView LOADS the URL itself. Only safe for the initial
+ *    creative, about:/data:/blob: and iframe content.
+ *  - return false → navigation CANCELLED. This is the only safe answer for
+ *    everything else: intent://, market:// or any custom scheme loaded by
+ *    the WebView gets dispatched to Chrome/Play Store.
  *  - setSupportMultipleWindows={false} turns target="_blank"/window.open()
  *    into normal gated navigations instead of Android handing them to Chrome.
  *  - onOpenWindow is a no-op safety net for any remaining popup path.
@@ -106,8 +108,9 @@ const AdBox: React.FC<AdBoxProps> = ({content, height, minHeight = 100}) => {
     }
 
     // Everything else — auto redirects, click targets, intent://, market://,
-    // any scheme — is cancelled outright. Nothing external, ever.
-    return true;
+    // any scheme — is CANCELLED (false = do not load). Nothing external,
+    // ever.
+    return false;
   };
 
   if (!content || !source || !active) {
