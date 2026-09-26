@@ -97,7 +97,7 @@ const writeMobileSyncManifestNow = async (
 ): Promise<void> => {
   const directory = await getSyncDirectory(location, true);
   if (!directory) {
-    throw new Error('Unable to create Vega sync directory');
+    throw new Error('Unable to create Cinepix sync directory');
   }
   const fileName = `vega-${manifest.deviceId}.json`;
   const existing = await findChild(directory, fileName);
@@ -113,7 +113,7 @@ const writeMobileSyncManifestNow = async (
   const written =
     await FileSystem.StorageAccessFramework.readAsStringAsync(fileUri);
   if (!parseSyncManifest(written)) {
-    throw new Error('Vega sync manifest verification failed');
+    throw new Error('Cinepix sync manifest verification failed');
   }
 };
 

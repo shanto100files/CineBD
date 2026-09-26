@@ -44,7 +44,7 @@ const DownloadLocationPreference = ({
     settingsStorage.setDownloadLocation(location);
     setDownloadLocation(getDownloadLocationDisplayValue(location));
     syncFromSharedFolder().catch(e =>
-      console.warn('[VegaSync] Folder change sync failed:', e),
+      console.warn('[CinepixSync] Folder change sync failed:', e),
     );
     ToastAndroid.show('Download location updated', ToastAndroid.SHORT);
   };

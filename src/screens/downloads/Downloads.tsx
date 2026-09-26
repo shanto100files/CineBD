@@ -285,7 +285,7 @@ const Downloads = () => {
   useFocusEffect(
     useCallback(() => {
       syncFromSharedFolder().catch(error =>
-        console.warn('[VegaSync] Downloads sync failed:', error),
+        console.warn('[CinepixSync] Downloads sync failed:', error),
       );
       reconcileCompletedDownloadOutputs().catch(error =>
         console.warn('Download library reconciliation failed:', error),

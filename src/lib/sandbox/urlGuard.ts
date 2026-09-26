@@ -4,7 +4,7 @@ import {getDomain} from 'tldts';
  * Provider supplied URLs are untrusted. Everything the sandbox asks the native
  * host to fetch (or open in a WebView) passes through here first.
  *
- * Ported from `vega-desktop/src/lib/services/ProviderManager.ts` with an extra
+ * Ported from the desktop ProviderManager with an extra
  * guard the desktop version lacks: redirect hops are re-validated by the
  * caller, because a public URL can otherwise 302 into the local network.
  */

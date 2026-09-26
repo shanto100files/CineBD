@@ -371,7 +371,7 @@ const ProviderSourceManager = ({primary, visible, onSourceChanged}: Props) => {
               <Text
                 accessibilityRole="link"
                 style={{color: '#38BDF8', fontSize: 14, lineHeight: 20}}
-                onPress={() => Linking.openURL(socialLinks.github + '#vega-app')}>
+                onPress={() => Linking.openURL(socialLinks.github)}>
                 here
               </Text>
             </Text>

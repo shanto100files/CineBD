@@ -275,7 +275,7 @@ const schedulePublish = () => {
   publishTimer = setTimeout(() => {
     publishTimer = undefined;
     publishSyncManifest().catch(error =>
-      console.warn('[VegaSync] Failed to publish manifest:', error),
+      console.warn('[CinepixSync] Failed to publish manifest:', error),
     );
   }, PUBLISH_DELAY_MS);
 };
