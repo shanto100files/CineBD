@@ -50,8 +50,7 @@ echo ">> Registering release (critical=$CRITICAL) ..."
 "$PLINK" -batch -ssh "$HOST" -pw "$PW" "cat > /var/www/cinepix/ota/$VERSION/releases.json <<'EOF'
 {\"id\":\"$UPDATE_ID\",\"createdAt\":\"$CREATED_AT\",\"message\":\"$MSG\",\"critical\":$CRITICAL}
 EOF
-# Keep only the 4 most recent releases per runtime — OTA storage stays lean.
-cd /var/www/cinepix/ota/$VERSION 2>/dev/null && ls -1dt */ 2>/dev/null | tail -n +5 | while read d; do rm -rf "/var/www/cinepix/ota/$VERSION/\\$d"; done; cd - >/dev/null
+ls -1dt /var/www/cinepix/ota/$VERSION/*/ 2>/dev/null | tail -n +5 | xargs -r rm -rf
 chown -R www-data:www-data /var/www/cinepix/ota/$VERSION
 echo REGISTERED: $UPDATE_ID"
 
