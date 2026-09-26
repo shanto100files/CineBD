@@ -27,7 +27,6 @@ import Animated, {FadeInDown, FadeInUp, Layout} from 'react-native-reanimated';
 import {useNavigation, useIsFocused} from '@react-navigation/native';
 import RenderProviderFlagIcon from '../../components/RenderProviderFLagIcon';
 import useNavigationPreferencesStore from '../../lib/zustand/navigationPreferencesStore';
-import useAuthStore from '../../lib/zustand/authStore';
 import axios from 'axios';
 import DnsPreference from './components/DnsPreference';
 import IconButton from '../../components/ui/IconButton';
