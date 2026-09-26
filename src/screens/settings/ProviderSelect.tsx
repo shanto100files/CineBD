@@ -19,6 +19,7 @@ import {useAuthStore} from '../../lib/zustand/authStore';
 import useContentStore from '../../lib/zustand/contentStore';
 import {HARDCODED_KILL_KEY} from '../../lib/services/initService';
 import {settingsStorage} from '../../lib/storage';
+import {showAppDialog} from '../../lib/zustand/appDialogStore';
 
 const API = 'https://cinepix.top/api/app';
 
@@ -37,18 +38,22 @@ interface RedeemResult {
 }
 
 /**
- * Home Provider picker.
+ * Home Provider picker — LOCKED by default.
  *
- * Free users can open and explore the picker, but locked features (anything
- * beyond what the admin granted / the free catalog allows) show the
- * "প্রিমিয়াম নিতে হবে" note. A coupon/trial code box unlocks specific
- * providers for a limited number of days: admins create codes in the admin
- * panel (App → Coupons) and hand them to users for trials or promotions.
+ * The list renders with everything ticked (the aggregated default) but the
+ * checkboxes are a lock: changing the selection requires an account with
+ * entitlement.
+ *  - logged out        → "আগে লগইন করুন" dialog
+ *  - free account      → Premium/অ্যাডমিন dialog (or a trial coupon)
+ *  - premium / admin   → free to select/unselect
+ * Coupon codes unlock specific providers for N days (admin creates them in
+ * App → Coupons and hands them out for trials/promotions).
  */
 export default function ProviderSelectScreen() {
   const colors = useM3Colors();
   const token = useAuthStore(s => s.token);
   const isPremium = useAuthStore(s => s.isPremium);
+  const user = useAuthStore(s => s.user);
   const navigation =
     useNavigation<NativeStackNavigationProp<Record<string, object | undefined>>>();
   const installedProviders = useContentStore(state => state.installedProviders);
@@ -61,6 +66,13 @@ export default function ProviderSelectScreen() {
   const [unlocks, setUnlocks] = useState<Record<string, {until: number; days: number}>>({});
 
   useEffect(() => {
+    // Non-entitled users always see the default: everything ticked
+    // (aggregated), locked. Only premium/admin restore a saved selection.
+    if (!canEdit) {
+      setUseAggregated(true);
+      setSelected(new Set(installedProviders.map(p => p.value)));
+      return;
+    }
     const saved = settingsStorage.getHomeProvider();
     if (saved) {
       const vals = saved.split(',').filter(Boolean);
@@ -72,7 +84,7 @@ export default function ProviderSelectScreen() {
     }
     setUseAggregated(true);
     setSelected(new Set(installedProviders.map(p => p.value)));
-  }, [installedProviders]);
+  }, [installedProviders, canEdit]);
 
   // Load active coupon unlocks so rows can show their expiry badges.
   const loadUnlocks = useCallback(async () => {
@@ -102,22 +114,35 @@ export default function ProviderSelectScreen() {
     loadUnlocks();
   }, [loadUnlocks]);
 
-  const isProviderAllowed = useCallback(
-    (value: string) => {
-      if (isPremium) return true;
-      if (unlocks[value]) return true;
-      // Unknown yet: myproviders is the source of truth on save; treat
-      // providers without explicit unlock info as allowed so the free
-      // catalog keeps working exactly like before.
-      return true;
-    },
-    [isPremium, unlocks],
-  );
+  const canEdit = isPremium || !!user?.is_admin;
+
+  const showLockedDialog = useCallback(() => {
+    if (!token) {
+      showAppDialog({
+        title: 'লগইন করুন',
+        message: 'Provider সিলেক্ট করতে আগে লগইন করুন। লগইন করলে ট্রায়াল কুপনও ব্যবহার করতে পারবেন।',
+        actions: [
+          {label: 'পরে'},
+          {label: 'লগইন', onPress: () => navigation.navigate('Login' as never)},
+        ],
+      });
+      return;
+    }
+    showAppDialog({
+      title: 'প্রিমিয়াম প্রয়োজন',
+      message:
+        'ইচ্ছামতো provider সিলেক্ট করতে Premium নিন, অথবা admin-এর সাথে যোগাযোগ করুন। ট্রায়াল কুপন থাকলে নিচের বক্সে কোডটি দিন — নির্দিষ্ট provider কয়েকদিনের জন্য আনলক হবে।',
+      actions: [
+        {label: 'বন্ধ'},
+        {label: 'Premium নিন', onPress: () => navigation.navigate('Premium' as never)},
+      ],
+    });
+  }, [token, navigation]);
 
   const toggleProvider = useCallback(
     (value: string) => {
-      if (!isProviderAllowed(value) && !unlocks[value]) {
-        ToastAndroid.show('এই provider আনলক করতে প্রিমিয়াম বা কুপন কোড লাগবে', ToastAndroid.SHORT);
+      if (!canEdit) {
+        showLockedDialog();
         return;
       }
       setUseAggregated(false);
@@ -135,10 +160,14 @@ export default function ProviderSelectScreen() {
         return next;
       });
     },
-    [installedProviders, isProviderAllowed, unlocks],
+    [installedProviders, canEdit, showLockedDialog],
   );
 
   const selectAll = () => {
+    if (!canEdit) {
+      showLockedDialog();
+      return;
+    }
     setUseAggregated(true);
     setSelected(new Set(installedProviders.map(p => p.value)));
   };
@@ -186,6 +215,11 @@ export default function ProviderSelectScreen() {
   }, [coupon, token, loadUnlocks]);
 
   const handleSave = async () => {
+    // Locked for non-entitled users: keep the aggregated default everywhere.
+    if (!canEdit) {
+      showLockedDialog();
+      return;
+    }
     setSaving(true);
     try {
       const sel = Array.from(selected);
@@ -229,6 +263,12 @@ export default function ProviderSelectScreen() {
     return days >= 1 ? `${days} দিন` : 'আজ শেষ';
   }, []);
 
+  const lockHint = !canEdit
+    ? token
+      ? '🔒 Provider পরিবর্তন করতে Premium নিন অথবা admin-এর সাথে যোগাযোগ করুন'
+      : '🔒 Provider পরিবর্তন করতে লগইন করুন'
+    : null;
+
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
       <View style={styles.header}>
@@ -249,6 +289,11 @@ export default function ProviderSelectScreen() {
         <AppText role="bodySmall" style={[styles.hint, {color: colors.onSurfaceVariant}]}>
           Select multiple providers to show on your home page
         </AppText>
+        {lockHint && (
+          <AppText role="labelMedium" style={{color: '#f59e0b', paddingHorizontal: 16, marginBottom: 6}}>
+            {lockHint}
+          </AppText>
+        )}
 
         {!isPremium && (
           <View style={[styles.couponBox, {borderColor: colors.outlineVariant, backgroundColor: colors.surfaceContainerLow}]}>
@@ -359,9 +404,13 @@ export default function ProviderSelectScreen() {
                   <View style={[styles.checkbox, {
                     borderColor: isChecked ? colors.primary : colors.outline,
                     backgroundColor: isChecked ? colors.primary : 'transparent',
+                    opacity: canEdit ? 1 : 0.55,
                   }]}>
                     {isChecked && <MaterialIcons name="check" size={16} color={colors.onPrimary} />}
                   </View>
+                  {!canEdit && (
+                    <MaterialIcons name="lock-outline" size={16} color="#f59e0b" style={{marginLeft: 8}} />
+                  )}
                 </View>
               </TouchableOpacity>
             );
