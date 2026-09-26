@@ -5,7 +5,7 @@ import {
 } from '@react-navigation/native-stack';
 import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {FlatList, RefreshControl, View, Linking} from 'react-native';
+import {FlatList, RefreshControl, View} from 'react-native';
 import {trackContent} from '../../lib/services/analyticsService';
 import {normalizeAppAds} from '../../lib/services/adService';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
@@ -92,8 +92,8 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   const dynamicInfoAccentEnabled = settingsStorage.isDynamicInfoAccentEnabled();
   const [appAds, setAppAds] = useState<{enabled: boolean; web_url: string; top: string; bottom: string}>({enabled: false, web_url: '', top: '', bottom: ''});
 
-  // Ad clicks (direct-link redirect chain) open in the system browser instead
-  // of navigating the ad WebView away from the app.
+  // Ad boxes are intentionally inert: impression counts on load, taps do
+  // nothing so users are never pulled out of the app.
   const handleAdNav = useCallback(
     (adUrl: string) => (event: any) => {
       const reqUrl: string = event?.url || '';
@@ -101,7 +101,6 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
       if (reqUrl.startsWith('about:') || reqUrl.startsWith('data:') || reqUrl.startsWith('blob:')) {
         return true;
       }
-      Linking.openURL(reqUrl).catch(() => {});
       return false;
     },
     [],

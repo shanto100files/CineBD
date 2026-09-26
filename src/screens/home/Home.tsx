@@ -1,4 +1,4 @@
-import {SafeAreaView, RefreshControl, View, Pressable, InteractionManager, Animated, Linking} from 'react-native';
+import {SafeAreaView, RefreshControl, View, Pressable, InteractionManager, Animated} from 'react-native';
 import Slider from '../../components/Slider';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {useFocusEffect, useIsFocused} from '@react-navigation/native';
@@ -42,8 +42,9 @@ const Home = ({navigation}: Props) => {
   const colors = useM3Colors();
   const {isPremium} = useAuthStore();
   // Ad WebViews are expensive on low-RAM phones: unmount them while another
-  // screen takes focus. Clicks inside an ad (the direct-link redirect chain)
-  // are handed to the system browser instead of navigating the WebView away.
+  // screen takes focus. Ad boxes are intentionally inert: the impression is
+  // counted when the ad loads; taps do nothing so users are never pulled out
+  // of the app and redirect chains can't hijack the box.
   const handleAdNav = (adUrl: string) => (event: any) => {
     const reqUrl: string = event?.url || '';
     if (reqUrl === adUrl) return true;
@@ -54,7 +55,6 @@ const Home = ({navigation}: Props) => {
     ) {
       return true;
     }
-    Linking.openURL(reqUrl).catch(() => {});
     return false;
   };
   // screen (e.g. Player) is on top so playback gets the full device resources.
