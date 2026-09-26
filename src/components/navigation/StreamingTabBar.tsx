@@ -1,4 +1,5 @@
 import type {BottomTabBarProps} from '@react-navigation/bottom-tabs';
+import {StackActions} from '@react-navigation/native';
 import React from 'react';
 import {
   Platform,
@@ -20,6 +21,15 @@ const TAB_ICONS: Record<string, AnimatedTabIconName> = {
   WatchListStack: 'watchlist',
   DownloadsStack: 'download',
   SettingsStack: 'settings',
+};
+
+// Root screen of each stack - tapping an already-active tab pops back here.
+const TAB_ROOT_SCREENS: Record<string, string> = {
+  HomeStack: 'Home',
+  SearchStack: 'Search',
+  WatchListStack: 'WatchList',
+  DownloadsStack: 'Downloads',
+  SettingsStack: 'Settings',
 };
 
 const StreamingTabBar = ({
@@ -75,6 +85,10 @@ const StreamingTabBar = ({
                     target: route.key,
                     canPreventDefault: true,
                   });
+                  if (focused && !event.defaultPrevented) {
+                    navigation.dispatch(StackActions.popToTop());
+                    return;
+                  }
                   if (!focused && !event.defaultPrevented) {
                     if (settingsStorage.isHapticFeedbackEnabled()) {
                       ReactNativeHapticFeedback.trigger('effectTick', {
@@ -175,6 +189,12 @@ const StreamingTabBar = ({
               target: route.key,
               canPreventDefault: true,
             });
+            if (focused && !event.defaultPrevented) {
+              // Re-tapping the active tab pops its stack back to the root
+              // (e.g. Settings -> Friends stays stuck otherwise).
+              navigation.dispatch(StackActions.popToTop());
+              return;
+            }
             if (!focused && !event.defaultPrevented) {
               if (settingsStorage.isHapticFeedbackEnabled()) {
                 ReactNativeHapticFeedback.trigger('effectTick', {
