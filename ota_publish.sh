@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # Publish a self-hosted OTA update to cinepix.top.
-# Usage:  bash ota_publish.sh "fix message"
+# Usage:
+#   bash ota_publish.sh "fix message"              — regular update (silent)
+#   bash ota_publish.sh "critical fix" --critical  — shows restart dialog
 set -e
 cd "$(dirname "$0")"   # CineBD repo root
 
 MSG="${1:-ota update}"
+CRITICAL="false"
+if [ "$2" = "--critical" ]; then
+  CRITICAL="true"
+fi
 VERSION=$(grep -oE "version: '[^']+'" app.config.js | head -1 | sed "s/version: '//;s/'//")
 UPDATE_ID=$(node -e "console.log(require('crypto').randomUUID())")
 HOST="root@160.25.226.103"
@@ -40,10 +46,12 @@ echo ">> Preparing remote directory /var/www/cinepix/ota/$VERSION/$UPDATE_ID ...
 echo ">> Uploading bundle + assets (this can take a minute) ..."
 "$PSCP" -batch -pw "$PW" -r .ota-export/* "$HOST:/var/www/cinepix/ota/$VERSION/$UPDATE_ID/"
 
-echo ">> Registering release ..."
+echo ">> Registering release (critical=$CRITICAL) ..."
 "$PLINK" -batch -ssh "$HOST" -pw "$PW" "cat > /var/www/cinepix/ota/$VERSION/releases.json <<'EOF'
-{\"id\":\"$UPDATE_ID\",\"createdAt\":\"$CREATED_AT\",\"message\":\"$MSG\"}
+{\"id\":\"$UPDATE_ID\",\"createdAt\":\"$CREATED_AT\",\"message\":\"$MSG\",\"critical\":$CRITICAL}
 EOF
+# Keep only the 4 most recent releases per runtime — OTA storage stays lean.
+cd /var/www/cinepix/ota/$VERSION 2>/dev/null && ls -1dt */ 2>/dev/null | tail -n +5 | while read d; do rm -rf "/var/www/cinepix/ota/$VERSION/\\$d"; done; cd - >/dev/null
 chown -R www-data:www-data /var/www/cinepix/ota/$VERSION
 echo REGISTERED: $UPDATE_ID"
 

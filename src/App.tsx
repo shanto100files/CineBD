@@ -871,10 +871,11 @@ const App = () => {
     };
   }, [appReady, navTreeReady, splashOverlayOpacity]);
 
-  // Self-hosted OTA: check cinepix.top for a JS update only after the app has
-  // fully launched, so the check never competes with startup and never
-  // restarts the app underneath the splash. Download in the background, then
-  // ask the user before reloading.
+  // Self-hosted OTA — advanced flow:
+  //  1. Background check/download after launch (never blocks startup)
+  //  2. Regular updates apply SILENTLY on the next cold start (no dialog)
+  //  3. Only server-flagged critical updates show a restart dialog now
+  //  4. Respects user's auto-check/auto-download preferences
   useEffect(() => {
     if (!ExpoUpdates.isEnabled || !appReady || splashOverlayVisible) {
       return;
@@ -882,29 +883,57 @@ const App = () => {
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
+        if (!settingsStorage.isAutoCheckUpdateEnabled()) {
+          return;
+        }
         const check = await withTimeout(ExpoUpdates.checkForUpdateAsync(), 10000);
         if (cancelled || !check.isAvailable) {
           return;
         }
-        await withTimeout(ExpoUpdates.fetchUpdateAsync(), 30000);
-        if (cancelled || useAppDialogStore.getState().dialog) {
+        if (useAppDialogStore.getState().dialog) {
           return;
         }
-        showAppDialog({
-          title: 'নতুন আপডেট পাওয়া গেছে',
-          message:
-            'সিনেপিক্সের নতুন ভার্সন ডাউনলোড হয়েছে। রিস্টার্ট করে আপডেটটি প্রয়োগ করবেন?',
-          actions: [
-            {label: 'পরে'},
-            {
-              label: 'রিস্টার্ট',
-              variant: 'primary',
-              onPress: () => {
-                ExpoUpdates.reloadAsync().catch(() => {});
+        const manifest: any = (check as any).manifest || {};
+        const extra: any = manifest.extra || {};
+        const updateMeta: any = extra.ota || {};
+        const isCritical = updateMeta.critical === true;
+
+        if (!settingsStorage.isAutoDownloadEnabled() && !isCritical) {
+          return;
+        }
+
+        await withTimeout(ExpoUpdates.fetchUpdateAsync(), 45000);
+        if (cancelled) {
+          return;
+        }
+
+        if (isCritical) {
+          // Server says users must get this now — show restart dialog.
+          if (useAppDialogStore.getState().dialog) {
+            return;
+          }
+          showAppDialog({
+            title: 'গুরুত্বপূর্ণ আপডেট',
+            message:
+              'সিনেপিক্সের একটি গুরুত্বপূর্ণ ফিক্স এসেছে। এখনই রিস্টার্ট করে প্রয়োগ করুন।',
+            variant: 'warning',
+            actions: [
+              {label: 'পরে'},
+              {
+                label: 'রিস্টার্ট',
+                variant: 'primary',
+                onPress: () => {
+                  ExpoUpdates.reloadAsync().catch(() => {});
+                },
               },
-            },
-          ],
-        });
+            ],
+          });
+        } else {
+          // Regular update: already downloaded — it applies automatically on
+          // the next cold start (Expo reloads the newest bundle). The user
+          // never sees a dialog for routine fixes.
+          console.log('[OTA] update downloaded, applies on next cold start');
+        }
       } catch {
         // OTA is best-effort; never disturb the user.
       }
