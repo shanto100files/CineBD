@@ -47,6 +47,8 @@ import {updateProvidersService} from './lib/services/UpdateProviders';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {initNetStatus} from './lib/netStatus';
 import * as ExpoUpdates from 'expo-updates';
+import * as Application from 'expo-application';
+import {getDeviceId} from './lib/services/heartbeatService';
 import OfflineBanner from './components/OfflineBanner';
 import {queryClient} from './lib/client';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
@@ -942,6 +944,34 @@ const App = () => {
       cancelled = true;
       clearTimeout(timer);
     };
+  }, [appReady, splashOverlayVisible]);
+
+  // OTA adoption reporting: after launch, tell the server which bundle is
+  // actually running (fire-and-forget; powers the admin adoption view).
+  useEffect(() => {
+    if (!ExpoUpdates.isEnabled || !appReady || splashOverlayVisible) {
+      return;
+    }
+    const updateId = (ExpoUpdates as any).updateId as string | undefined;
+    if (!updateId) {
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const version = Application.nativeApplicationVersion || '';
+        const runtimeVersion = version || (ExpoUpdates as any).runtimeVersion || '';
+        await fetch('https://cinepix.top/api/app/ota-report', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-App-Key': '78a0e573dfd894d443685159b2e71e2f',
+            'X-Device-Id': getDeviceId(),
+          },
+          body: JSON.stringify({runtime_version: runtimeVersion, update_id: updateId, app_version: version}),
+        }).catch(() => {});
+      } catch {}
+    }, 15000);
+    return () => clearTimeout(t);
   }, [appReady, splashOverlayVisible]);
 
   // Priority Rendering Logic
