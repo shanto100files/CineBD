@@ -82,14 +82,14 @@ const AdBox: React.FC<AdBoxProps> = ({content, height, minHeight = 100}) => {
       }
 
       const touchedRecently = Date.now() - lastTouchAtRef.current <= TAP_WINDOW_MS;
-      if (!touchedRecently) {
-        // Auto redirect fired by the creative with no user interaction:
-        // keep it out of both the WebView and the browser.
-        return false;
-      }
 
-      // A real click just happened → hand the destination to the browser.
-      if (isHttpUrl(reqUrl)) {
+      // NOTE: everything we don't allow is CANCELLED by returning true.
+      // Returning false would tell the WebView to load the URL itself, and
+      // for custom schemes (intent://, market://, ...) that makes Android
+      // dispatch them to Chrome/Play Store — the exact "app opens Chrome on
+      // its own" bug. Ad creatives commonly embed intent:// fallbacks, so
+      // this must never fall through to the WebView.
+      if (touchedRecently && isHttpUrl(reqUrl)) {
         const now = Date.now();
         const alreadyOpened =
           openedUrlRef.current === reqUrl && now - openedAtRef.current < 1500;
@@ -99,7 +99,7 @@ const AdBox: React.FC<AdBoxProps> = ({content, height, minHeight = 100}) => {
           Linking.openURL(reqUrl).catch(() => {});
         }
       }
-      return false;
+      return true;
     },
     [content],
   );
