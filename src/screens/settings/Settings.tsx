@@ -511,8 +511,10 @@ const Settings = ({navigation}: Props) => {
           </SettingsSection>
         </AnimatedSection>
 
-        {/* Content provider section - visible to everyone; premium/locked
-            providers show the unlock note inside the picker (ProviderSelect). */}
+        {/* Content provider section - Admin only (the flags row and the
+            locked Home Provider entry would just confuse regular users;
+            they never need to touch provider internals). */}
+        {user?.is_admin && (
         <AnimatedSection delay={100}>
           <View style={{marginBottom: 24}}>
             <View
@@ -601,8 +603,7 @@ const Settings = ({navigation}: Props) => {
             )}
           </SettingsSection>
         </AnimatedSection>
-
-        {/* Network Section */}
+        )}
         <AnimatedSection delay={150}>
           <SettingsSection title="Network">
             <DnsPreference />
