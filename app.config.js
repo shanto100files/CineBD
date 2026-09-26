@@ -104,7 +104,7 @@ module.exports = () => {
       autolinking: { exclude: ['expo-splash-screen', 'react-native-fullscreen-chz', 'react-native-worklets', 'react-native-reanimated'] },
       plugins,
       slug: 'cinepix',
-       version: '5.7.7',
+       version: '5.7.8',
       updates: {
         // Self-hosted OTA (expo-updates protocol) served from cinepix.top.
         url: 'https://cinepix.top/ota-endpoint/index.php?action=manifest',
@@ -125,7 +125,7 @@ module.exports = () => {
           : {}),
         minSdkVersion: 28,
         package: PACKAGE_NAME,
-        versionCode: 209,
+        versionCode: 210,
         permissions: [
           'FOREGROUND_SERVICE',
           'FOREGROUND_SERVICE_DATA_SYNC',
