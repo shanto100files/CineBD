@@ -88,6 +88,7 @@ import {
   isFirebaseNativeReady,
 } from './lib/utils/firebaseSafe';
 import {useAuthStore} from './lib/zustand/authStore';
+import useAppDialogStore, {showAppDialog} from './lib/zustand/appDialogStore';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -104,6 +105,16 @@ import RNBootSplash from 'react-native-bootsplash';
 
 enableScreens(true);
 enableFreeze(true);
+
+const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout>;
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('timeout')), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+};
 
 export type HomeStackParamList = {
   Home: undefined;
@@ -599,32 +610,6 @@ const App = () => {
     };
   }, []);
 
-  // Self-hosted OTA: silently check cinepix.top for a JS update on launch;
-  // if found early enough, download + reload now, otherwise stage it for
-  // the next launch so the user is never interrupted mid-use.
-  useEffect(() => {
-    if (!ExpoUpdates.isEnabled) {
-      return;
-    }
-    const launchedAt = Date.now();
-    (async () => {
-      try {
-        const check = await ExpoUpdates.checkForUpdateAsync();
-        if (!check.isAvailable) {
-          return;
-        }
-        await ExpoUpdates.fetchUpdateAsync();
-        // Apply right away only while the app is still fresh (<10s in);
-        // a slow download after that waits for the next restart.
-        if (Date.now() - launchedAt < 10000) {
-          await ExpoUpdates.reloadAsync();
-        }
-      } catch {
-        // OTA is best-effort; never disturb the user.
-      }
-    })();
-  }, []);
-
   useEffect(() => {
     updateProvidersService.startAutomaticUpdateCheck();
     syncDohSettings().catch(e =>
@@ -857,22 +842,78 @@ const App = () => {
     if (!appReady || !navTreeReady) {
       return;
     }
+    let started = false;
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    const startFade = () => {
+      if (started) {
+        return;
+      }
+      started = true;
+      RNAnimated.timing(splashOverlayOpacity, {
+        toValue: 0,
+        duration: 320,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start(() => {
+        setSplashOverlayVisible(false);
+      });
+    };
     const off = onHomeReady(() => {
-      const t = setTimeout(() => {
-        RNAnimated.timing(splashOverlayOpacity, {
-          toValue: 0,
-          duration: 320,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }).start(({finished}) => {
-          if (finished) {
-            setSplashOverlayVisible(false);
-          }
-        });
-      }, 180);
+      hideTimer = setTimeout(startFade, 180);
     });
-    return off;
+    const cap = setTimeout(startFade, 6000);
+    return () => {
+      off();
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+      }
+      clearTimeout(cap);
+    };
   }, [appReady, navTreeReady, splashOverlayOpacity]);
+
+  // Self-hosted OTA: check cinepix.top for a JS update only after the app has
+  // fully launched, so the check never competes with startup and never
+  // restarts the app underneath the splash. Download in the background, then
+  // ask the user before reloading.
+  useEffect(() => {
+    if (!ExpoUpdates.isEnabled || !appReady || splashOverlayVisible) {
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const check = await withTimeout(ExpoUpdates.checkForUpdateAsync(), 10000);
+        if (cancelled || !check.isAvailable) {
+          return;
+        }
+        await withTimeout(ExpoUpdates.fetchUpdateAsync(), 30000);
+        if (cancelled || useAppDialogStore.getState().dialog) {
+          return;
+        }
+        showAppDialog({
+          title: 'নতুন আপডেট পাওয়া গেছে',
+          message:
+            'সিনেপিক্সের নতুন ভার্সন ডাউনলোড হয়েছে। রিস্টার্ট করে আপডেটটি প্রয়োগ করবেন?',
+          actions: [
+            {label: 'পরে'},
+            {
+              label: 'রিস্টার্ট',
+              variant: 'primary',
+              onPress: () => {
+                ExpoUpdates.reloadAsync().catch(() => {});
+              },
+            },
+          ],
+        });
+      } catch {
+        // OTA is best-effort; never disturb the user.
+      }
+    }, 8000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [appReady, splashOverlayVisible]);
 
   // Priority Rendering Logic
   if (appShutdown) {
@@ -926,8 +967,8 @@ const App = () => {
       style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, elevation: 9999}}>
       <RNAnimated.View style={{flex: 1, opacity: splashOverlayOpacity}}>
         <InitSplash
-          progress={100}
-          status={'Ready!'}
+          progress={initProgress.progress}
+          status={initProgress.status}
           onMounted={() => {}}
         />
       </RNAnimated.View>

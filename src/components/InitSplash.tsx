@@ -44,7 +44,11 @@ const InitSplash: React.FC<InitSplashProps> = ({progress, status, onForceReady, 
           resizeMode="contain"
         />
 
-        <ActivityIndicator size="large" color="#6366f1" style={styles.loader} />
+        {progress < 100 ? (
+          <ActivityIndicator size="large" color="#6366f1" style={styles.loader} />
+        ) : (
+          <View style={styles.loader} />
+        )}
 
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
@@ -58,7 +62,7 @@ const InitSplash: React.FC<InitSplashProps> = ({progress, status, onForceReady, 
           </View>
         </View>
 
-        {showTroubleshoot && (
+        {showTroubleshoot && onForceReady && (
           <View style={styles.troubleshootContainer}>
             <Text style={styles.troubleText}>Taking longer than usual?</Text>
             <TouchableOpacity
@@ -79,7 +83,7 @@ const InitSplash: React.FC<InitSplashProps> = ({progress, status, onForceReady, 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#080C18',
     justifyContent: 'center',
     alignItems: 'center',
   },

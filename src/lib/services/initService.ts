@@ -58,28 +58,30 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
-    const res = await fetch(`${API_BASE}/check`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-App-Key': HARDCODED_KILL_KEY
-      },
-      body: JSON.stringify({key: storedKey, version, device_id: deviceId}),
-      signal: controller.signal,
-    });
+    try {
+      const res = await fetch(`${API_BASE}/check`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Key': HARDCODED_KILL_KEY
+        },
+        body: JSON.stringify({key: storedKey, version, device_id: deviceId}),
+        signal: controller.signal,
+      });
 
-    clearTimeout(timeout);
+      if (!res.ok) {
+        return {blocked: true, reason: 'Access Denied (Security Server Error)'};
+      }
 
-    if (!res.ok) {
-      return {blocked: true, reason: 'Access Denied (Security Server Error)'};
+      const data = await res.json();
+      return {
+        blocked: data.blocked === true,
+        shutdown: data.shutdown === true,
+        reason: data.reason || 'অ্যাপটি বর্তমানে মেইনটেন্যান্সের অধীনে আছে। দয়া করে কিছুক্ষণ পর আবার চেষ্টা করুন।'
+      };
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const data = await res.json();
-    return {
-      blocked: data.blocked === true,
-      shutdown: data.shutdown === true,
-      reason: data.reason || 'অ্যাপটি বর্তমানে মেইনটেন্যান্সের অধীনে আছে। দয়া করে কিছুক্ষণ পর আবার চেষ্টা করুন।'
-    };
   } catch {
     return {blocked: false, shutdown: false};
   }
@@ -90,16 +92,18 @@ export async function initializeApp(
 ): Promise<{forceUpdate?: boolean; blocked?: boolean; reason?: string}> {
   try {
     onProgress({progress: 5, status: 'Verifying session...'});
+    onProgress({progress: 15, status: 'Checking for updates...'});
+    const [check, forceUpdateNeeded] = await Promise.all([
+      checkKillSwitch(),
+      checkForceUpdateOnly(),
+    ]);
 
     // 1. Kill Switch Check
-    const check = await checkKillSwitch();
     if (check.shutdown || check.blocked) {
       return { blocked: true, reason: check.reason };
     }
 
     // 2. Force Update Check
-    onProgress({progress: 15, status: 'Checking for updates...'});
-    const forceUpdateNeeded = await checkForceUpdateOnly();
     if (forceUpdateNeeded) {
       return { forceUpdate: true };
     }

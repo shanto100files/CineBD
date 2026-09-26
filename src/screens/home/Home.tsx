@@ -296,14 +296,8 @@ const Home = ({navigation}: Props) => {
 
   // Signal App to fade the splash: the shell painted, heavy content follows.
   useEffect(() => {
-    if (!deferredMount) {
-      return;
-    }
-    const frame = requestAnimationFrame(() => {
-      markHomeReady();
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [deferredMount]);
+    markHomeReady();
+  }, []);
 
   // Show loading state while providers are being installed
   if (
