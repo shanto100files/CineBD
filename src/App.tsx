@@ -44,6 +44,9 @@ import ReportScreen from './screens/settings/ReportScreen';
 import Constants from 'expo-constants';
 import {settingsStorage} from './lib/storage';
 import {updateProvidersService} from './lib/services/UpdateProviders';
+import {getGatedInstalledProviders} from './lib/utils/providerGate';
+import useContentStore from './lib/zustand/contentStore';
+import {useEntitlementStore} from './lib/zustand/entitlementStore';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {initNetStatus} from './lib/netStatus';
 import * as ExpoUpdates from 'expo-updates';
@@ -972,6 +975,21 @@ const App = () => {
       } catch {}
     }, 15000);
     return () => clearTimeout(t);
+  }, [appReady, splashOverlayVisible]);
+
+  // Provider entitlements: refresh after launch so admin-granted / selected
+  // providers are filtered correctly on every screen, then re-gate the
+  // installed list (entitlement store notifies via `loaded`).
+  useEffect(() => {
+    if (!appReady || splashOverlayVisible) return;
+    useEntitlementStore
+      .getState()
+      .refresh()
+      .then(() => {
+        const gated = getGatedInstalledProviders();
+        useContentStore.setState({installedProviders: gated});
+      })
+      .catch(() => {});
   }, [appReady, splashOverlayVisible]);
 
   // Priority Rendering Logic

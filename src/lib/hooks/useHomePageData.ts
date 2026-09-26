@@ -6,6 +6,7 @@ import {cacheStorage} from '../storage';
 import useContentStore from '../zustand/contentStore';
 import axios from 'axios';
 import {useAuthStore} from '../zustand/authStore';
+import {useEntitlementStore} from '../zustand/entitlementStore';
 
 async function syncToServer(providerValue: string, sections: HomePageData[]) {
   try {
@@ -29,19 +30,6 @@ interface UseHomePageDataOptions {
   enabled?: boolean;
 }
 
-async function fetchMyProviders(token: string): Promise<string[] | null> {
-  try {
-    const res = await axios.get('https://cinepix.top/api/app/myproviders', {
-      headers: {Authorization: `Bearer ${token}`},
-      timeout: 8000,
-    });
-    if (res.data.all) return null;
-    return (res.data.providers || []).map((p: any) => p.value);
-  } catch {
-    return null;
-  }
-}
-
 export const useHomePageData = ({
   provider,
   enabled = true,
@@ -49,28 +37,34 @@ export const useHomePageData = ({
   const installedProviders = useContentStore(state => state.installedProviders);
   const homeProviderValue = useContentStore(state => state.homeProviderValue);
   const token = useAuthStore(s => s.token);
-  const [allowedProviders, setAllowedProviders] = useState<string[] | null>(null);
+  const entAllowed = useEntitlementStore(s => s.allowed);
 
+  // Keep entitlements fresh (login/logout drives this too via the store).
   useEffect(() => {
-    if (!token) { setAllowedProviders(null); return; }
-    fetchMyProviders(token).then(setAllowedProviders);
+    useEntitlementStore.getState().refresh();
   }, [token]);
 
   const providersToFetch = React.useMemo(() => {
     if (!installedProviders || installedProviders.length === 0) return [provider];
+    let candidates: any[];
     if (homeProviderValue) {
       const vals = homeProviderValue.split(',').filter(Boolean);
       if (vals.length > 0) {
         const matched = installedProviders.filter((p: any) => vals.includes(p.value));
-        if (matched.length > 0) return matched;
+        if (matched.length > 0) {
+          candidates = matched;
+        }
       }
     }
-    const homeProviders = installedProviders.filter((p: any) => p.show_on_home !== false);
-    if (homeProviders.length === 0) return installedProviders;
-    if (allowedProviders === null) return homeProviders;
-    const filtered = homeProviders.filter(p => allowedProviders.includes(p.value));
-    return filtered.length > 0 ? filtered : homeProviders;
-  }, [installedProviders, allowedProviders, provider, homeProviderValue]);
+    if (!candidates) {
+      const homeProviders = installedProviders.filter((p: any) => p.show_on_home !== false);
+      candidates = homeProviders.length > 0 ? homeProviders : installedProviders;
+    }
+    // Entitlement gate: anonymous/open-catalog devices never fetch
+    // admin-granted (`selected`) providers; signed-in restricted accounts
+    // fetch exactly the providers the server granted them.
+    return useEntitlementStore.getState().applyTo(candidates);
+  }, [installedProviders, entAllowed, provider, homeProviderValue]);
 
   const query = useQuery<HomePageData[], Error>({
     queryKey: ['homePageData', 'aggregate', providersToFetch.map(p => p.value).sort().join(','), token || 'anon'],

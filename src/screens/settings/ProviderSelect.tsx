@@ -20,6 +20,7 @@ import useContentStore from '../../lib/zustand/contentStore';
 import {HARDCODED_KILL_KEY} from '../../lib/services/initService';
 import {settingsStorage} from '../../lib/storage';
 import {showAppDialog} from '../../lib/zustand/appDialogStore';
+import {useEntitlementStore} from '../../lib/zustand/entitlementStore';
 
 const API = 'https://cinepix.top/api/app';
 
@@ -195,6 +196,9 @@ export default function ProviderSelectScreen() {
         );
         setCoupon('');
         await loadUnlocks();
+        // Refresh entitlements so the newly unlocked provider immediately
+        // appears in home/search lists (and gets past the gate).
+        useEntitlementStore.getState().refresh();
         // Pre-select newly unlocked providers for convenience.
         if (data.providers?.length) {
           setSelected(prev => {

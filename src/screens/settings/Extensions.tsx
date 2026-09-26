@@ -24,6 +24,7 @@ import {
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import {settingsStorage} from '../../lib/storage';
 import {getGatedInstalledProviders} from '../../lib/utils/providerGate';
+import {useAuthStore} from '../../lib/zustand/authStore';
 import ProviderSourceManager from './components/ProviderSourceManager';
 import ProviderCard, {ProviderTestStatus} from './components/ProviderCard';
 import {
@@ -440,10 +441,18 @@ const Extensions = ({navigation}: Props) => {
   };
   const currentData = useMemo(() => {
     const adultAllowed = settingsStorage.isAdultEnabled();
+    const isAdmin = !!useAuthStore.getState().user?.is_admin;
     const allProviders = [
       ...(availableProviders || []),
       ...(installedProviders || []),
-    ].filter(item => item && item.value && (adultAllowed || !item.is_adult));
+    ].filter(
+      item =>
+        item &&
+        item.value &&
+        (adultAllowed || !item.is_adult) &&
+        // Admin-grant (`selected`) providers are not self-installable.
+        (isAdmin || item.access_mode !== 'selected'),
+    );
 
     const providersMap = new Map<string, ProviderExtension>();
     for (const item of allProviders) {

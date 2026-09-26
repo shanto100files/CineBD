@@ -120,6 +120,7 @@ export class ExtensionManager {
         type: item.type || 'global',
         hasSettings: Boolean(item.hasSettings),
         is_adult: Boolean(item.is_adult),
+        access_mode: item.access_mode === 'selected' ? 'selected' : 'all',
         streamOnly: Boolean(item.streamOnly),
         installed: false,
       }));
@@ -429,8 +430,39 @@ export class ExtensionManager {
       }
 
       this.autoInstallNewProviders();
+      this.syncAccessModes();
     } catch (error) {
       console.error('Failed to initialize extension system:', error);
+    }
+  }
+
+  /**
+   * Propagate fresh access_mode flags from the manifest cache onto the
+   * installed-provider records so entitlement filtering uses live values.
+   */
+  private syncAccessModes(): void {
+    try {
+      const source = this.getActiveSource();
+      if (!source) return;
+      const manifest = extensionStorage.getManifestCache(source.author);
+      if (manifest.length === 0) return;
+      const modeByValue = new Map(manifest.map(p => [p.value, (p as any).access_mode || 'all']));
+      const installed = extensionStorage.getInstalledProviders();
+      let changed = false;
+      const next = installed.map(p => {
+        const mode = modeByValue.get(p.value);
+        if (mode && p.access_mode !== mode) {
+          changed = true;
+          return {...p, access_mode: mode};
+        }
+        return p;
+      });
+      if (changed) {
+        extensionStorage.setInstalledProviders(next);
+        console.log('Synced access_mode flags onto installed providers');
+      }
+    } catch (error) {
+      console.warn('syncAccessModes failed:', error);
     }
   }
 

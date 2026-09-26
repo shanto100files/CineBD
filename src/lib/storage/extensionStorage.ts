@@ -23,6 +23,8 @@ export interface ProviderExtension {
   installed: boolean;
   /** 18+ provider — hidden unless the user passed the age gate. */
   is_adult?: boolean;
+  /** Server access mode: 'all' = self-selectable/open, 'selected' = admin-grant/coupon only. */
+  access_mode?: 'all' | 'selected';
   hasSettings?: boolean;
   /** Server-flagged: hide local download UI (e.g. m3u8-only providers). */
   streamOnly?: boolean;

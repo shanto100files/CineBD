@@ -1,10 +1,10 @@
-import {settingsStorage} from '../storage';
-import {extensionStorage, ProviderExtension} from '../storage/extensionStorage';
+import {useEntitlementStore} from '../zustand/entitlementStore';
 
-export const getGatedInstalledProviders = (): ProviderExtension[] => {
-  const installed = extensionStorage.getInstalledProviders() || [];
-  if (settingsStorage.isAdultEnabled()) {
-    return installed;
-  }
-  return installed.filter(p => !p.is_adult);
-};
+/**
+ * Central provider visibility gate — delegates to the entitlement store,
+ * which combines the 18+ age gate, access mode and the account's
+ * allow-list in one filter. Kept as a separate module so existing
+ * call-sites don't change.
+ */
+export const getGatedInstalledProviders = () =>
+  useEntitlementStore.getState().gatedInstalled();
