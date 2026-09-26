@@ -778,15 +778,17 @@ const Gestures = ({
     };
   }, []);
 
-  // Memoize container styles. The gesture surface covers the middle band of
-  // the video only — top/bottom margins keep the header (back button) and
-  // footer (seekbar) controls tappable instead of triggering pause/seek.
+  // Memoize container styles. The gesture surface is an IN-FLOW band between
+  // TopControls (flex:1) and BottomControls (flex:2) — that flow layout is
+  // exactly what keeps header/footer taps out of the gesture surface.
+  // NEVER add margins here: percentage margins in Yoga resolve against the
+  // PARENT WIDTH, so in landscape they become huge (~190px+), crush the flex
+  // column, shrink TopControls to a sliver and push BottomControls under the
+  // overflow:hidden clip — controls become invisible (regression in 1a5bea0).
   const containerStyle = useMemo(
     () => ({
       width: '100%' as const,
       height: '70%' as const,
-      marginTop: '12%' as const,
-      marginBottom: '12%' as const,
     }),
     [],
   );
