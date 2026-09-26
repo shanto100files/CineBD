@@ -14,7 +14,7 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import axios from 'axios';
 import {MaterialIcons} from '@expo/vector-icons';
 import AppText from '../../components/ui/Text';
-import {useM3Colors} from '../theme/M3PaletteContext';
+import {useM3Colors} from '../../theme/M3PaletteContext';
 import {useAuthStore} from '../../lib/zustand/authStore';
 import useContentStore from '../../lib/zustand/contentStore';
 import {HARDCODED_KILL_KEY} from '../../lib/services/initService';
