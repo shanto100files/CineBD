@@ -1,8 +1,9 @@
 import React, {useEffect, useState} from 'react';
-import {Alert, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View} from 'react-native';
+import {Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View} from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {useAuthStore} from '../lib/zustand/authStore';
+import {showAppDialog} from '../lib/zustand/appDialogStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import AppText from '../components/ui/Text';
 import {useNavigation} from '@react-navigation/native';
@@ -75,31 +76,56 @@ export default function ProfileScreen() {
               const asset = result.assets[0];
               const res = await uploadAvatar(asset.uri, asset.mimeType || 'image/jpeg');
               if (res.success) {
-                Alert.alert('সফল', 'প্রোফাইল ছবি আপডেট হয়েছে');
+                showAppDialog({
+                  title: 'সফল!',
+                  message: 'প্রোফাইল ছবি আপডেট হয়েছে',
+                  variant: 'success',
+                  actions: [{label: 'ঠিক আছে'}],
+                });
               } else {
-                Alert.alert('সমস্যা', res.error || 'ছবি আপলোড হয়নি');
+                showAppDialog({
+                  title: 'সমস্যা',
+                  message: res.error || 'ছবি আপলোড হয়নি',
+                  variant: 'error',
+                  actions: [{label: 'ঠিক আছে'}],
+                });
               }
             } catch {
-              Alert.alert('সমস্যা', 'ছবি বাছাই করা যায়নি');
+              showAppDialog({
+                title: 'সমস্যা',
+                message: 'ছবি বাছাই করা যায়নি',
+                variant: 'error',
+                actions: [{label: 'ঠিক আছে'}],
+              });
             }
           }}
           onLongPress={() => {
             if (!avatarUri) {
               return;
             }
-            Alert.alert('প্রোফাইল ছবি', 'ছবিটা সরাবো?', [
-              {text: 'বাতিল', style: 'cancel'},
-              {
-                text: 'সরাও',
-                style: 'destructive',
-                onPress: async () => {
-                  const res = await removeAvatar();
-                  if (!res.success) {
-                    Alert.alert('সমস্যা', res.error || 'ছবি সরানো যায়নি');
-                  }
+            showAppDialog({
+              title: 'প্রোফাইল ছবি',
+              message: 'ছবিটা সরাবো?',
+              variant: 'warning',
+              actions: [
+                {label: 'বাতিল'},
+                {
+                  label: 'সরাও',
+                  variant: 'destructive',
+                  onPress: async () => {
+                    const res = await removeAvatar();
+                    if (!res.success) {
+                      showAppDialog({
+                        title: 'সমস্যা',
+                        message: res.error || 'ছবি সরানো যায়নি',
+                        variant: 'error',
+                        actions: [{label: 'ঠিক আছে'}],
+                      });
+                    }
+                  },
                 },
-              },
-            ]);
+              ],
+            });
           }}
           style={[
             styles.avatar,
@@ -108,7 +134,7 @@ export default function ProfileScreen() {
           {avatarUri ? (
             <Image
               source={{uri: avatarUri}}
-              style={{height: '100%', width: '100%'}}
+              style={{borderRadius: 49, height: '100%', width: '100%'}}
             />
           ) : (
             <AppText
@@ -117,22 +143,28 @@ export default function ProfileScreen() {
               {initial}
             </AppText>
           )}
-          {/* Small camera badge hints the avatar is tappable */}
+          {/* Camera badge sits outside the avatar edge so it is clearly visible */}
           <View
+            pointerEvents="none"
             style={{
               alignItems: 'center',
               backgroundColor: colors.primary,
               borderColor: colors.surfaceContainerLowest,
-              borderRadius: 14,
-              borderWidth: 2,
-              bottom: -2,
-              height: 28,
+              borderRadius: 16,
+              borderWidth: 3,
+              bottom: -4,
+              elevation: 4,
+              height: 32,
               justifyContent: 'center',
               position: 'absolute',
-              right: -2,
-              width: 28,
+              right: -4,
+              shadowColor: '#000',
+              shadowOffset: {width: 0, height: 2},
+              shadowOpacity: 0.35,
+              shadowRadius: 3,
+              width: 32,
             }}>
-            <MaterialIcons name="photo-camera" size={13} color={colors.onPrimary} />
+            <MaterialIcons name="photo-camera" size={16} color={colors.onPrimary} />
           </View>
         </TouchableOpacity>
 
@@ -279,9 +311,19 @@ export default function ProfileScreen() {
                 const res = await updateEmail(emailInput.trim());
                 if (res.success) {
                   setShowEmailEdit(false);
-                  Alert.alert('সফল', 'Email আপডেট হয়েছে');
+                  showAppDialog({
+                    title: 'সফল!',
+                    message: 'Email আপডেট হয়েছে',
+                    variant: 'success',
+                    actions: [{label: 'ঠিক আছে'}],
+                  });
                 } else {
-                  Alert.alert('সমস্যা', res.error || 'Email আপডেট হয়নি');
+                  showAppDialog({
+                    title: 'সমস্যা',
+                    message: res.error || 'Email আপডেট হয়নি',
+                    variant: 'error',
+                    actions: [{label: 'ঠিক আছে'}],
+                  });
                 }
               }}
               style={{
@@ -373,15 +415,30 @@ export default function ProfileScreen() {
               disabled={savingAccount}
               onPress={async () => {
                 if (!currentPassword || !newPassword) {
-                  Alert.alert('সমস্যা', 'সব ঘর পূরণ করুন');
+                  showAppDialog({
+                    title: 'সমস্যা',
+                    message: 'সব ঘর পূরণ করুন',
+                    variant: 'warning',
+                    actions: [{label: 'ঠিক আছে'}],
+                  });
                   return;
                 }
                 if (newPassword.length < 6) {
-                  Alert.alert('সমস্যা', 'নতুন password কমপক্ষে ৬ অক্ষরের হতে হবে');
+                  showAppDialog({
+                    title: 'সমস্যা',
+                    message: 'নতুন password কমপক্ষে ৬ অক্ষরের হতে হবে',
+                    variant: 'warning',
+                    actions: [{label: 'ঠিক আছে'}],
+                  });
                   return;
                 }
                 if (newPassword !== confirmPassword) {
-                  Alert.alert('সমস্যা', 'দুটো password মিলছে না');
+                  showAppDialog({
+                    title: 'সমস্যা',
+                    message: 'দুটো password মিলছে না',
+                    variant: 'warning',
+                    actions: [{label: 'ঠিক আছে'}],
+                  });
                   return;
                 }
                 setSavingAccount(true);
@@ -392,9 +449,19 @@ export default function ProfileScreen() {
                   setNewPassword('');
                   setConfirmPassword('');
                   setShowPasswordEdit(false);
-                  Alert.alert('সফল', 'Password পরিবর্তন হয়েছে');
+                  showAppDialog({
+                    title: 'সফল!',
+                    message: 'Password পরিবর্তন হয়েছে',
+                    variant: 'success',
+                    actions: [{label: 'ঠিক আছে'}],
+                  });
                 } else {
-                  Alert.alert('সমস্যা', res.error || 'Password পরিবর্তন হয়নি');
+                  showAppDialog({
+                    title: 'সমস্যা',
+                    message: res.error || 'Password পরিবর্তন হয়নি',
+                    variant: 'error',
+                    actions: [{label: 'ঠিক আছে'}],
+                  });
                 }
               }}
               style={{
@@ -488,7 +555,6 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     height: 104,
     justifyContent: 'center',
-    overflow: 'hidden',
     width: 104,
   },
   badge: {
