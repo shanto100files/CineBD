@@ -1,6 +1,6 @@
 {
   "name": "cinepix-mobile",
-  "version": "5.6.0",
+  "version": "5.7.7",
   "private": true,
   "scripts": {
     "android": "npm run build:sandbox && expo run:android",
