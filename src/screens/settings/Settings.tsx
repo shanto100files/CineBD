@@ -460,8 +460,8 @@ const Settings = ({navigation}: Props) => {
           </SettingsSection>
         </AnimatedSection>
 
-        {/* Content provider section - Admin only */}
-        {user?.is_admin && (
+        {/* Content provider section - visible to everyone; premium/locked
+            providers show the unlock note inside the picker (ProviderSelect). */}
         <AnimatedSection delay={100}>
           <View style={{marginBottom: 24}}>
             <View
@@ -550,7 +550,6 @@ const Settings = ({navigation}: Props) => {
             )}
           </SettingsSection>
         </AnimatedSection>
-        )}
 
         {/* Network Section */}
         <AnimatedSection delay={150}>
