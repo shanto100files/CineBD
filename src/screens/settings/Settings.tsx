@@ -27,6 +27,8 @@ import Animated, {FadeInDown, FadeInUp, Layout} from 'react-native-reanimated';
 import {useNavigation, useIsFocused} from '@react-navigation/native';
 import RenderProviderFlagIcon from '../../components/RenderProviderFLagIcon';
 import useNavigationPreferencesStore from '../../lib/zustand/navigationPreferencesStore';
+import useAuthStore from '../../lib/zustand/authStore';
+import axios from 'axios';
 import DnsPreference from './components/DnsPreference';
 import IconButton from '../../components/ui/IconButton';
 import SettingsRow from '../../components/ui/SettingsRow';
@@ -61,6 +63,8 @@ const Settings = ({navigation}: Props) => {
   const colors = useM3Colors();
   const [preferredLanguage, setPreferredLanguage] = useState(settingsStorage.getPreferredLanguage());
   const [adultEnabled, setAdultEnabled] = useState(settingsStorage.isAdultEnabled());
+  const [tvAdultEnabled, setTvAdultEnabled] = useState<boolean | null>(null);
+  const [tvAdultSaving, setTvAdultSaving] = useState(false);
   const {user, isPremium, isLoggedIn, logout} = useAuthStore();
   const authUserId = user?.id;
   const [friendsUnread, setFriendsUnread] = useState(0);
@@ -71,6 +75,42 @@ const Settings = ({navigation}: Props) => {
   const hideDownloadsTab = useNavigationPreferencesStore(
     state => state.hideDownloadsTab,
   );
+
+  // Load the account-level TV 18+ flag (remote control for Android TV).
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setTvAdultEnabled(null);
+      return;
+    }
+    const user = useAuthStore.getState().user as any;
+    setTvAdultEnabled(user?.tv_adult_enabled !== false);
+  }, [isLoggedIn]);
+
+  const handleTvAdultToggle = useCallback(async () => {
+    if (tvAdultSaving) return;
+    const next = !(tvAdultEnabled ?? true);
+    setTvAdultSaving(true);
+    try {
+      const token = useAuthStore.getState().token;
+      const res = await axios.post(
+        'https://cinepix.top/api/app/tvadult',
+        {allow: next},
+        {headers: {Authorization: `Bearer ${token}`}, timeout: 10000},
+      );
+      if (res.data?.ok) {
+        setTvAdultEnabled(next);
+        ToastAndroid.show(
+          next ? 'TV-তে 18+ চালু হয়েছে' : 'TV-তে 18+ বন্ধ হয়েছে',
+          ToastAndroid.SHORT,
+        );
+      } else {
+        ToastAndroid.show(res.data?.error || 'পরিবর্তন ব্যর্থ হয়েছে', ToastAndroid.SHORT);
+      }
+    } catch (e: any) {
+      ToastAndroid.show(e?.response?.data?.error || 'নেটওয়ার্ক সমস্যা', ToastAndroid.SHORT);
+    }
+    setTvAdultSaving(false);
+  }, [tvAdultEnabled, tvAdultSaving]);
 
   // Unread friends/chat badge (shares + chat messages) for the বন্ধুরা row.
   useEffect(() => {
@@ -629,6 +669,21 @@ const Settings = ({navigation}: Props) => {
                 }
               }}
             />
+            {isLoggedIn && (
+              <SettingsRow
+                title={tvAdultEnabled === false ? '18+ on Android TV: Off' : '18+ on Android TV: On'}
+                description={
+                  tvAdultEnabled === false
+                    ? 'তোমার অ্যাকাউন্টের TV-তে 18+ provider বন্ধ থাকবে'
+                    : 'মোবাইল থেকে নিজের অ্যাকাউন্টের TV-র 18+ নিয়ন্ত্রণ করো'
+                }
+                icon={tvAdultEnabled === false ? 'tv-off' : 'tv'}
+                iconBg={'#1A2A3A'}
+                iconColor={'#90CAF9'}
+                divider={false}
+                onPress={handleTvAdultToggle}
+              />
+            )}
           </SettingsSection>
         </AnimatedSection>
 

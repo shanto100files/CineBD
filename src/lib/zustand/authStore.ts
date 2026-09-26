@@ -1,6 +1,7 @@
 import {create} from 'zustand';
 import {MMKV} from '../Mmkv';
 import axios from 'axios';
+import {Platform} from 'react-native';
 
 const API = 'https://cinepix.top/api/app';
 
@@ -53,7 +54,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (username, password) => {
     try {
-      const res = await axios.post(`${API}/login`, {username, password}, {timeout: 10000});
+      const res = await axios.post(`${API}/login`, {username, password, device_type: Platform.isTV ? 'tv' : 'mobile'}, {timeout: 10000});
       if (res.data.token) {
         authStorage.setString('token', res.data.token);
         authStorage.setString('user', JSON.stringify(res.data.user));

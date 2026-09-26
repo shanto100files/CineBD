@@ -1,11 +1,13 @@
 import {extensionManager} from './ExtensionManager';
 import useContentStore from '../zustand/contentStore';
+import {useAuthStore} from '../zustand/authStore';
 import {mainStorage as storage} from '../storage/StorageService';
 import {settingsStorage} from '../storage';
 import * as Application from 'expo-application';
 import {getDeviceId} from './heartbeatService';
 import {getGatedInstalledProviders} from '../utils/providerGate';
 import axios from 'axios';
+import {Platform} from 'react-native';
 
 export interface InitProgress {
   progress: number;
@@ -59,13 +61,19 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
     const timeout = setTimeout(() => controller.abort(), 15000);
 
     try {
+      // TV devices identify themselves and (when logged in) receive the
+      // account-level tv_adult_enabled flag so a phone can remotely turn 18+
+      // off on the TV.
+      const isTvDevice = Platform.isTV;
+      const tvToken = isTvDevice ? useAuthStore.getState().token : null;
       const res = await fetch(`${API_BASE}/check`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-App-Key': HARDCODED_KILL_KEY
+          'X-App-Key': HARDCODED_KILL_KEY,
+          ...(tvToken ? {Authorization: `Bearer ${tvToken}`} : {}),
         },
-        body: JSON.stringify({key: storedKey, version, device_id: deviceId}),
+        body: JSON.stringify({key: storedKey, version, device_id: deviceId, device_type: isTvDevice ? 'tv' : 'mobile'}),
         signal: controller.signal,
       });
 
@@ -74,6 +82,12 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
       }
 
       const data = await res.json();
+      // Android TV + logged in + account says 18+ off → force it off locally,
+      // overriding whatever the TV's local toggle says. This is the remote
+      // parental control: the phone decides for the TV.
+      if (isTvDevice && data.tv_adult_enabled === false) {
+        settingsStorage.setAdultEnabled(false);
+      }
       return {
         blocked: data.blocked === true,
         shutdown: data.shutdown === true,
