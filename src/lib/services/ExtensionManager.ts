@@ -120,6 +120,7 @@ export class ExtensionManager {
         type: item.type || 'global',
         hasSettings: Boolean(item.hasSettings),
         is_adult: Boolean(item.is_adult),
+        streamOnly: Boolean(item.streamOnly),
         installed: false,
       }));
 

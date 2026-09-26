@@ -122,6 +122,10 @@ const AnimatedVideoPlayer = (
   const [seekerWidth, setSeekerWidth] = useState(0);
   const [seeking, setSeeking] = useState(false);
   const seekingRef = useRef(false);
+  const pausedRef = useRef(_paused);
+  pausedRef.current = _paused;
+  const pausedBeforeBufferRef = useRef(false);
+  const pausedDuringBufferRef = useRef(false);
   const seekWasActive = useRef(false);
   const wasPausedBeforeSeek = useRef(false);
   const [seekSnapPosition, setSeekSnapPosition] = useState<number | null>(null);
@@ -281,6 +285,7 @@ const AnimatedVideoPlayer = (
   const _onLoadStart = useCallback(
     (e: OnLoadStartData) => {
       setLoading(true);
+      setError(false);
 
       if (typeof onLoadStart === 'function') {
         onLoadStart(e);
@@ -702,10 +707,8 @@ const AnimatedVideoPlayer = (
 
   const rewind = useCallback(
     (time?: number) => {
-      const newTime =
-        typeof time === 'number'
-          ? currentTime - time
-          : currentTime - rewindTime;
+      const delta = typeof time === 'number' ? time : rewindTime;
+      const newTime = Math.max(0, currentTime - delta);
       setCurrentTime(newTime);
       videoRef?.current?.seek(newTime);
     },
@@ -714,23 +717,39 @@ const AnimatedVideoPlayer = (
 
   const forward = useCallback(
     (time?: number) => {
+      const delta = typeof time === 'number' ? time : rewindTime;
       const newTime =
-        typeof time === 'number'
-          ? currentTime + time
-          : currentTime + rewindTime;
+        duration > 0
+          ? Math.min(duration, currentTime + delta)
+          : currentTime + delta;
       setCurrentTime(newTime);
       videoRef?.current?.seek(newTime);
     },
-    [currentTime, rewindTime, videoRef],
+    [currentTime, duration, rewindTime, videoRef],
   );
 
   // Memoize onBuffer callback
   const onBuffer = useCallback((e: {isBuffering: boolean}) => {
+    if (e.isBuffering) {
+      pausedBeforeBufferRef.current = pausedRef.current;
+      pausedDuringBufferRef.current = false;
+    }
     setBuffering(e.isBuffering);
-    if (!e.isBuffering && !seekingRef.current) {
+    if (
+      !e.isBuffering &&
+      !seekingRef.current &&
+      !pausedBeforeBufferRef.current &&
+      !pausedDuringBufferRef.current
+    ) {
       setPaused(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (buffering && _paused && !pausedBeforeBufferRef.current) {
+      pausedDuringBufferRef.current = true;
+    }
+  }, [buffering, _paused]);
 
   // Memoize source URI for dependency comparison - use deep comparison for stability
   const sourceUri = useMemo(() => {

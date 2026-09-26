@@ -351,6 +351,7 @@ export const useStream = ({
 
   const activeEpisodeKey = getEpisodeIdentity(activeEpisode);
   const previousEpisodeKeyRef = useRef(activeEpisodeKey);
+  const subtitleEpisodeKeyRef = useRef(activeEpisodeKey);
 
   useEffect(() => {
     if (previousEpisodeKeyRef.current === activeEpisodeKey) {
@@ -452,7 +453,9 @@ export const useStream = ({
         // entirely if the filtered list still has alternatives.
         const deviceMemMB = totalMemoryMB();
         const isLowRamDevice =
-          Platform.Version >= 26 && deviceMemMB > 0 && deviceMemMB < 3500;
+          Number(Platform.Version) >= 26 &&
+          deviceMemMB > 0 &&
+          deviceMemMB < 3500;
         if (isLowRamDevice && skip4k && filteredQualities?.some(s => s?.quality === '2160')) {
           const without4k = filteredQualities.filter(s => s?.quality !== '2160');
           if (without4k.length > 0) {
@@ -523,6 +526,8 @@ export const useStream = ({
   // Extract downloaded and online external subtitles
   useEffect(() => {
     let cancelled = false;
+    const episodeChanged = subtitleEpisodeKeyRef.current !== activeEpisodeKey;
+    subtitleEpisodeKeyRef.current = activeEpisodeKey;
 
     const loadSubs = async () => {
       const downloadedSubs = getDownloadedSubtitlesForMedia(
@@ -567,16 +572,27 @@ export const useStream = ({
 
       if (!cancelled) {
         setExternalSubs(prev => {
+          // Manually picked subtitles only survive a streamData refresh when
+          // the episode itself did not change.
+          const retained = episodeChanged
+            ? []
+            : prev.filter(
+                (s: any) =>
+                  s?.uri && !mergedSubs.some((m: any) => m.uri === s.uri),
+              );
+          const next = [...mergedSubs, ...retained];
           const prevKey = prev.map((s: any) => s.uri || '').join('|');
-          const nextKey = mergedSubs.map((s: any) => s.uri || '').join('|');
-          return prevKey === nextKey ? prev : mergedSubs;
+          const nextKey = next.map((s: any) => s.uri || '').join('|');
+          return prevKey === nextKey ? prev : next;
         });
       }
     };
 
     loadSubs();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [streamData, activeEpisodeKey]);
 
   // Handle errors
@@ -590,9 +606,12 @@ export const useStream = ({
 
   const switchToNextStream = () => {
     if (streamData && streamData.length > 0) {
-      const currentIndex = streamData.indexOf(selectedStream);
-      if (currentIndex < streamData.length - 1) {
-        setSelectedStream(streamData[currentIndex + 1]);
+      const currentIndex = streamData.findIndex(
+        s => s.link === selectedStream?.link,
+      );
+      const nextIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+      if (nextIndex < streamData.length) {
+        setSelectedStream(streamData[nextIndex]);
         ToastAndroid.show(
           'Video could not be played, Trying next server',
           ToastAndroid.SHORT,

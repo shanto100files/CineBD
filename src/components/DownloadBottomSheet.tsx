@@ -211,9 +211,11 @@ const DownloadBottomSheet = ({
 
   useEffect(() => {
     if (streams.length > 0 && showModal) {
-      fetchFileSizes(streams).then(sizes => {
-        setFileSizes(new Map(sizes));
-      });
+      fetchFileSizes(streams)
+        .then(sizes => {
+          setFileSizes(new Map(sizes));
+        })
+        .catch(() => {});
     }
   }, [streams, showModal]);
 

@@ -1,10 +1,9 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Animated,
   Image,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,12 +17,12 @@ import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
 
 /**
- * Fresh login experience:
+ * Login screen:
  * - Glow-blob background (matches the website's bg-glow aesthetic)
  * - Icon-led filled inputs with password visibility toggle
- * - On success: brief success flash, then automatic return to the page the
- *   user came from. Only if going back is impossible does the success popup
- *   with an explicit Back button appear.
+ * - On success: pop back to the page the user came from; the global
+ *   LoginSuccessAlert (authStore.loginJustSucceeded) confirms the login
+ *   on that page.
  */
 export default function LoginScreen({navigation}: any) {
   const [username, setUsername] = useState('');
@@ -32,26 +31,10 @@ export default function LoginScreen({navigation}: any) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Success states: flash overlay auto-returns; popup is the fallback.
-  const [showSuccessFlash, setShowSuccessFlash] = useState(false);
-  const [showCelebrate, setShowCelebrate] = useState(false);
-  const [celebrateName, setCelebrateName] = useState('');
-
   const login = useAuthStore(s => s.login);
   const colors = useM3Colors();
 
-  const flashScale = useRef(new Animated.Value(0.6)).current;
-  const flashOpacity = useRef(new Animated.Value(0)).current;
   const shakeX = useRef(new Animated.Value(0)).current;
-  const autoBackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (autoBackTimer.current) {
-        clearTimeout(autoBackTimer.current);
-      }
-    };
-  }, []);
 
   const shakeError = () => {
     shakeX.setValue(0);
@@ -64,21 +47,17 @@ export default function LoginScreen({navigation}: any) {
     ]).start();
   };
 
-  const returnToPreviousPage = () => {
+  const goBackToPreviousPage = () => {
     if (navigation.canGoBack && navigation.canGoBack()) {
       navigation.goBack();
     } else {
-      // Nothing to go back to (deep link / relaunch): keep the popup open so
-      // the user can leave with its Back button.
-      setCelebrateName(username.trim());
-      setShowSuccessFlash(false);
-      setShowCelebrate(true);
+      navigation.navigate('Settings' as never);
     }
   };
 
   const handleLogin = async () => {
     if (!username.trim() || !password) {
-      setError('Username ও password দিন');
+      setError('ইউজারনেম ও পাসওয়ার্ড দিন');
       shakeError();
       return;
     }
@@ -87,24 +66,7 @@ export default function LoginScreen({navigation}: any) {
     const result = await login(username.trim(), password);
     setLoading(false);
     if (result.success) {
-      setCelebrateName(username.trim());
-      setShowSuccessFlash(true);
-      flashOpacity.setValue(0);
-      flashScale.setValue(0.6);
-      Animated.parallel([
-        Animated.timing(flashScale, {
-          toValue: 1,
-          duration: 260,
-          useNativeDriver: true,
-        }),
-        Animated.timing(flashOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
-      // Auto-return to the previous page shortly after the success flash.
-      autoBackTimer.current = setTimeout(returnToPreviousPage, 1100);
+      goBackToPreviousPage();
     } else {
       setError(result.error || 'লগইন ব্যর্থ হয়েছে');
       shakeError();
@@ -183,7 +145,7 @@ export default function LoginScreen({navigation}: any) {
             />
             <TextInput
               style={[styles.input, {color: colors.onSurface}]}
-              placeholder="Username"
+              placeholder="ইউজারনেম"
               placeholderTextColor={colors.onSurfaceVariant}
               value={username}
               onChangeText={setUsername}
@@ -207,7 +169,7 @@ export default function LoginScreen({navigation}: any) {
             />
             <TextInput
               style={[styles.input, {color: colors.onSurface}]}
-              placeholder="Password"
+              placeholder="পাসওয়ার্ড"
               placeholderTextColor={colors.onSurfaceVariant}
               value={password}
               onChangeText={setPassword}
@@ -260,96 +222,27 @@ export default function LoginScreen({navigation}: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Success flash: auto-returns to the previous page */}
-      <Modal
-        visible={showSuccessFlash}
-        transparent
-        animationType="none"
-        onRequestClose={() => {}}>
-        <View style={styles.flashBackdrop}>
-          <Animated.View
-            style={[
-              styles.flashCard,
-              {
-                backgroundColor: colors.surfaceContainerHigh,
-                opacity: flashOpacity,
-                transform: [{scale: flashScale}],
-              },
-            ]}>
-            <View
-              style={[
-                styles.flashCheck,
-                {backgroundColor: colors.primaryContainer},
-              ]}>
-              <Ionicons name="checkmark" size={34} color={colors.primary} />
-            </View>
-            <Text style={[styles.flashTitle, {color: colors.onSurface}]}>
-              লগইন সফল!
-            </Text>
-            <Text style={[styles.flashSub, {color: colors.onSurfaceVariant}]}>
-              {celebrateName ? `${celebrateName}, ` : ''}ফিরে যাচ্ছি...
-            </Text>
-          </Animated.View>
-        </View>
-      </Modal>
-
-      {/* Fallback popup: only when there is no page to go back to */}
-      <Modal
-        visible={showCelebrate}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {}}>
-        <View style={styles.flashBackdrop}>
-          <View
-            style={[
-              styles.celebrateCard,
-              {backgroundColor: colors.surfaceContainerHigh},
-            ]}>
-            <Text style={{fontSize: 50}}>🎉</Text>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-              <Ionicons
-                name="checkmark-circle"
-                size={22}
-                color={colors.primary}
-              />
-              <Text
-                style={{color: colors.onSurface, fontSize: 20, fontWeight: '800'}}>
-                Login Successful!
-              </Text>
-            </View>
-            <Text
-              style={{
-                color: colors.onSurfaceVariant,
-                fontSize: 14,
-                textAlign: 'center',
-              }}>
-              স্বাগতম{celebrateName ? `, ${celebrateName}` : ''}! আপনি সফলভাবে
-              লগইন করেছেন।
-            </Text>
-            <TouchableOpacity
-              style={[styles.celebrateBtn, {backgroundColor: colors.primary}]}
-              onPress={() => {
-                setShowCelebrate(false);
-                if (navigation.canGoBack && navigation.canGoBack()) {
-                  navigation.goBack();
-                }
-              }}>
-              <Ionicons name="arrow-back" size={18} color={colors.onPrimary} />
-              <Text
-                style={{color: colors.onPrimary, fontSize: 15, fontWeight: '700'}}>
-                Back
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <TouchableOpacity
+        style={[styles.backBtn, {borderColor: colors.outline}]}
+        onPress={() => navigation.goBack()}
+        hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+        activeOpacity={0.7}>
+        <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {flex: 1},
-  glowLayer: {...StyleSheet.absoluteFillObject, overflow: 'hidden'},
+  glowLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
   glowA: {
     position: 'absolute',
     top: -140,
@@ -440,45 +333,17 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   registerBtnText: {fontSize: 14, fontWeight: '700'},
-  flashBackdrop: {
+  backBtn: {
+    position: 'absolute',
+    top: 8,
+    left: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    flex: 1,
     justifyContent: 'center',
-    padding: 32,
-  },
-  flashCard: {
-    alignItems: 'center',
-    borderRadius: 26,
-    gap: 10,
-    maxWidth: 320,
-    padding: 26,
-    width: '100%',
-  },
-  flashCheck: {
-    alignItems: 'center',
-    borderRadius: 30,
-    height: 60,
-    justifyContent: 'center',
-    width: 60,
-  },
-  flashTitle: {fontSize: 19, fontWeight: '800'},
-  flashSub: {fontSize: 13, textAlign: 'center'},
-  celebrateCard: {
-    alignItems: 'center',
-    borderRadius: 28,
-    gap: 10,
-    maxWidth: 340,
-    padding: 24,
-    width: '100%',
-  },
-  celebrateBtn: {
-    alignItems: 'center',
-    borderRadius: 24,
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-    paddingHorizontal: 28,
-    paddingVertical: 12,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    zIndex: 10,
   },
 });

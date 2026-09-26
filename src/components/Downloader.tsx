@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, TouchableOpacity, ToastAndroid } from 'react-native';
+import { View, TouchableOpacity, ToastAndroid, Text } from 'react-native';
 import { ifExists } from '../lib/file/ifExists';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Octicons from '@expo/vector-icons/Octicons';
@@ -174,6 +174,17 @@ const DownloadComponent = ({
   const colors = useM3Colors();
   const primary = colors.primary;
   const provider = useContentStore(state => state.provider);
+  const installedProviders = useContentStore(state => state.installedProviders);
+  // Server-flagged stream-only providers hide the local download option and
+  // expose a small "STREAM ONLY" badge instead (e.g. m3u8-only providers).
+  const activeProviderValue = providerValue || provider?.value || '';
+  const isStreamOnlyProvider =
+    !!activeProviderValue &&
+    installedProviders.some(
+      p =>
+        p.value === activeProviderValue &&
+        (p as {streamOnly?: boolean}).streamOnly === true,
+    );
 
   const videoDownload = useDownloadsStore(
     state =>
@@ -601,6 +612,20 @@ const DownloadComponent = ({
               <MaterialIcons name="check-circle" size={24} color={primary} />
             )}
           </TouchableOpacity>
+        ) : isStreamOnlyProvider ? (
+          <View
+            accessibilityRole="text"
+            accessibilityLabel="Stream only provider"
+            className="h-12 w-12 items-center justify-center">
+            <Text
+              numberOfLines={2}
+              className="text-center text-[8px] font-bold uppercase leading-[9px]"
+              style={{color: primary}}>
+              Stream
+              {'\n'}
+              Only
+            </Text>
+          </View>
         ) : (
           <TouchableOpacity
             disabled={serverLoading}

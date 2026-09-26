@@ -17,7 +17,7 @@ export default function RegisterScreen({navigation}: any) {
 
   const handleRegister = async () => {
     if (!username.trim() || !email.trim() || !password) {
-      setError('Please fill all fields');
+      setError('সব ঘর পূরণ করুন');
       return;
     }
     setLoading(true);
@@ -29,7 +29,7 @@ export default function RegisterScreen({navigation}: any) {
       setCelebrateName(username.trim());
       setShowCelebrate(true);
     } else {
-      setError(result.error || 'Registration failed');
+      setError(result.error || 'রেজিস্ট্রেশন ব্যর্থ হয়েছে');
     }
   };
 
@@ -41,26 +41,26 @@ export default function RegisterScreen({navigation}: any) {
           style={styles.logoImage}
           resizeMode="contain"
         />
-        <Text style={[styles.title, {color: colors.onBackground}]}>Create Account</Text>
-        <Text style={[styles.subtitle, {color: colors.onSurfaceVariant}]}>Join Cinepix</Text>
+        <Text style={[styles.title, {color: colors.onBackground}]}>অ্যাকাউন্ট তৈরি করুন</Text>
+        <Text style={[styles.subtitle, {color: colors.onSurfaceVariant}]}>সিনেপিক্সে যোগ দিন</Text>
 
         {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
 
         <TextInput style={[styles.input, {backgroundColor: colors.surfaceContainer, color: colors.onSurface, borderColor: colors.outline}]}
-          placeholder="Username" placeholderTextColor={colors.onSurfaceVariant} value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} />
+          placeholder="ইউজারনেম" placeholderTextColor={colors.onSurfaceVariant} value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} />
 
         <TextInput style={[styles.input, {backgroundColor: colors.surfaceContainer, color: colors.onSurface, borderColor: colors.outline}]}
-          placeholder="Email" placeholderTextColor={colors.onSurfaceVariant} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" />
+          placeholder="ইমেইল" placeholderTextColor={colors.onSurfaceVariant} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" />
 
         <TextInput style={[styles.input, {backgroundColor: colors.surfaceContainer, color: colors.onSurface, borderColor: colors.outline}]}
-          placeholder="Password" placeholderTextColor={colors.onSurfaceVariant} value={password} onChangeText={setPassword} secureTextEntry />
+          placeholder="পাসওয়ার্ড" placeholderTextColor={colors.onSurfaceVariant} value={password} onChangeText={setPassword} secureTextEntry />
 
         <TouchableOpacity style={[styles.btn, {backgroundColor: colors.primary}]} onPress={handleRegister} disabled={loading}>
-          {loading ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={[styles.btnText, {color: colors.onPrimary}]}>Register</Text>}
+          {loading ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={[styles.btnText, {color: colors.onPrimary}]}>রেজিস্টার করুন</Text>}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop: 12}}>
-          <Text style={{color: colors.primary, fontSize: 14}}>Already have an account? Login</Text>
+          <Text style={{color: colors.primary, fontSize: 14}}>অ্যাকাউন্ট আছে? লগইন করুন</Text>
         </TouchableOpacity>
       </View>
 
@@ -73,11 +73,11 @@ export default function RegisterScreen({navigation}: any) {
             <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
               <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
               <Text style={{color: colors.onSurface, fontSize: 20, fontWeight: '800'}}>
-                Registration Successful!
+                রেজিস্ট্রেশন সফল!
               </Text>
             </View>
             <Text style={{color: colors.onSurfaceVariant, fontSize: 14, textAlign: 'center'}}>
-              স্বাগতম{celebrateName ? `, ${celebrateName}` : ''}! আপনার একাউন্ট তৈরি হয়েছে।
+              স্বাগতম{celebrateName ? `, ${celebrateName}` : ''}! আপনার অ্যাকাউন্ট তৈরি হয়েছে।
             </Text>
             <TouchableOpacity
               style={[styles.celebrateBtn, {backgroundColor: colors.primary}]}
@@ -90,7 +90,7 @@ export default function RegisterScreen({navigation}: any) {
                 }
               }}>
               <Ionicons name="arrow-back" size={18} color={colors.onPrimary} />
-              <Text style={{color: colors.onPrimary, fontSize: 15, fontWeight: '700'}}>Back</Text>
+              <Text style={{color: colors.onPrimary, fontSize: 15, fontWeight: '700'}}>পেছনে</Text>
             </TouchableOpacity>
           </View>
         </View>

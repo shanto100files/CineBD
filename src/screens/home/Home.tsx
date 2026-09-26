@@ -21,6 +21,7 @@ import {HomeStackParamList} from '../../App';
 import {Drawer} from 'react-native-drawer-layout';
 import {GestureHandlerRootView, ScrollView} from 'react-native-gesture-handler';
 import {providerManager} from '../../lib/services/ProviderManager';
+import {normalizeAppAds} from '../../lib/services/adService';
 import {extensionManager} from '../../lib/services/ExtensionManager';
 import {Catalog} from '../../lib/providers/types';
 import Tutorial from '../../components/Touturial';
@@ -50,7 +51,7 @@ const Home = ({navigation}: Props) => {
 
   // Memoize static values
   const disableDrawer = useMemo(
-    () => mainStorage.getBool('disableDrawer') || true,
+    () => mainStorage.getBool('disableDrawer'),
     [],
   );
 
@@ -273,10 +274,36 @@ const Home = ({navigation}: Props) => {
   useEffect(() => {
     if (!adsReady) return;
     fetch('https://cinepix.top/api/app/ads', {headers: {'X-App-Key': '78a0e573dfd894d443685159b2e71e2f'}})
-      .then(r => r.json())
-      .then(d => setHomeAds(d))
+      .then(r => {
+        if (!r.ok) {
+          throw new Error(`ads request failed: ${r.status}`);
+        }
+        return r.json();
+      })
+      .then(d => setHomeAds(normalizeAppAds(d)))
       .catch(() => {});
   }, [adsReady]);
+
+  // Startup fast path: render an empty shell first so the splash overlay can
+  // fade to a *visible* screen instead of a black one, then mount the heavy
+  // tree (hero + sliders + ads) right after. Cache-backed content appears
+  // immediately afterwards because React Query's initialData is already there.
+  const [deferredMount, setDeferredMount] = useState(true);
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => setDeferredMount(false));
+    return () => task.cancel();
+  }, []);
+
+  // Signal App to fade the splash: the shell painted, heavy content follows.
+  useEffect(() => {
+    if (!deferredMount) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      markHomeReady();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [deferredMount]);
 
   // Show loading state while providers are being installed
   if (
@@ -302,27 +329,6 @@ const Home = ({navigation}: Props) => {
       </SafeAreaView>
     );
   }
-
-  // Startup fast path: render an empty shell first so the splash overlay can
-  // fade to a *visible* screen instead of a black one, then mount the heavy
-  // tree (hero + sliders + ads) right after. Cache-backed content appears
-  // immediately afterwards because React Query's initialData is already there.
-  const [deferredMount, setDeferredMount] = useState(true);
-  useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => setDeferredMount(false));
-    return () => task.cancel();
-  }, []);
-
-  // Signal App to fade the splash: the shell painted, heavy content follows.
-  useEffect(() => {
-    if (!deferredMount) {
-      return;
-    }
-    const frame = requestAnimationFrame(() => {
-      markHomeReady();
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [deferredMount]);
 
   if (deferredMount) {
     return (

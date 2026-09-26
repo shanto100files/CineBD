@@ -14,6 +14,18 @@ let cachedAds: AppAds | null = null;
 let lastFetch = 0;
 const CACHE_TTL = 5 * 60 * 1000;
 
+export const normalizeAppAds = (data: unknown): AppAds => {
+  const source = (data && typeof data === 'object' ? data : {}) as Partial<
+    AppAds
+  >;
+  return {
+    enabled: Boolean(source.enabled),
+    web_url: typeof source.web_url === 'string' ? source.web_url : '',
+    top: typeof source.top === 'string' ? source.top : '',
+    bottom: typeof source.bottom === 'string' ? source.bottom : '',
+  };
+};
+
 export function useAppAds() {
   const [ads, setAds] = useState<AppAds>(cachedAds || {
     enabled: false,
@@ -29,7 +41,7 @@ export function useAppAds() {
     }
     try {
       const res = await axios.get(`${API_BASE}/ads`, {timeout: 10000});
-      const data = res.data;
+      const data = normalizeAppAds(res.data);
       cachedAds = data;
       lastFetch = Date.now();
       setAds(data);

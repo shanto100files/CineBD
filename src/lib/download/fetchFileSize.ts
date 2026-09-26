@@ -1,4 +1,4 @@
-import {Stream} from './providers/types';
+import {Stream} from '../providers/types';
 
 const fetchFileSizeForStream = async (stream: Stream): Promise<number> => {
   const controller = new AbortController();

@@ -71,6 +71,7 @@ const LocalVideosGrid = ({
   columns: number;
 }) => {
   const colors = useM3Colors();
+  const topInset = useSafeAreaInsets().top;
   const navigation =
     useNavigation<NativeStackNavigationProp<DownloadsStackParamList>>();
 
@@ -130,10 +131,10 @@ const LocalVideosGrid = ({
       renderItem={({item}) => (
         <Pressable
           onPress={() =>
-            navigation.navigate('TabStack' as never, {
+            (navigation as any).navigate('TabStack', {
               screen: 'HomeStack',
-              params: {screen: 'Webview', params: {link: item.uri}} as never,
-            } as never)
+              params: {screen: 'Webview', params: {link: item.uri}},
+            })
           }
           style={{width: cardWidth, gap: 6}}>
           <View

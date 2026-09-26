@@ -112,12 +112,23 @@ jest.mock('../src/lib/services/providerDiagnostics', () => {
 jest.mock('../src/lib/storage', () => ({
   settingsStorage: {
     isHapticFeedbackEnabled: jest.fn(() => false),
+    isAdultEnabled: jest.fn(() => false),
   },
 }));
 
 jest.mock('../src/screens/settings/components/ProviderSourceManager', () => ({
   __esModule: true,
   default: () => null,
+}));
+
+jest.mock('../src/screens/settings/components/ProviderSettingsModal', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
+jest.mock('../src/components/ui/MaterialDialogSurface', () => ({
+  __esModule: true,
+  default: ({children}: {children?: React.ReactNode}) => <>{children}</>,
 }));
 
 jest.mock('../src/components/RenderProviderFLagIcon', () => ({

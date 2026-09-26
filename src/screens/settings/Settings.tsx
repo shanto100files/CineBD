@@ -13,6 +13,7 @@ import {
   clearAllMMKVStorage,
   ProviderExtension,
 } from '../../lib/storage';
+import {getGatedInstalledProviders} from '../../lib/utils/providerGate';
 import * as Updates from 'expo-updates';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import useContentStore from '../../lib/zustand/contentStore';
@@ -100,17 +101,23 @@ const Settings = ({navigation}: Props) => {
     };
   }, [authUserId, isFocused]);
 
-  // 18+ toggle: immediately drop adult providers from the active list so the
-  // change applies without an app restart.
+  // 18+ toggle: rebuild the active provider list from storage in both
+  // directions so the change applies without an app restart.
   useEffect(() => {
-    const installed = useContentStore.getState().installedProviders || [];
-    const filtered = installed.filter(p => adultEnabled || !p.is_adult);
-    if (filtered.length !== installed.length) {
-      useContentStore.setState({installedProviders: filtered});
-      const active = useContentStore.getState().provider;
-      if (active?.is_adult && !adultEnabled) {
-        useContentStore.setState({provider: filtered[0] || active});
-      }
+    const filtered = getGatedInstalledProviders()
+      .slice()
+      .sort((a, b) => a.display_name.localeCompare(b.display_name));
+    const current = useContentStore.getState().installedProviders || [];
+    const unchanged =
+      current.length === filtered.length &&
+      current.every((p, i) => p.value === filtered[i].value);
+    if (unchanged) {
+      return;
+    }
+    useContentStore.setState({installedProviders: filtered});
+    const active = useContentStore.getState().provider;
+    if (active && !filtered.some(p => p.value === active.value)) {
+      useContentStore.setState({provider: filtered[0] || active});
     }
   }, [adultEnabled]);
 
@@ -227,6 +234,38 @@ const Settings = ({navigation}: Props) => {
     });
   }, [eraseAllLocalData]);
 
+  const friendsRow = (
+    <SettingsRow
+      title="বন্ধুরা"
+      description="বন্ধু যোগ করুন, কন্টেন্ট শেয়ার করুন"
+      icon="account-group"
+      iconBg="#10b98122"
+      iconColor="#10b981"
+      onPress={() => navigation.navigate('Friends')}
+      trailing={
+        friendsUnread > 0 ? (
+          <View
+            style={{
+              alignItems: 'center',
+              backgroundColor: colors.primary,
+              borderRadius: 12,
+              height: 22,
+              justifyContent: 'center',
+              marginRight: 8,
+              minWidth: 22,
+              paddingHorizontal: 6,
+            }}>
+            <AppText
+              role="labelSmallEmphasized"
+              style={{color: colors.onPrimary}}>
+              {friendsUnread > 99 ? '99+' : friendsUnread}
+            </AppText>
+          </View>
+        ) : undefined
+      }
+    />
+  );
+
   return (
     <Animated.ScrollView
       className="h-full w-full bg-m3-background"
@@ -328,44 +367,16 @@ const Settings = ({navigation}: Props) => {
               <View style={{height: 1, backgroundColor: colors.outlineVariant}} />
               <SettingsRow
                 title="Profile"
-                icon="person"
+                icon="account"
                 iconBg={colors.primaryContainer}
                 iconColor={colors.primary}
                 onPress={() => navigation.navigate('Profile')}
               />
-              <SettingsRow
-                title="বন্ধুরা"
-                description="বন্ধু যোগ করুন, কন্টেন্ট শেয়ার করুন"
-                icon="account-group"
-                iconBg="#10b98122"
-                iconColor="#10b981"
-                onPress={() => navigation.navigate('Friends')}
-                trailing={
-                  friendsUnread > 0 ? (
-                    <View
-                      style={{
-                        alignItems: 'center',
-                        backgroundColor: colors.primary,
-                        borderRadius: 12,
-                        height: 22,
-                        justifyContent: 'center',
-                        marginRight: 8,
-                        minWidth: 22,
-                        paddingHorizontal: 6,
-                      }}>
-                      <AppText
-                        role="labelSmallEmphasized"
-                        style={{color: colors.onPrimary}}>
-                        {friendsUnread > 99 ? '99+' : friendsUnread}
-                      </AppText>
-                    </View>
-                  ) : undefined
-                }
-              />
+              {friendsRow}
               <SettingsRow
                 title={isPremium ? '★ Premium Active' : 'Upgrade to Premium'}
                 description={isPremium ? 'Manage subscription' : 'Ad-free, all providers'}
-                icon="workspace_premium"
+                icon="crown-outline"
                 iconBg={isPremium ? '#f59e0b22' : '#f59e0b15'}
                 iconColor={isPremium ? '#f59e0b' : '#f59e0b'}
                 onPress={() => navigation.navigate('Premium')}
@@ -410,10 +421,11 @@ const Settings = ({navigation}: Props) => {
                 iconColor={colors.primary}
                 onPress={() => navigation.navigate('Login')}
               />
+              {friendsRow}
               <SettingsRow
                 title="Register"
                 description="Create a new account"
-                icon="person-add"
+                icon="account-plus"
                 iconBg={colors.tertiaryContainer}
                 iconColor={colors.onTertiaryContainer}
                 divider={false}

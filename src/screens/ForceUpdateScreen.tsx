@@ -6,6 +6,10 @@ import {getContentUriAsync} from 'expo-file-system/legacy';
 import axios from 'axios';
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import notifee from '@notifee/react-native';
+import {
+  HARDCODED_KILL_KEY,
+  compareVersions,
+} from '../lib/services/initService';
 
 const API = 'https://cinepix.top/api/app';
 const DOWNLOAD_URL_FALLBACK = 'https://cinepix.top/app';
@@ -14,27 +18,40 @@ const APK_PATH = `${RNFS.CachesDirectoryPath}/cinebd-update.apk`;
 interface Props {
   killSwitchBlocked?: boolean;
   reason?: string;
+  onDismiss?: () => void;
 }
 
 type ScreenStatus = 'kill_blocked' | 'checking' | 'update_required' | 'ok' | 'network_error' | 'downloading';
 
-export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
+export default function ForceUpdateScreen({killSwitchBlocked, reason, onDismiss}: Props) {
   const [status, setStatus] = useState<ScreenStatus>('checking');
   const [downloadUrl, setDownloadUrl] = useState('');
   const [changelog, setChangelog] = useState('');
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloaded, setDownloaded] = useState(false);
   const lastNotifTime = React.useRef(0);
+  const onDismissRef = React.useRef(onDismiss);
+  onDismissRef.current = onDismiss;
 
   useEffect(() => {
     fetchUpdateInfo();
+  }, []);
+
+  useEffect(() => {
+    if (status === 'ok') {
+      onDismissRef.current?.();
+      return;
+    }
     const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
     return () => sub.remove();
-  }, []);
+  }, [status]);
 
   const fetchUpdateInfo = async () => {
     try {
-      const res = await axios.get(`${API}/versioncheck`, {timeout: 10000});
+      const res = await axios.get(`${API}/versioncheck`, {
+        timeout: 10000,
+        headers: {'X-App-Key': HARDCODED_KILL_KEY},
+      });
       const {download_url, changelog: cl} = res.data;
       setDownloadUrl(download_url || DOWNLOAD_URL_FALLBACK);
       setChangelog(cl || '');
@@ -43,7 +60,11 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
       } else {
         const {min_version, force_update} = res.data;
         const current = Application.nativeApplicationVersion || '0.0.0';
-        if (compareVersions(current, min_version) && force_update) {
+        const needsUpdate =
+          force_update === true ||
+          force_update === 1 ||
+          force_update === '1';
+        if (needsUpdate && compareVersions(current, min_version)) {
           setStatus('update_required');
         } else {
           setStatus('ok');
@@ -223,17 +244,6 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason}: Props) {
       )}
     </View>
   );
-}
-
-function compareVersions(local: string, min: string): boolean {
-  if (!local || !min) return false;
-  const l = local.split('.').map(Number);
-  const m = min.split('.').map(Number);
-  if (l[0] > m[0]) return false;
-  if (l[0] < m[0]) return true;
-  if (l[1] > m[1]) return false;
-  if (l[1] < m[1]) return true;
-  return l[2] < m[2];
 }
 
 const styles = StyleSheet.create({

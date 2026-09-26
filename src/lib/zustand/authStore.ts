@@ -22,6 +22,7 @@ interface AuthState {
   isLoggedIn: boolean;
   isPremium: boolean;
   premiumJustActivated: boolean;
+  loginJustSucceeded: boolean;
   login: (username: string, password: string) => Promise<{success: boolean; error?: string}>;
   register: (username: string, email: string, password: string) => Promise<{success: boolean; error?: string}>;
   logout: () => void;
@@ -32,6 +33,7 @@ interface AuthState {
   uploadAvatar: (uri: string, mimeType?: string) => Promise<{success: boolean; error?: string; url?: string}>;
   removeAvatar: () => Promise<{success: boolean; error?: string}>;
   dismissPremiumAlert: () => void;
+  dismissLoginAlert: () => void;
 }
 
 const authStorage = {
@@ -47,6 +49,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoggedIn: false,
   isPremium: false,
   premiumJustActivated: false,
+  loginJustSucceeded: false,
 
   login: async (username, password) => {
     try {
@@ -59,13 +62,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user: res.data.user,
           isLoggedIn: true,
           isPremium: res.data.user.premium,
+          loginJustSucceeded: true,
         });
         setTimeout(() => get().refreshProfile(), 2000);
         return {success: true};
       }
-      return {success: false, error: res.data.error || 'Login failed'};
+      return {success: false, error: res.data.error || 'লগইন ব্যর্থ হয়েছে'};
     } catch (e: any) {
-      return {success: false, error: e.response?.data?.error || 'Network error'};
+      return {success: false, error: e.response?.data?.error || 'নেটওয়ার্ক সমস্যা হয়েছে'};
     }
   },
 
@@ -83,20 +87,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
         return {success: true};
       }
-      return {success: false, error: res.data.error || 'Registration failed'};
+      return {success: false, error: res.data.error || 'রেজিস্ট্রেশন ব্যর্থ হয়েছে'};
     } catch (e: any) {
-      return {success: false, error: e.response?.data?.error || 'Network error'};
+      return {success: false, error: e.response?.data?.error || 'নেটওয়ার্ক সমস্যা হয়েছে'};
     }
   },
 
   logout: () => {
     authStorage.delete('token');
     authStorage.delete('user');
-    set({token: null, user: null, isLoggedIn: false, isPremium: false, premiumJustActivated: false});
+    set({
+      token: null,
+      user: null,
+      isLoggedIn: false,
+      isPremium: false,
+      premiumJustActivated: false,
+      loginJustSucceeded: false,
+    });
   },
 
   dismissPremiumAlert: () => {
     set({premiumJustActivated: false});
+  },
+
+  dismissLoginAlert: () => {
+    set({loginJustSucceeded: false});
   },
 
   loadToken: async () => {

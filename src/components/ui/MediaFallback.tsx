@@ -1,7 +1,7 @@
 import {Image} from 'expo-image';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {MaterialCommunityIcons} from '@expo/vector-icons';
 import React from 'react';
-import {Platform, StyleSheet, View} from 'react-native';
+import {Platform, StyleSheet, View, DimensionValue, StyleProp, ViewStyle} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import AppText from './Text';
 
@@ -46,11 +46,13 @@ export const MediaFallback = ({
   width,
   height,
   variant = 'poster',
+  style,
 }: {
   title: string;
-  width?: number | string;
-  height?: number | string;
+  width?: DimensionValue;
+  height?: DimensionValue;
   variant?: 'poster' | 'backdrop';
+  style?: StyleProp<ViewStyle>;
 }) => {
   const [bg1, bg2, accent] = PALETTE[hashString(title) % PALETTE.length];
   const isBackdrop = variant === 'backdrop';
@@ -61,6 +63,7 @@ export const MediaFallback = ({
       style={[
         styles.container,
         {width: width ?? '100%', height: height ?? '100%'},
+        style,
       ]}>
       {isBackdrop ? null : (
         <View style={[styles.halo, {backgroundColor: accent, opacity: 0.14}]} />

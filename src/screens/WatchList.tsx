@@ -252,7 +252,6 @@ const WatchList = () => {
             )}
             keyExtractor={(item, index) => item.link + index}
             numColumns={numColumns}
-            estimatedItemSize={250}
             contentContainerStyle={{
               paddingTop: isSelectionMode ? 14 : 0,
               paddingBottom: isSelectionMode ? 120 : 50,

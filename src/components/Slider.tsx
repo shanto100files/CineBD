@@ -160,10 +160,6 @@ const Slider = ({
           bounces={false}
           overScrollMode="never"
           nestedScrollEnabled={true}
-          panGestureHandlerProps={{
-            activeOffsetX: [-15, 15],
-            failOffsetY: [-10, 10],
-          }}
           contentContainerStyle={{
             paddingBottom: 4,
             paddingHorizontal: 20,

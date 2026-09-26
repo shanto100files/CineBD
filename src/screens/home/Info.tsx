@@ -7,6 +7,7 @@ import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {FlatList, RefreshControl, View, Linking} from 'react-native';
 import {trackContent} from '../../lib/services/analyticsService';
+import {normalizeAppAds} from '../../lib/services/adService';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import {WebView} from 'react-native-webview';
 import {HomeStackParamList, TabStackParamList} from '../../App';
@@ -93,8 +94,13 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
 
   useEffect(() => {
     fetch('https://cinepix.top/api/app/ads', {headers: {'X-App-Key': '78a0e573dfd894d443685159b2e71e2f'}})
-      .then(r => r.json())
-      .then(d => setAppAds(d))
+      .then(r => {
+        if (!r.ok) {
+          throw new Error(`ads request failed: ${r.status}`);
+        }
+        return r.json();
+      })
+      .then(d => setAppAds(normalizeAppAds(d)))
       .catch(() => {});
   }, []);
   const contentProviderName = useMemo(

@@ -11,6 +11,10 @@ const OfflineBanner: React.FC = () => {
   const insets = useSafeAreaInsets();
   const colors = useM3Colors();
   const slide = React.useRef(new Animated.Value(0)).current;
+  const translateY = slide.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-8, 0],
+  });
 
   React.useEffect(() => {
     Animated.timing(slide, {
@@ -29,7 +33,7 @@ const OfflineBanner: React.FC = () => {
       pointerEvents="none"
       style={[
         styles.banner,
-        {top: insets.top, opacity: slide, transform: [{translateY: slide._value === 0 ? -8 : 0}]},
+        {top: insets.top, opacity: slide, transform: [{translateY}]},
       ]}>
       <MaterialIcons name="wifi-off" size={14} color="#fbbf24" />
       <AppText role="labelMedium" style={styles.text}>

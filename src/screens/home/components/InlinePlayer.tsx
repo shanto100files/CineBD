@@ -87,6 +87,22 @@ const InlinePlayer = ({
   } | null>(null);
 
   const activeEpisode = selection?.episode;
+  const streamRouteParams = useMemo(
+    () =>
+      selection
+        ? {
+            linkIndex: selection.linkIndex,
+            episodeList: selection.episodeData,
+            type,
+            primaryTitle: title,
+            secondaryTitle: seasonLink?.title,
+            providerValue,
+            poster,
+            infoUrl,
+          }
+        : undefined,
+    [selection, type, title, seasonLink, providerValue, poster, infoUrl],
+  );
   const {
     streamData: streams,
     selectedStream,
@@ -94,18 +110,7 @@ const InlinePlayer = ({
     isLoading: streamLoading,
   } = useStream({
     activeEpisode,
-    routeParams: selection
-      ? {
-          linkIndex: selection.linkIndex,
-          episodeList: selection.episodeData,
-          type,
-          primaryTitle: title,
-          secondaryTitle: seasonLink?.title,
-          providerValue,
-          poster,
-          infoUrl,
-        }
-      : undefined,
+    routeParams: streamRouteParams,
     provider: providerValue,
     enabled: playing && Boolean(activeEpisode),
   });

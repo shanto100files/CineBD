@@ -142,6 +142,7 @@ const ScrollList = ({route}: Props): React.ReactElement => {
   const abortController = useRef<AbortController | null>(null);
   const isMounted = useRef(true);
   const isLoadingMore = useRef(false);
+  const queryIdentityRef = useRef('');
 
   // Set up cleanup effect that runs on component unmount
   useEffect(() => {
@@ -162,6 +163,20 @@ const ScrollList = ({route}: Props): React.ReactElement => {
     // Create a new controller for this effect
     abortController.current = new AbortController();
     const signal = abortController.current.signal;
+
+    const queryIdentity = `${route.params.isSearch ? 1 : 0}|${filter}|${
+      route.params.providerValue ?? ''
+    }|${route.params.title ?? ''}|${provider.value}|${reloadKey}`;
+    if (queryIdentityRef.current !== queryIdentity) {
+      queryIdentityRef.current = queryIdentity;
+      isLoadingMore.current = false;
+      setPosts([]);
+      setIsEnd(false);
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+    }
 
     const fetchPosts = async () => {
       // Don't fetch if we're already at the end
@@ -408,9 +423,10 @@ const ScrollList = ({route}: Props): React.ReactElement => {
                     poster: item?.image,
                   })
                 }>
-                <View style={{position: 'relative'}}>
+                <View
+                  className="overflow-hidden rounded-md"
+                  style={{position: 'relative'}}>
                   <MediaImage
-                    className="rounded-md"
                     uri={item.image}
                     title={item.title || 'Cinepix'}
                     style={

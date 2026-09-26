@@ -23,6 +23,7 @@ import {
 } from '../../lib/services/UpdateProviders';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import {settingsStorage} from '../../lib/storage';
+import {getGatedInstalledProviders} from '../../lib/utils/providerGate';
 import ProviderSourceManager from './components/ProviderSourceManager';
 import ProviderCard, {ProviderTestStatus} from './components/ProviderCard';
 import {
@@ -145,7 +146,7 @@ const Extensions = ({navigation}: Props) => {
   const loadProviders = (author?: string) => {
     const selectedAuthor =
       author || extensionStorage.getProviderSource()?.author || '';
-    const installed = extensionStorage.getInstalledProviders() || [];
+    const installed = getGatedInstalledProviders();
     const available = selectedAuthor
       ? extensionStorage.getAvailableProviders(selectedAuthor)
       : [];
@@ -235,8 +236,7 @@ const Extensions = ({navigation}: Props) => {
       await extensionManager.installProvider(provider);
       loadProviders();
 
-      const refreshedInstalledProviders =
-        extensionStorage.getInstalledProviders() || [];
+      const refreshedInstalledProviders = getGatedInstalledProviders();
       setInstalledProviders(refreshedInstalledProviders);
 
       // Keep the current provider active. Switching here can immediately run
@@ -293,9 +293,7 @@ const Extensions = ({navigation}: Props) => {
               provider.source?.author,
             );
             loadProviders();
-            setInstalledProviders(
-              extensionStorage.getInstalledProviders() || [],
-            );
+            setInstalledProviders(getGatedInstalledProviders());
 
             // If this was the active provider, clear it
             if (

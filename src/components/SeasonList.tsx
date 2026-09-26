@@ -191,7 +191,7 @@ const getOriginalLinkIndex = <T extends {link: string}>(
 };
 
 const SeasonList: React.FC<SeasonListProps> = ({
-  LinkList,
+  LinkList = [],
   poster,
   type,
   metaTitle,
@@ -210,15 +210,6 @@ const SeasonList: React.FC<SeasonListProps> = ({
   const {fetchStreams} = useStreamData();
   const detailsPressRef = useRef<string | null>(null);
   const episodeSortOrderKey = `episodeSortOrder:${providerValue}:${routeParams.link}`;
-
-  // Early return if no LinkList provided
-  if (!LinkList || LinkList.length === 0) {
-    return (
-      <View className="p-4">
-        <Text className="text-white text-center">No Streams Available</Text>
-      </View>
-    );
-  }
 
   // Memoized initial active season
   const [activeSeason, setActiveSeason] = useState<Link>(() => {
@@ -304,7 +295,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
   }, [seasonGroups, activeSeasonNum]);
 
   useEffect(() => {
-    if (activeSeasonGroup && activeSeasonGroup.links.length>0 && !activeSeasonGroup.links.some(l=>l.title===activeSeason?.title)) {
+    if (activeSeasonGroup && activeSeasonGroup.links.length>0 && !activeSeasonGroup.links.some((l: Link)=>l.title===activeSeason?.title)) {
       setActiveSeason(activeSeasonGroup.links[0] as any);
     }
   }, [activeSeasonGroup, activeSeason]);
@@ -1160,6 +1151,15 @@ const SeasonList: React.FC<SeasonListProps> = ({
     ),
     [primary, openExternalPlayer, metaTitle],
   );
+
+  // Early return if no LinkList provided
+  if (!LinkList || LinkList.length === 0) {
+    return (
+      <View className="p-4">
+        <Text className="text-white text-center">No Streams Available</Text>
+      </View>
+    );
+  }
 
   // Show loading skeleton while episodes are loading
   if (episodeLoading) {

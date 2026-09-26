@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import React, {memo, useCallback, useEffect, useMemo, useState} from 'react';
-import {View} from 'react-native';
+import {Pressable, View} from 'react-native';
 import {Image} from 'expo-image';
 import {getColors} from 'react-native-image-colors';
 import LinearGradient from 'react-native-linear-gradient';
@@ -227,7 +227,9 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
       />
 
       {!disableDrawer && (
-        <View
+        <Pressable
+          onPress={onOpenDrawer}
+          hitSlop={12}
           style={{
             position: 'absolute',
             right: 16,
@@ -238,7 +240,7 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
             size={30}
             color={heroColor}
           />
-        </View>
+        </Pressable>
       )}
 
       <Animated.View

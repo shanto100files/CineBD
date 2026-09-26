@@ -3,6 +3,7 @@ import {extensionManager} from './ExtensionManager';
 import {settingsStorage} from '../storage';
 import {notificationService} from './Notification';
 import useContentStore from '../zustand/contentStore';
+import {getGatedInstalledProviders} from '../utils/providerGate';
 
 export interface UpdateInfo {
   provider: ProviderExtension;
@@ -164,7 +165,7 @@ class UpdateProvidersService {
       }
 
       if (updated.length > 0) {
-        const latestInstalled = extensionStorage.getInstalledProviders();
+        const latestInstalled = getGatedInstalledProviders();
         useContentStore.getState().setInstalledProviders(latestInstalled);
         const currentActive = useContentStore.getState().provider;
         if (currentActive) {

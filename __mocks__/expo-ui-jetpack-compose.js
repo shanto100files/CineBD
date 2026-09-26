@@ -13,6 +13,11 @@ const button = ({children, enabled = true, onClick, ...props}) =>
   );
 
 const slotComponent = passthrough;
+const alertDialog = passthrough;
+alertDialog.Title = slotComponent;
+alertDialog.Text = slotComponent;
+alertDialog.DismissButton = button;
+alertDialog.ConfirmButton = button;
 const textField = React.forwardRef(
   ({children, onValueChange, keyboardActions, ...props}, ref) => {
     React.useImperativeHandle(ref, () => ({
@@ -52,6 +57,7 @@ module.exports = {
   OutlinedIconButton: button,
   LoadingIndicator: passthrough,
   ContainedLoadingIndicator: passthrough,
+  AlertDialog: alertDialog,
   TextField: textField,
   OutlinedTextField: textField,
   useNativeState: value => ({value, get: () => value, set: () => {}}),

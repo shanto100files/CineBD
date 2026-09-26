@@ -46,6 +46,7 @@ const cancelledDownloads = new Set<string>();
 const pauseFailedDownloads = new Set<string>();
 const lastNotificationAt = new Map<string, number>();
 const downloadNotificationColors = new Map<string, Promise<string>>();
+const autoRetryCounts = new Map<string, number>();
 let schedulerRunning = false;
 const HTTP_START_RETRY_DELAYS_MS = [750, 1500];
 const HTTP_DNS_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000];
@@ -294,10 +295,11 @@ export const startDownload = async (
   const backend = getDownloadBackend(record.sourceType);
   const store = useDownloadsStore.getState();
   // One silent auto-retry for transient http failures (set on failure).
-  let autoRetryAttempts = 0;
+  let autoRetryAttempts = autoRetryCounts.get(downloadId) ?? 0;
   if (useDownloadsStore.getState().downloads[downloadId]?.status === 'error') {
     autoRetryAttempts = 1; // manual retry: no extra auto attempts
   }
+  autoRetryCounts.set(downloadId, autoRetryAttempts);
   activeDownloads.add(downloadId);
   occupiedDownloadSlots.add(downloadId);
   cancelledDownloads.delete(downloadId);
@@ -412,6 +414,7 @@ export const startDownload = async (
         : false);
     if (transient) {
       autoRetryAttempts += 1;
+      autoRetryCounts.set(downloadId, autoRetryAttempts);
       await wait(3000);
       if (cancelledDownloads.has(downloadId)) {
         store.removeDownload(downloadId);
@@ -449,6 +452,7 @@ export const startDownload = async (
     pauseFailedDownloads.delete(downloadId);
     lastNotificationAt.delete(downloadId);
     downloadNotificationColors.delete(downloadId);
+    autoRetryCounts.delete(downloadId);
     await scheduleQueuedDownloads();
     await notificationService
       .stopForegroundTask(downloadId)

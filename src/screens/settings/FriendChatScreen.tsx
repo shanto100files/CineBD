@@ -33,7 +33,9 @@ const FriendChatScreen = ({navigation, route}: Props) => {
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const listRef = useRef<FlatListOfMessages>(null);
+  const listRef = useRef<{
+    scrollToEnd?: (options?: {animated?: boolean}) => void;
+  }>(null);
 
   const load = useCallback(async () => {
     try {

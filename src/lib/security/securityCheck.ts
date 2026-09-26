@@ -14,7 +14,7 @@ const isDevelopmentBuild = (): boolean => {
 const checkRootDetection = async (): Promise<boolean> => {
   if (Platform.OS !== 'android') return false;
   try {
-    const {default: RNFS} = await import('@dr.pogodin/react-native-fs');
+    const RNFS = await import('@dr.pogodin/react-native-fs');
     const paths = [
       '/system/app/Superuser.apk',
       '/system/xbin/su',
@@ -37,7 +37,7 @@ const checkRootDetection = async (): Promise<boolean> => {
       if (exists) return true;
     }
 
-    const {default: RNFS2} = await import('@dr.pogodin/react-native-fs');
+    const RNFS2 = await import('@dr.pogodin/react-native-fs');
     const buildProps = await RNFS2.readFile('/system/build.prop', 'utf8').catch(() => '');
     if (buildProps.includes('ro.debuggable=1') || buildProps.includes('ro.secure=0')) {
       return true;

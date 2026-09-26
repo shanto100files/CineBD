@@ -1,5 +1,4 @@
 import {mainStorage} from './StorageService';
-import {extensionStorage} from './extensionStorage';
 
 /**
  * Storage keys for providers
@@ -19,14 +18,7 @@ export class ProvidersStorage {
     const saved = mainStorage.getObject<string[]>(
       ProvidersKeys.DISABLED_PROVIDERS,
     );
-    if (!saved || saved.length === 0) {
-      const allProviders = extensionStorage
-        .getInstalledProviders()
-        .map(provider => provider.value);
-      this.setDisabledProviders(allProviders);
-      return allProviders;
-    }
-    return saved;
+    return saved || [];
   }
 
   /**

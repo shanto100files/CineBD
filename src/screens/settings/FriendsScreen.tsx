@@ -254,8 +254,24 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
             paddingVertical: 12,
           }}>
           <AppText role="labelLargeEmphasized" style={{color: colors.onPrimary}}>
-            Login
+            লগইন করুন
           </AppText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{
+            position: 'absolute',
+            top: 8,
+            left: 12,
+            alignItems: 'center',
+            borderRadius: 21,
+            height: 42,
+            justifyContent: 'center',
+            width: 42,
+          }}
+          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+          <MaterialCommunityIcons name="arrow-left" size={26} color={colors.onBackground} />
         </TouchableOpacity>
       </View>
     );

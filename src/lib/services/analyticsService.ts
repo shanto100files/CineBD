@@ -1,6 +1,7 @@
 import {Platform} from 'react-native';
 import * as Application from 'expo-application';
 import {mainStorage as storage} from '../storage/StorageService';
+import {settingsStorage} from '../storage/SettingsStorage';
 import {useAuthStore} from '../zustand/authStore';
 import {getDeviceId} from './heartbeatService';
 
@@ -50,6 +51,9 @@ function getGeoInfo(): {country: string; city: string} {
 }
 
 export function trackEvent(eventType: string, data: Record<string, any> = {}) {
+  if (!settingsStorage.isTelemetryOptIn()) {
+    return;
+  }
   const auth = useAuthStore.getState();
   const device = getDeviceInfo();
   const geo = getGeoInfo();
@@ -76,11 +80,10 @@ export function trackEvent(eventType: string, data: Record<string, any> = {}) {
 
   const batch = getPendingBatch();
   batch.push(event);
+  savePendingBatch(batch);
 
   if (batch.length >= MAX_BATCH_SIZE) {
     flushBatch();
-  } else {
-    savePendingBatch(batch);
   }
 
   if (Date.now() - lastSendTime > BATCH_INTERVAL) {
@@ -101,6 +104,11 @@ export function trackAction(action: string, data: Record<string, any> = {}) {
 }
 
 export async function flushBatch() {
+  if (!settingsStorage.isTelemetryOptIn()) {
+    savePendingBatch([]);
+    lastSendTime = 0;
+    return;
+  }
   const batch = getPendingBatch();
   if (batch.length === 0) return;
 
@@ -110,24 +118,34 @@ export async function flushBatch() {
   try {
     const auth = useAuthStore.getState();
     const device = getDeviceInfo();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
 
-    await fetch(`${API}/analytics-batch`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-App-Version': device.appVersion,
-        'X-App-Key': '78a0e573dfd894d443685159b2e71e2f',
-      },
-      body: JSON.stringify({
-        events: batch,
-        session_id: getSessionId(),
-        username: auth.user?.username ?? '',
-        device_model: device.model,
-        device_brand: device.brand,
-        os_version: device.osVersion,
-        app_version: device.appVersion,
-      }),
-    });
+    try {
+      const res = await fetch(`${API}/analytics-batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Version': device.appVersion,
+          'X-App-Key': '78a0e573dfd894d443685159b2e71e2f',
+        },
+        body: JSON.stringify({
+          events: batch,
+          session_id: getSessionId(),
+          username: auth.user?.username ?? '',
+          device_model: device.model,
+          device_brand: device.brand,
+          os_version: device.osVersion,
+          app_version: device.appVersion,
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        throw new Error(`analytics-batch failed with ${res.status}`);
+      }
+    } finally {
+      clearTimeout(timer);
+    }
   } catch {
     savePendingBatch([...batch, ...getPendingBatch()]);
   }

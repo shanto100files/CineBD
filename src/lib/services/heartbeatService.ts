@@ -1,5 +1,4 @@
 import {Platform} from 'react-native';
-import {Application} from 'expo-application';
 import * as ApplicationExpo from 'expo-application';
 import {mainStorage as storage} from '../storage/StorageService';
 import {useAuthStore} from '../zustand/authStore';
@@ -25,7 +24,7 @@ export async function sendHeartbeat() {
   if (Date.now() - lastHB < HEARTBEAT_INTERVAL) return;
 
   try {
-    const version = Application.nativeApplicationVersion ?? 'unknown';
+    const version = ApplicationExpo.nativeApplicationVersion ?? 'unknown';
     const device = `${Platform.OS}/${Platform.Version}`;
     const deviceId = getDeviceId();
     const token = useAuthStore.getState().token;

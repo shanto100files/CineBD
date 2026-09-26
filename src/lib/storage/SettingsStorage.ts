@@ -420,6 +420,14 @@ export class SettingsStorage {
   }
 
   // Generic get/set methods for settings not covered by specific methods
+  getString(key: string): string | undefined {
+    return mainStorage.getString(key);
+  }
+
+  setString(key: string, value: string): void {
+    mainStorage.setString(key, value);
+  }
+
   getBool(key: string, defaultValue = false): boolean {
     return mainStorage.getBool(key, defaultValue);
   }

@@ -81,6 +81,8 @@ export interface EpisodeLink {
   image?: string;
   quickDownload?: boolean;
   skip?: SkipInterval[];
+  season?: number;
+  episode?: number;
 }
 
 export interface Link {

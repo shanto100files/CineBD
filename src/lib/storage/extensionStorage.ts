@@ -24,6 +24,8 @@ export interface ProviderExtension {
   /** 18+ provider — hidden unless the user passed the age gate. */
   is_adult?: boolean;
   hasSettings?: boolean;
+  /** Server-flagged: hide local download UI (e.g. m3u8-only providers). */
+  streamOnly?: boolean;
   installedAt?: number;
   lastUpdated?: number;
 }

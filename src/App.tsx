@@ -26,7 +26,7 @@ import {enableFreeze, enableScreens} from 'react-native-screens';
 import Preferences from './screens/settings/Preference';
 import Appearance from './screens/settings/Appearance';
 import {M3ThemeProvider} from './theme/M3ThemeProvider';
-import {AppState, LogBox, useWindowDimensions, View, Image, Modal, Pressable, Text, Platform, Animated as RNAnimated, Easing} from 'react-native';
+import {AppState, LogBox, useWindowDimensions, View, Image, Modal, Pressable, Text, Platform, ToastAndroid, Animated as RNAnimated, Easing} from 'react-native';
 import {sendHeartbeat} from './lib/services/heartbeatService';
 import {initAnalytics, resumeAnalytics, pauseAnalytics, flushBatch, trackScreen} from './lib/services/analyticsService';
 import {EpisodeLink} from './lib/providers/types';
@@ -315,6 +315,83 @@ const SettingsStackScreen = React.memo(() => {
   );
 });
 
+const TabStack = React.memo(() => {
+  const {width, height} = useWindowDimensions();
+  const isLargeScreen = Math.min(width, height) >= 600;
+  const hideDownloadsTab = useNavigationPreferencesStore(
+    state => state.hideDownloadsTab,
+  );
+  return (
+    <Tab.Navigator
+      detachInactiveScreens={true}
+      tabBar={props => <StreamingTabBar {...props} />}
+      screenOptions={{
+        animation: 'shift',
+        popToTopOnBlur: false,
+        tabBarPosition: isLargeScreen ? 'left' : 'bottom',
+        headerShown: false,
+        // freezeOnBlur must stay OFF: with freeze enabled the inactive
+        // Settings screen intercepts tab taps (known react-native-screens
+        // issue) — Home/Search taps open Settings content instead.
+        freezeOnBlur: false,
+        tabBarHideOnKeyboard: true,
+      }}>
+      <Tab.Screen
+        name="HomeStack"
+        component={HomeStackScreen}
+        options={{
+          title: 'Home',
+          tabBarIcon: ({focused, color, size}) => (
+            <MaterialCommunityIcons name={focused ? 'home-variant' : 'home-variant-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="SearchStack"
+        component={SearchStackScreen}
+        options={{
+          title: 'Search',
+          tabBarIcon: ({focused, color, size}) => (
+            <MaterialCommunityIcons name="magnify" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="WatchListStack"
+        component={WatchListStackScreen}
+        options={{
+          title: 'Watch List',
+          tabBarIcon: ({focused, color, size}) => (
+            <MaterialCommunityIcons name={focused ? 'bookmark' : 'bookmark-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+      {!hideDownloadsTab && (
+        <Tab.Screen
+          name="DownloadsStack"
+          component={DownloadsStackScreen}
+          options={{
+            title: 'Downloads',
+            tabBarIcon: ({focused, color, size}) => (
+              <MaterialCommunityIcons name={focused ? 'download' : 'download-outline'} color={color} size={size} />
+            ),
+          }}
+        />
+      )}
+      <Tab.Screen
+        name="SettingsStack"
+        component={SettingsStackScreen}
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({focused, color, size}) => (
+            <MaterialCommunityIcons name={focused ? 'cog' : 'cog-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  );
+});
+
 export const openDownloadsScreen = (): void => {
   if (!navigationRef.isReady()) {
     pendingDownloadsNavigation = true;
@@ -332,8 +409,9 @@ export const openDownloadsScreen = (): void => {
 };
 
 const App = () => {
-  const {width: windowWidth, height: windowHeight} = useWindowDimensions();
-  const isLargeScreen = Math.min(windowWidth, windowHeight) >= 600;
+  const hasFirebase =
+    Boolean(Constants?.expoConfig?.extra?.hasFirebase) &&
+    isFirebaseNativeReady();
   const {isLoading} = useAuthStore();
   const loadToken = useAuthStore(s => s.loadToken);
   const [initProgress, setInitProgress] = useState<InitProgress>({progress: 0, status: 'Starting...'});
@@ -745,8 +823,6 @@ const App = () => {
     }
   };
 
-  const hideDownloadsTab = useNavigationPreferencesStore(state => state.hideDownloadsTab);
-
   // Hide native splash after React has mounted InitSplash
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
   const hideNativeSplash = useCallback(() => {
@@ -811,7 +887,16 @@ const App = () => {
 
   // Force Update takes precedence over everything
   if (forceUpdateNeeded) {
-    return <ForceUpdateScreen killSwitchBlocked={!!shutdownMessage} reason={shutdownMessage} />;
+    return (
+    <ForceUpdateScreen
+      killSwitchBlocked={!!shutdownMessage}
+      reason={shutdownMessage}
+      onDismiss={() => {
+        setForceUpdateNeeded(false);
+        setAppReady(true);
+      }}
+    />
+  );
   }
 
   if (securityBlocked) {
@@ -848,78 +933,6 @@ const App = () => {
       </RNAnimated.View>
     </View>
   ) : null;
-
-  const hasFirebase = Boolean(Constants?.expoConfig?.extra?.hasFirebase) && isFirebaseNativeReady();
-
-  const TabStack = React.memo(() => (
-    <Tab.Navigator
-      detachInactiveScreens={true}
-      tabBar={props => <StreamingTabBar {...props} />}
-      screenOptions={{
-        animation: 'shift',
-        popToTopOnBlur: false,
-        tabBarPosition: isLargeScreen ? 'left' : 'bottom',
-        headerShown: false,
-        // freezeOnBlur must stay OFF: with freeze enabled the inactive
-        // Settings screen intercepts tab taps (known react-native-screens
-        // issue) — Home/Search taps open Settings content instead.
-        freezeOnBlur: false,
-        tabBarHideOnKeyboard: true,
-      }}>
-      <Tab.Screen
-        name="HomeStack"
-        component={HomeStackScreen}
-        options={{
-          title: 'Home',
-          tabBarIcon: ({focused, color, size}) => (
-            <MaterialCommunityIcons name={focused ? 'home-variant' : 'home-variant-outline'} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="SearchStack"
-        component={SearchStackScreen}
-        options={{
-          title: 'Search',
-          tabBarIcon: ({focused, color, size}) => (
-            <MaterialCommunityIcons name="magnify" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="WatchListStack"
-        component={WatchListStackScreen}
-        options={{
-          title: 'Watch List',
-          tabBarIcon: ({focused, color, size}) => (
-            <MaterialCommunityIcons name={focused ? 'bookmark' : 'bookmark-outline'} color={color} size={size} />
-          ),
-        }}
-      />
-      {!hideDownloadsTab && (
-        <Tab.Screen
-          name="DownloadsStack"
-          component={DownloadsStackScreen}
-          options={{
-            title: 'Downloads',
-            tabBarIcon: ({focused, color, size}) => (
-              <MaterialCommunityIcons name={focused ? 'download' : 'download-outline'} color={color} size={size} />
-            ),
-          }}
-        />
-      )}
-      <Tab.Screen
-        name="SettingsStack"
-        component={SettingsStackScreen}
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({focused, color, size}) => (
-            <MaterialCommunityIcons name={focused ? 'cog' : 'cog-outline'} color={color} size={size} />
-          ),
-        }}
-      />
-    </Tab.Navigator>
-  ));
 
   return (
     <SafeAreaProvider>
@@ -1002,6 +1015,7 @@ const App = () => {
               <WafWebViewDialog />
               <ProviderSandboxHost />
               <PremiumActivatedAlert />
+              <LoginSuccessAlert />
               {splashOverlay}
             </View>
           </QueryClientProvider>
@@ -1017,11 +1031,12 @@ export default App;
 
 function PremiumActivatedAlert() {
   const premiumJustActivated = useAuthStore(s => s.premiumJustActivated);
+  const loginJustSucceeded = useAuthStore(s => s.loginJustSucceeded);
   const dismissPremiumAlert = useAuthStore(s => s.dismissPremiumAlert);
   const user = useAuthStore(s => s.user);
 
   return (
-    <Modal visible={premiumJustActivated} transparent animationType="fade">
+    <Modal visible={premiumJustActivated && !loginJustSucceeded} transparent animationType="fade">
       <Pressable style={{flex:1, backgroundColor:'rgba(0,0,0,0.85)', justifyContent:'center', alignItems:'center', padding:32}} onPress={dismissPremiumAlert}>
         <Pressable style={{backgroundColor:'#1a1d27', borderRadius:20, padding:32, alignItems:'center', maxWidth:340, width:'100%', borderWidth:1, borderColor:'#fbbf24'}}>
           <Text style={{fontSize:48, marginBottom:12}}>🎉</Text>
@@ -1032,6 +1047,32 @@ function PremiumActivatedAlert() {
           </Text>
           <Pressable onPress={dismissPremiumAlert} style={{backgroundColor:'#fbbf24', borderRadius:12, paddingVertical:12, paddingHorizontal:32}}>
             <Text style={{color:'#000', fontSize:15, fontWeight:'700'}}>Awesome!</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function LoginSuccessAlert() {
+  const loginJustSucceeded = useAuthStore(s => s.loginJustSucceeded);
+  const dismissLoginAlert = useAuthStore(s => s.dismissLoginAlert);
+  const user = useAuthStore(s => s.user);
+
+  return (
+    <Modal visible={loginJustSucceeded} transparent animationType="fade" onRequestClose={dismissLoginAlert}>
+      <Pressable style={{flex:1, backgroundColor:'rgba(0,0,0,0.85)', justifyContent:'center', alignItems:'center', padding:32}} onPress={dismissLoginAlert}>
+        <Pressable style={{backgroundColor:'#1a1d27', borderRadius:20, padding:32, alignItems:'center', maxWidth:340, width:'100%', borderWidth:1, borderColor:'rgba(255,255,255,0.08)'}}>
+          <MaterialCommunityIcons name="check-circle" size={52} color="#4ade80" />
+          <Text style={{color:'#4ade80', fontSize:22, fontWeight:'800', marginTop:12, marginBottom:8}}>লগইন সফল!</Text>
+          <Text style={{color:'#fff', fontSize:15, fontWeight:'600', marginBottom:4}}>
+            স্বাগতম, {user?.username || 'বন্ধু'}!
+          </Text>
+          <Text style={{color:'#9ca3af', fontSize:13, textAlign:'center', marginBottom:20}}>
+            আপনি সফলভাবে লগইন করেছেন।
+          </Text>
+          <Pressable onPress={dismissLoginAlert} style={{backgroundColor:'#4ade80', borderRadius:12, paddingVertical:12, paddingHorizontal:32}}>
+            <Text style={{color:'#000', fontSize:15, fontWeight:'700'}}>ঠিক আছে</Text>
           </Pressable>
         </Pressable>
       </Pressable>

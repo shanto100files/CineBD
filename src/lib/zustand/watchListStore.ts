@@ -56,16 +56,13 @@ const useWatchListStore = create<WatchListStore>()(set => ({
   watchList: watchListStorage.getWatchList(),
 
   removeItem: link => {
+    const removedItem = watchListStorage
+      .getWatchList()
+      .find(i => i.link === link);
     const newWatchList = watchListStorage.removeFromWatchList(link);
     set({watchList: newWatchList});
-    const item = newWatchList.find(i => i.link === link);
-    if (!item) {
-      const token = useAuthStore.getState().token;
-      if (token) {
-        const allItems = watchListStorage.getWatchList();
-        const removedItem = allItems.find(i => i.link === link);
-        if (removedItem) serverToggle(removedItem);
-      }
+    if (removedItem) {
+      serverToggle(removedItem);
     }
   },
 

@@ -5,6 +5,7 @@ import {Catalog, EpisodeLink, Info, Post, Stream, SettingsField} from '../provid
 import {extensionManager} from './ExtensionManager';
 import {extensionStorage} from '../storage/extensionStorage';
 import {providerKvStorage} from '../storage/StorageService';
+import {settingsStorage} from '../storage/SettingsStorage';
 import {MAX_STATE_BYTES} from '../sandbox/protocol';
 import {sandboxBridge, setSandboxStateHandler} from '../sandbox/sandboxBridge';
 
@@ -78,10 +79,7 @@ export class ProviderManager {
     );
   }
 
-  private getModule(
-    providerValue: string,
-    key: 'catalog' | 'posts' | 'meta' | 'stream' | 'episodes' | 'settings',
-  ): string | undefined {
+  private isModuleAllowed(providerValue: string): boolean {
     // Hard 18+ gate: even if a stale provider list somewhere still contains
     // an adult provider, no module code can execute for it while the age
     // gate is off. This is the single choke point for every fetch.
@@ -90,9 +88,22 @@ export class ProviderManager {
         .getInstalledProviders()
         .find(p => p.value === providerValue);
       if (meta?.is_adult && !settingsStorage.isAdultEnabled()) {
-        return undefined;
+        return false;
       }
-    } catch {}
+    } catch (error) {
+      console.warn('Adult gate check failed:', error);
+      return false;
+    }
+    return true;
+  }
+
+  private getModule(
+    providerValue: string,
+    key: 'catalog' | 'posts' | 'meta' | 'stream' | 'episodes' | 'settings',
+  ): string | undefined {
+    if (!this.isModuleAllowed(providerValue)) {
+      return undefined;
+    }
     return extensionManager.getProviderModules(providerValue)?.modules[key];
   }
 
@@ -371,6 +382,9 @@ export class ProviderManager {
     providerValue: string;
     sourceAuthor?: string;
   }): Promise<SettingsField[]> => {
+    if (!this.isModuleAllowed(providerValue)) {
+      return [];
+    }
     const cacheKey = `${sourceAuthor || ''}:${providerValue}`;
     const cached = this.settingsSchemaCache.get(cacheKey);
     if (cached) {

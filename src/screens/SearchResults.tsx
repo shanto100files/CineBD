@@ -38,7 +38,7 @@ function getCachedResults(query: string): Post[] | null {
     if (!raw) return null;
     const cached = JSON.parse(raw);
     if (Date.now() - cached.time > CACHE_TTL) {
-      MMKV.delete(key);
+      MMKV.removeItem(key);
       return null;
     }
     return cached.posts;
@@ -50,7 +50,7 @@ function getCachedResults(query: string): Post[] | null {
 function setCachedResults(query: string, posts: Post[]): void {
   try {
     const key = CACHE_KEY_PREFIX + query.toLowerCase().trim();
-    MMKV.set(key, JSON.stringify({posts, time: Date.now()}));
+    MMKV.setString(key, JSON.stringify({posts, time: Date.now()}));
   } catch {}
 }
 
@@ -293,6 +293,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
 
     resultsRef.current = [];
     seenRef.current = new Set();
+    setDeepPages({});
 
     const addUnique = (posts: Post[]) => {
       let added = false;

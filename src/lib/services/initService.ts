@@ -1,10 +1,10 @@
 import {extensionManager} from './ExtensionManager';
-import {extensionStorage} from '../storage/extensionStorage';
 import useContentStore from '../zustand/contentStore';
 import {mainStorage as storage} from '../storage/StorageService';
 import {settingsStorage} from '../storage';
 import * as Application from 'expo-application';
 import {getDeviceId} from './heartbeatService';
+import {getGatedInstalledProviders} from '../utils/providerGate';
 import axios from 'axios';
 
 export interface InitProgress {
@@ -16,7 +16,7 @@ const KILL_SWITCH_KEY = '@app_kill_key';
 export const HARDCODED_KILL_KEY = '78a0e573dfd894d443685159b2e71e2f';
 const API_BASE = 'https://cinepix.top/api/app';
 
-function compareVersions(local: string, min: string): boolean {
+export function compareVersions(local: string, min: string): boolean {
   if (!local || !min) return false;
   const l = local.split('.').map(v => parseInt(v, 10) || 0);
   const m = min.split('.').map(v => parseInt(v, 10) || 0);
@@ -115,12 +115,9 @@ export async function initializeApp(
       await withTimeout(extensionManager.initialize(), 10000);
     } catch {}
 
-    const installedAll = extensionStorage.getInstalledProviders();
     // 18+ gating: hide adult providers unless the age gate was passed.
     const adultAllowed = settingsStorage.isAdultEnabled();
-    const installed = adultAllowed
-      ? installedAll
-      : installedAll.filter(p => !p.is_adult);
+    const installed = getGatedInstalledProviders();
     useContentStore.setState({installedProviders: installed});
     const contentStore = useContentStore.getState();
     const activeInvalid =

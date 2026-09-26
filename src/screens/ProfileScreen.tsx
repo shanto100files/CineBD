@@ -7,17 +7,19 @@ import {useM3Colors} from '../theme/M3PaletteContext';
 import AppText from '../components/ui/Text';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {RootStackParamList} from '../App';
+import {RootStackParamList, SettingsStackParamList} from '../App';
 import {friendsService} from '../lib/services/friendsService';
-import {useContinueWatchingStore} from '../lib/zustand/continueWatchingStore';
+import useContinueWatchingStore from '../lib/zustand/continueWatchingStore';
 import * as DocumentPicker from 'expo-document-picker';
 
 export default function ProfileScreen() {
   const {user, isPremium, refreshProfile, updateEmail, changePassword, uploadAvatar, removeAvatar} = useAuthStore();
   const avatarUri = user?.avatar_url || '';
   const colors = useM3Colors();
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<
+    NativeStackNavigationProp<RootStackParamList> &
+      NativeStackNavigationProp<SettingsStackParamList>
+  >();
   const [friendCount, setFriendCount] = useState<number | null>(null);
 
   // Account editing (parity with website profile features)
@@ -38,9 +40,9 @@ export default function ProfileScreen() {
       .catch(() => setFriendCount(null));
   }, []);
 
-  const continueItems = (
-    useContinueWatchingStore.getState().items || []
-  ).length;
+  const continueItems = useContinueWatchingStore(
+    state => state.items?.length ?? 0,
+  );
 
   const initial = (user?.username || '?').slice(0, 1).toUpperCase();
 
@@ -481,7 +483,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   avatar: {
     alignItems: 'center',
-    borderColor: 3,
     borderRadius: 52,
     borderWidth: 3,
     height: 104,
