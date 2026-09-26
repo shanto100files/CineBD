@@ -15,6 +15,7 @@ import {
 } from '../../lib/storage';
 import {getGatedInstalledProviders} from '../../lib/utils/providerGate';
 import * as Updates from 'expo-updates';
+import * as Application from 'expo-application';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import useContentStore from '../../lib/zustand/contentStore';
 import {
@@ -246,6 +247,17 @@ const Settings = ({navigation}: Props) => {
   const [otaState, setOtaState] = useState<
     'idle' | 'checking' | 'downloading' | 'ready' | 'updated'
   >('idle');
+  // Which OTA bundle is actually running (visible in App Version row so
+  // "am I on the latest?" is answerable without guessing).
+  const currentUpdateId = Updates.updateId as string | undefined;
+  const currentUpdateDate = useMemo(() => {
+    try {
+      const t = (Updates as any).createdAt;
+      return t ? new Date(t).toLocaleDateString('en-GB') : '?';
+    } catch {
+      return '?';
+    }
+  }, []);
 
   const eraseAllLocalData = useCallback(async () => {
     clearAllMMKVStorage();
@@ -689,6 +701,18 @@ const Settings = ({navigation}: Props) => {
         {/* Data Management section */}
         <AnimatedSection delay={300}>
           <SettingsSection title="Data Management">
+            <SettingsRow
+              title="App Version"
+              description={
+                currentUpdateId
+                  ? `Build ${Application.nativeApplicationVersion} • OTA ${currentUpdateId.slice(0, 8)} (${currentUpdateDate})`
+                  : `Build ${Application.nativeApplicationVersion} • OTA ছাড়া চলছে`
+              }
+              icon="information-outline"
+              iconBg={colors.surfaceContainerHighest}
+              iconColor={colors.onSurfaceVariant}
+              divider={false}
+            />
             <SettingsRow
               title="Check for updates"
               description={
