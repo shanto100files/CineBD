@@ -25,6 +25,19 @@ interface ShareWithFriendsSheetProps {
   content: {link: string; provider: string; title: string; poster: string} | null;
 }
 
+// Pick black/white text for a colored button background so the Send button
+// stays readable no matter which accent seed the user has chosen.
+const readableOn = (hex: string, fallback: string): string => {
+  const match = /^#?([0-9a-fA-F]{6})$/.exec(hex || '');
+  if (!match) return fallback;
+  const value = parseInt(match[1], 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 150 ? '#101012' : '#FFFFFF';
+};
+
 const ShareWithFriendsSheet = ({
   visible,
   onClose,
@@ -111,8 +124,8 @@ const ShareWithFriendsSheet = ({
               backgroundColor: colors.surfaceContainerLow,
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
-              maxHeight: '72%',
-              paddingBottom: 16 + insets.bottom,
+              maxHeight: '78%',
+              paddingBottom: 12 + insets.bottom,
               paddingTop: 12,
             }}>
             <View style={{alignItems: 'center', marginBottom: 8}}>
@@ -320,36 +333,59 @@ const ShareWithFriendsSheet = ({
             </View>
 
             <View style={{flexDirection: 'row', gap: 10, justifyContent: 'flex-end', paddingHorizontal: 20, paddingTop: 14}}>
-              <Pressable onPress={onClose} style={{borderRadius: 22, paddingHorizontal: 20, paddingVertical: 10}}>
+              <Pressable
+                onPress={onClose}
+                style={({pressed}) => ({
+                  borderRadius: 22,
+                  paddingHorizontal: 20,
+                  paddingVertical: 10,
+                  backgroundColor: pressed ? colors.surfaceContainerHigh : 'transparent',
+                })}>
                 <AppText role="labelLargeEmphasized" style={{color: colors.onSurfaceVariant}}>বাতিল</AppText>
               </Pressable>
               <Pressable
                 disabled={selected.length === 0 || sending}
                 onPress={send}
-                style={({pressed}) => ({
-                  alignItems: 'center',
-                  backgroundColor:
-                    selected.length === 0 || sending
+                style={({pressed}) => {
+                  const active = selected.length > 0 && !sending;
+                  return {
+                    alignItems: 'center',
+                    backgroundColor: !active
                       ? colors.surfaceContainerHigh
                       : pressed
-                        ? colors.primaryContainer
+                        ? colors.primary
                         : colors.primary,
-                  borderRadius: 22,
-                  flexDirection: 'row',
-                  gap: 6,
-                  minWidth: 110,
-                  justifyContent: 'center',
-                  paddingHorizontal: 18,
-                  paddingVertical: 10,
-                })}>
+                    borderRadius: 22,
+                    elevation: active ? 2 : 0,
+                    flexDirection: 'row',
+                    gap: 6,
+                    minWidth: 110,
+                    justifyContent: 'center',
+                    paddingHorizontal: 18,
+                    paddingVertical: 10,
+                    shadowColor: colors.primary,
+                    shadowOffset: {width: 0, height: 2},
+                    shadowOpacity: active ? 0.45 : 0,
+                    shadowRadius: 4,
+                  };
+                }}>
                 {sending ? (
-                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                  <ActivityIndicator size="small" color={readableOn(colors.primary, colors.onPrimary)} />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="send" size={16} color={selected.length === 0 ? colors.onSurfaceVariant : colors.onPrimary} />
+                    <MaterialCommunityIcons
+                      name="send"
+                      size={16}
+                      color={selected.length === 0 ? colors.onSurfaceVariant : readableOn(colors.primary, colors.onPrimary)}
+                    />
                     <AppText
                       role="labelLargeEmphasized"
-                      style={{color: selected.length === 0 ? colors.onSurfaceVariant : colors.onPrimary}}>
+                      style={{
+                        color:
+                          selected.length === 0
+                            ? colors.onSurfaceVariant
+                            : readableOn(colors.primary, colors.onPrimary),
+                      }}>
                       পাঠান{selected.length > 0 ? ` (${selected.length})` : ''}
                     </AppText>
                   </>
