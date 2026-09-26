@@ -1,5 +1,11 @@
-import React, {useCallback, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Linking, StyleSheet, View} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {
+  ActivityIndicator,
+  InteractionManager,
+  Linking,
+  StyleSheet,
+  View,
+} from 'react-native';
 import {WebView, type ShouldStartLoadRequest} from 'react-native-webview';
 
 interface AdBoxProps {
@@ -17,6 +23,21 @@ interface AdBoxProps {
  * chains); those arrive with no recent touch and must stay inside the box.
  */
 const TAP_WINDOW_MS = 2000;
+
+/**
+ * Delay before the ad WebView is allowed to mount.
+ *
+ * The native Android bridge answers shouldOverrideUrlLoading within 250ms or
+ * DEFAULTS TO ALLOWING the navigation. During app startup the JS thread is
+ * busy, so an ad creative firing an intent:// redirect right at mount could
+ * slip past the gate through that timeout and open Chrome by itself. Waiting
+ * until interactions settle (plus a grace period) means the gate always
+ * answers in time and can cancel everything.
+ */
+const MOUNT_DELAY_MS = 3500;
+
+// Belt-and-braces inside the creative page itself: no popups from JS.
+const BLOCK_POPUPS_SCRIPT = 'window.open=function(){return null;};true;';
 
 const isHttpUrl = (value: string) => /^https?:\/\//i.test(value.trim());
 
@@ -37,9 +58,31 @@ const isHttpUrl = (value: string) => /^https?:\/\//i.test(value.trim());
  */
 const AdBox: React.FC<AdBoxProps> = ({content, height, minHeight = 100}) => {
   const [loading, setLoading] = useState(true);
+  const [active, setActive] = useState(false);
   const lastTouchAtRef = useRef(0);
   const openedUrlRef = useRef('');
   const openedAtRef = useRef(0);
+
+  // See MOUNT_DELAY_MS: mount only after the app goes idle plus a grace
+  // period, so the native 250ms decision window is never missed.
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const interaction = InteractionManager.runAfterInteractions(() => {
+      timer = setTimeout(() => {
+        if (!cancelled) {
+          setActive(true);
+        }
+      }, MOUNT_DELAY_MS);
+    });
+    return () => {
+      cancelled = true;
+      interaction.cancel();
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, []);
 
   const boxStyle = height != null ? {height} : {minHeight};
 
@@ -104,7 +147,9 @@ const AdBox: React.FC<AdBoxProps> = ({content, height, minHeight = 100}) => {
     [content],
   );
 
-  if (!content || !source) return null;
+  if (!content || !source || !active) {
+    return <View style={[styles.container, boxStyle]} />;
+  }
 
   return (
     <View style={[styles.container, boxStyle]}>
@@ -121,7 +166,11 @@ const AdBox: React.FC<AdBoxProps> = ({content, height, minHeight = 100}) => {
         onHttpError={() => setLoading(false)}
         onTouchStart={onTouchStart}
         onShouldStartLoadWithRequest={shouldStartLoad}
+        onOpenWindow={() => {
+          // Safety net: never let the ad open a real window/browser.
+        }}
         setSupportMultipleWindows={false}
+        injectedJavaScriptBeforeContentLoaded={BLOCK_POPUPS_SCRIPT}
         javaScriptEnabled
         domStorageEnabled
         startInLoadingState={false}
