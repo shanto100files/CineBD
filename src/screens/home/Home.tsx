@@ -32,7 +32,7 @@ import {useM3Colors} from '../../theme/M3PaletteContext';
 import ContinueWatching from '../../components/ContinueWatching';
 import FriendsActivityRow from '../../components/FriendsActivityRow';
 import StatusBarScrim from '../../components/ui/StatusBarScrim';
-import {WebView} from 'react-native-webview';
+import AdBox from '../../components/AdBox';
 import WelcomePopup from '../../components/WelcomePopup';
 import {markHomeReady} from '../../lib/bootSignal';
 
@@ -42,21 +42,8 @@ const Home = ({navigation}: Props) => {
   const colors = useM3Colors();
   const {isPremium} = useAuthStore();
   // Ad WebViews are expensive on low-RAM phones: unmount them while another
-  // screen takes focus. Ad boxes are intentionally inert: the impression is
-  // counted when the ad loads; taps do nothing so users are never pulled out
-  // of the app and redirect chains can't hijack the box.
-  const handleAdNav = (adUrl: string) => (event: any) => {
-    const reqUrl: string = event?.url || '';
-    if (reqUrl === adUrl) return true;
-    if (
-      reqUrl.startsWith('about:') ||
-      reqUrl.startsWith('data:') ||
-      reqUrl.startsWith('blob:')
-    ) {
-      return true;
-    }
-    return false;
-  };
+  // screen takes focus. AdBox handles clicks itself: a user tap opens the
+  // destination in the browser, auto-redirects stay blocked inside the box.
   // screen (e.g. Player) is on top so playback gets the full device resources.
   const isScreenFocused = useIsFocused();
   const [statusBarScrimVisible, setStatusBarScrimVisible] = useState(false);
@@ -414,11 +401,7 @@ const Home = ({navigation}: Props) => {
                     এড এটিকে এড়িয়ে চলুন
                   </AppText>
                   <View style={{borderRadius: 12, overflow: 'hidden', height: 80}}>
-                    {homeAds.top.startsWith('http') ? (
-                      <WebView source={{uri: homeAds.top}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} onShouldStartLoadWithRequest={handleAdNav(homeAds.top)} />
-                    ) : (
-                      <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:80px;">${homeAds.top}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
-                    )}
+                    <AdBox content={homeAds.top} height={80} />
                   </View>
                 </View>
               ) : null}
@@ -438,11 +421,7 @@ const Home = ({navigation}: Props) => {
                     এড এটিকে এড়িয়ে চলুন
                   </AppText>
                   <View style={{borderRadius: 12, overflow: 'hidden', height: 150}}>
-                    {homeAds.bottom.startsWith('http') ? (
-                      <WebView source={{uri: homeAds.bottom}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} onShouldStartLoadWithRequest={handleAdNav(homeAds.bottom)} />
-                    ) : (
-                      <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:150px;">${homeAds.bottom}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
-                    )}
+                    <AdBox content={homeAds.bottom} height={150} />
                   </View>
                 </View>
               ) : null}

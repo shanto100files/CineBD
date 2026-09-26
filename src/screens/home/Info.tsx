@@ -9,7 +9,7 @@ import {FlatList, RefreshControl, View} from 'react-native';
 import {trackContent} from '../../lib/services/analyticsService';
 import {normalizeAppAds} from '../../lib/services/adService';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import {WebView} from 'react-native-webview';
+import AdBox from '../../components/AdBox';
 import {HomeStackParamList, TabStackParamList} from '../../App';
 import Button from '../../components/ui/Button';
 import AppText from '../../components/ui/Text';
@@ -92,19 +92,8 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   const dynamicInfoAccentEnabled = settingsStorage.isDynamicInfoAccentEnabled();
   const [appAds, setAppAds] = useState<{enabled: boolean; web_url: string; top: string; bottom: string}>({enabled: false, web_url: '', top: '', bottom: ''});
 
-  // Ad boxes are intentionally inert: impression counts on load, taps do
-  // nothing so users are never pulled out of the app.
-  const handleAdNav = useCallback(
-    (adUrl: string) => (event: any) => {
-      const reqUrl: string = event?.url || '';
-      if (reqUrl === adUrl) return true;
-      if (reqUrl.startsWith('about:') || reqUrl.startsWith('data:') || reqUrl.startsWith('blob:')) {
-        return true;
-      }
-      return false;
-    },
-    [],
-  );
+  // Ad boxes are handled by AdBox: a user tap opens the destination in the
+  // browser, auto-redirects stay blocked inside the box.
 
   useEffect(() => {
     fetch('https://cinepix.top/api/app/ads', {headers: {'X-App-Key': '78a0e573dfd894d443685159b2e71e2f'}})
@@ -389,11 +378,7 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                       এড এটিকে এড়িয়ে চলুন
                     </AppText>
                       <View style={{borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
-                        {appAds.top.startsWith('http') ? (
-                          <WebView source={{uri: appAds.top}} style={{flex: 1, backgroundColor: '#0a0a0a', minHeight: 100}} scrollEnabled={false} onShouldStartLoadWithRequest={handleAdNav(appAds.top)} />
-                        ) : (
-                          <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:100px;">${appAds.top}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
-                        )}
+                        <AdBox content={appAds.top} minHeight={100} />
                       </View>
                   </View>
                 ) : null}
@@ -437,12 +422,7 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                       }}>
                       এড এটিকে এড়িয়ে চলুন
                     </AppText>
-                    <View style={{borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
-                      {appAds.bottom.startsWith('http') ? (
-                        <WebView source={{uri: appAds.bottom}} style={{flex: 1, backgroundColor: '#0a0a0a', minHeight: 100}} scrollEnabled={false} onShouldStartLoadWithRequest={handleAdNav(appAds.bottom)} />
-                      ) : (
-                        <WebView source={{html: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;min-height:100px;">${appAds.bottom}</body></html>`}} style={{flex: 1, backgroundColor: '#0a0a0a'}} scrollEnabled={false} />
-                      )}
+                    <View style={{borderRadius: 12, overflow: 'hidden', minHeight: 100}}>                        <AdBox content={appAds.bottom} minHeight={100} />
                     </View>
                   </View>
                 ) : null}
