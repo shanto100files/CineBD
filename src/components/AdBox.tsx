@@ -1,11 +1,5 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {
-  ActivityIndicator,
-  InteractionManager,
-  Linking,
-  StyleSheet,
-  View,
-} from 'react-native';
+import React, {useEffect, useMemo, useState} from 'react';
+import {ActivityIndicator, InteractionManager, StyleSheet, View} from 'react-native';
 import {WebView, type ShouldStartLoadRequest} from 'react-native-webview';
 
 interface AdBoxProps {
@@ -16,13 +10,6 @@ interface AdBoxProps {
   /** Minimum height when no fixed height is wanted (Info screen boxes). */
   minHeight?: number;
 }
-
-/**
- * How long after a user touch a navigation is considered a click-through.
- * Ad creatives fire client-side redirects on their own (impression/refresh
- * chains); those arrive with no recent touch and must stay inside the box.
- */
-const TAP_WINDOW_MS = 2000;
 
 /**
  * Delay before the ad WebView is allowed to mount.
@@ -42,26 +29,25 @@ const BLOCK_POPUPS_SCRIPT = 'window.open=function(){return null;};true;';
 const isHttpUrl = (value: string) => /^https?:\/\//i.test(value.trim());
 
 /**
- * Sandboxed ad box.
+ * Fully inert, sandboxed ad box.
  *
- * Rules (top-frame navigations):
- *  - initial creative load / about:/data:/blob: → load inside the WebView
- *  - navigation within TAP_WINDOW_MS of a real touch → open in the system
- *    browser (this is the user's click) and keep the ad in place
- *  - everything else (auto-redirects with no touch) → blocked
+ * Policy: the box renders the creative and counts the impression — nothing
+ * else. EVERY top-frame navigation other than the initial creative load
+ * (about:/data:/blob:/nested iframes) is CANCELLED. Taps do nothing, no
+ * redirect chain ever reaches the WebView or the browser.
  *
- * setSupportMultipleWindows={false} is critical: with it, target="_blank" /
- * window.open() from the creative becomes a normal in-WebView navigation
- * that flows through this gate. With multiple windows enabled Android hands
- * those straight to Chrome, bypassing the gate entirely (the app would open
- * the browser by itself on entry).
+ * Implementation notes:
+ *  - Returning true from onShouldStartLoadWithRequest CANCELS a navigation.
+ *    Returning false would make the WebView load the URL itself, and for
+ *    custom schemes (intent://, market://, ...) that makes Android dispatch
+ *    them to Chrome/Play Store — the exact bug this box exists to prevent.
+ *  - setSupportMultipleWindows={false} turns target="_blank"/window.open()
+ *    into normal gated navigations instead of Android handing them to Chrome.
+ *  - onOpenWindow is a no-op safety net for any remaining popup path.
  */
 const AdBox: React.FC<AdBoxProps> = ({content, height, minHeight = 100}) => {
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState(false);
-  const lastTouchAtRef = useRef(0);
-  const openedUrlRef = useRef('');
-  const openedAtRef = useRef(0);
 
   // See MOUNT_DELAY_MS: mount only after the app goes idle plus a grace
   // period, so the native 250ms decision window is never missed.
@@ -98,54 +84,31 @@ const AdBox: React.FC<AdBoxProps> = ({content, height, minHeight = 100}) => {
     };
   }, [content, minHeight]);
 
-  const onTouchStart = useCallback(() => {
-    lastTouchAtRef.current = Date.now();
-  }, []);
+  const shouldStartLoad = (request: ShouldStartLoadRequest) => {
+    const reqUrl: string = request.url || '';
 
-  const shouldStartLoad = useCallback(
-    (request: ShouldStartLoadRequest) => {
-      const reqUrl: string = request.url || '';
-
-      if (
-        reqUrl.startsWith('about:') ||
-        reqUrl.startsWith('data:') ||
-        reqUrl.startsWith('blob:')
-      ) {
-        return true;
-      }
-
-      // Content loading inside nested ad iframes never leaves the box.
-      if (request.isTopFrame === false) {
-        return true;
-      }
-
-      // The creative itself.
-      if (content && reqUrl === content) {
-        return true;
-      }
-
-      const touchedRecently = Date.now() - lastTouchAtRef.current <= TAP_WINDOW_MS;
-
-      // NOTE: everything we don't allow is CANCELLED by returning true.
-      // Returning false would tell the WebView to load the URL itself, and
-      // for custom schemes (intent://, market://, ...) that makes Android
-      // dispatch them to Chrome/Play Store — the exact "app opens Chrome on
-      // its own" bug. Ad creatives commonly embed intent:// fallbacks, so
-      // this must never fall through to the WebView.
-      if (touchedRecently && isHttpUrl(reqUrl)) {
-        const now = Date.now();
-        const alreadyOpened =
-          openedUrlRef.current === reqUrl && now - openedAtRef.current < 1500;
-        if (!alreadyOpened) {
-          openedUrlRef.current = reqUrl;
-          openedAtRef.current = now;
-          Linking.openURL(reqUrl).catch(() => {});
-        }
-      }
+    if (
+      reqUrl.startsWith('about:') ||
+      reqUrl.startsWith('data:') ||
+      reqUrl.startsWith('blob:')
+    ) {
       return true;
-    },
-    [content],
-  );
+    }
+
+    // Content loading inside nested ad iframes never leaves the box.
+    if (request.isTopFrame === false) {
+      return true;
+    }
+
+    // The creative itself.
+    if (content && reqUrl === content) {
+      return true;
+    }
+
+    // Everything else — auto redirects, click targets, intent://, market://,
+    // any scheme — is cancelled outright. Nothing external, ever.
+    return true;
+  };
 
   if (!content || !source || !active) {
     return <View style={[styles.container, boxStyle]} />;
@@ -164,7 +127,6 @@ const AdBox: React.FC<AdBoxProps> = ({content, height, minHeight = 100}) => {
         onLoad={() => setLoading(false)}
         onError={() => setLoading(false)}
         onHttpError={() => setLoading(false)}
-        onTouchStart={onTouchStart}
         onShouldStartLoadWithRequest={shouldStartLoad}
         onOpenWindow={() => {
           // Safety net: never let the ad open a real window/browser.

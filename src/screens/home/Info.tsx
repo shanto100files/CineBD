@@ -92,8 +92,8 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   const dynamicInfoAccentEnabled = settingsStorage.isDynamicInfoAccentEnabled();
   const [appAds, setAppAds] = useState<{enabled: boolean; web_url: string; top: string; bottom: string}>({enabled: false, web_url: '', top: '', bottom: ''});
 
-  // Ad boxes are handled by AdBox: a user tap opens the destination in the
-  // browser, auto-redirects stay blocked inside the box.
+  // Ad boxes are handled by AdBox: fully inert — impressions count on load,
+  // every navigation inside the box is cancelled, nothing opens externally.
 
   useEffect(() => {
     fetch('https://cinepix.top/api/app/ads', {headers: {'X-App-Key': '78a0e573dfd894d443685159b2e71e2f'}})

@@ -42,8 +42,9 @@ const Home = ({navigation}: Props) => {
   const colors = useM3Colors();
   const {isPremium} = useAuthStore();
   // Ad WebViews are expensive on low-RAM phones: unmount them while another
-  // screen takes focus. AdBox handles clicks itself: a user tap opens the
-  // destination in the browser, auto-redirects stay blocked inside the box.
+  // screen takes focus. AdBox is fully inert: impressions count on load;
+  // every navigation inside the box is cancelled — nothing ever opens
+  // externally, not on tap, not on auto-redirect.
   // screen (e.g. Player) is on top so playback gets the full device resources.
   const isScreenFocused = useIsFocused();
   const [statusBarScrimVisible, setStatusBarScrimVisible] = useState(false);
