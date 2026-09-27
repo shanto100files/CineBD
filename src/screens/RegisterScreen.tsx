@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal} from 'react-native';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
+import {FLOATING_TAB_BAR_RESERVE} from '../theme/layout';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function RegisterScreen({navigation}: any) {
@@ -100,7 +101,7 @@ export default function RegisterScreen({navigation}: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24},
+  container: {flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, paddingBottom: FLOATING_TAB_BAR_RESERVE},
   card: {width: '100%', maxWidth: 380, alignItems: 'center', gap: 12},
   logoImage: {width: 180, height: 180, marginBottom: 8},
   title: {fontSize: 28, fontWeight: '800'},

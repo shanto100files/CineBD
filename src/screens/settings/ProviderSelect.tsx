@@ -14,6 +14,7 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import axios from 'axios';
 import {MaterialIcons} from '@expo/vector-icons';
 import AppText from '../../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import {useAuthStore} from '../../lib/zustand/authStore';
 import useContentStore from '../../lib/zustand/contentStore';
@@ -288,7 +289,7 @@ export default function ProviderSelectScreen() {
       </View>
       <ScrollView
         style={{flex: 1}}
-        contentContainerStyle={{paddingBottom: 32}}
+        contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}
         keyboardShouldPersistTaps="handled">
         <AppText role="bodySmall" style={[styles.hint, {color: colors.onSurfaceVariant}]}>
           Select multiple providers to show on your home page

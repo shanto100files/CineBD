@@ -15,6 +15,7 @@ import SettingsRow from '../../components/ui/SettingsRow';
 import SettingsSliderRow from '../../components/ui/SettingsSliderRow';
 import SettingsSection from '../../components/ui/SettingsSection';
 import AppText from '../../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import { useM3Colors } from '../../theme/M3PaletteContext';
 
 const FONT_OPTIONS = [
@@ -200,7 +201,7 @@ const SubtitlePreference = () => {
     <ScrollView
       className="h-full w-full bg-m3-background"
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: 40, paddingTop: 20 }}>
+      contentContainerStyle={{ paddingBottom: FLOATING_TAB_BAR_RESERVE, paddingTop: 20 }}>
       <View className="px-5">
         <AppText
           role="headlineLargeEmphasized"

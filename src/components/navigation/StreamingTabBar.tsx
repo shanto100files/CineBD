@@ -1,5 +1,9 @@
-import type {BottomTabBarProps} from '@react-navigation/bottom-tabs';
+import {
+  BottomTabBarHeightCallbackContext,
+  type BottomTabBarProps,
+} from '@react-navigation/bottom-tabs';
 import {StackActions} from '@react-navigation/native';
+import {BlurView} from 'expo-blur';
 import React from 'react';
 import {
   Platform,
@@ -11,6 +15,12 @@ import {
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {settingsStorage} from '../../lib/storage';
+import {
+  FLOATING_TAB_BAR_MARGIN,
+  FLOATING_TAB_BAR_RADIUS,
+  GLASS_BORDER,
+  GLASS_TINT,
+} from '../../theme/layout';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import AppText from '../ui/Text';
 import {AnimatedTabIcon, type AnimatedTabIconName} from './AnimatedTabIcon';
@@ -42,7 +52,7 @@ const StreamingTabBar = ({
   const {width: windowWidth, height: windowHeight} = useWindowDimensions();
   const isNavigationRail = Math.min(windowWidth, windowHeight) >= 600;
   const showLabels = settingsStorage.showTabBarLabels();
-  const bottomBarPadding = Math.max(insets.bottom, 8);
+  const onHeightChange = React.useContext(BottomTabBarHeightCallbackContext);
 
   if (isNavigationRail) {
     return (
@@ -152,24 +162,43 @@ const StreamingTabBar = ({
     );
   }
 
-  // Bottom bar: cinematic glass — translucent dark surface with a hairline
-  // top edge and an accent spotlight above the active tab.
+  // Bottom bar: floating smoked-glass pill — blurred dark surface with a
+  // hairline edge, hovering above the safe area so content scrolls under it.
   return (
     <View
+      onLayout={event => onHeightChange?.(event.nativeEvent.layout.height)}
       style={{
-        backgroundColor: 'rgba(18,18,20,0.94)',
-        borderTopColor: 'rgba(255,255,255,0.08)',
-        borderTopWidth: StyleSheet.hairlineWidth,
-        paddingBottom: bottomBarPadding,
+        backgroundColor: 'transparent',
+        borderColor: GLASS_BORDER,
+        borderRadius: FLOATING_TAB_BAR_RADIUS,
+        borderWidth: StyleSheet.hairlineWidth,
+        bottom: Math.max(insets.bottom, 8),
+        elevation: 10,
+        left: FLOATING_TAB_BAR_MARGIN,
+        overflow: 'hidden',
+        paddingBottom: 4,
         paddingTop: 6,
+        position: 'absolute',
+        right: FLOATING_TAB_BAR_MARGIN,
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: 8},
+        shadowOpacity: 0.45,
+        shadowRadius: 18,
       }}>
+      <BlurView
+        blurMethod="dimezisBlurView"
+        intensity={70}
+        style={StyleSheet.absoluteFill}
+        tint="dark"
+      />
+      <View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, {backgroundColor: GLASS_TINT}]}
+      />
       <View
         style={{
-          alignItems: isNavigationRail ? 'center' : undefined,
-          flex: isNavigationRail ? 1 : undefined,
-          flexDirection: isNavigationRail ? 'column' : 'row',
-          gap: isNavigationRail ? 8 : undefined,
-          height: isNavigationRail ? undefined : showLabels ? 58 : 42,
+          flexDirection: 'row',
+          height: showLabels ? 58 : 42,
         }}>
         {state.routes.map((route, index) => {
           const descriptor = descriptors[route.key];

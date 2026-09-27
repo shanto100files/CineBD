@@ -14,6 +14,7 @@ import {SettingsStackParamList} from '../../App';
 import AppText from '../../components/ui/Text';
 import FriendAvatar from '../../components/friends/FriendAvatar';
 import {useM3Colors} from '../../theme/M3PaletteContext';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import {friendsService, ChatMessage} from '../../lib/services/friendsService';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'FriendChat'>;
@@ -182,8 +183,9 @@ const FriendChatScreen = ({navigation, route}: Props) => {
           backgroundColor: colors.surfaceContainerLow,
           flexDirection: 'row',
           gap: 8,
+          paddingBottom: FLOATING_TAB_BAR_RESERVE,
           paddingHorizontal: 10,
-          paddingVertical: 8,
+          paddingTop: 8,
         }}>
         <TextInput
           value={text}

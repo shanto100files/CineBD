@@ -23,6 +23,7 @@ import {
 import {providerManager} from '../lib/services/ProviderManager';
 import IconButton from '../components/ui/IconButton';
 import AppText from '../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../theme/layout';
 import {getPostBadge, getSeasonBadge} from '../lib/utils/helpers';
 import {useIsOffline} from '../lib/netStatus';
 import OfflineFriendlyState from '../components/OfflineFriendlyState';
@@ -397,7 +398,7 @@ const ScrollList = ({route}: Props): React.ReactElement => {
           data={listData}
           numColumns={numColumns}
           key={`view-type-${viewType}-${numColumns}`}
-          contentContainerStyle={{paddingBottom: 80}}
+          contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}
           keyExtractor={(item, i) =>
             'isSkeleton' in item ? item.id : `${item.title}-${i}`
           }

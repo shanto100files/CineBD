@@ -41,6 +41,7 @@ import ProviderTestProgressDialog, {
 import ProviderSettingsModal from './components/ProviderSettingsModal';
 import type {ProviderDiagnosticProgress} from '../../lib/services/providerDiagnostics';
 import AppText from '../../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'Extensions'>;
@@ -599,7 +600,7 @@ const Extensions = ({navigation}: Props) => {
         }
         renderItem={renderProviderCard}
         className="mt-3 flex-1"
-        contentContainerStyle={{paddingBottom: 24}}
+        contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

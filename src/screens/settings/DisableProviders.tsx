@@ -3,6 +3,7 @@ import React, {useState} from 'react';
 import {extensionStorage, providersStorage} from '../../lib/storage';
 import {SvgUri} from 'react-native-svg';
 import AppText from '../../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import SettingsSwitchRow from '../../components/ui/SettingsSwitchRow';
 import Surface from '../../components/ui/Surface';
 import {useM3Colors} from '../../theme/M3PaletteContext';
@@ -28,7 +29,7 @@ const DisableProviders = () => {
     <ScrollView
       className="h-full w-full bg-m3-background"
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{paddingBottom: 40, paddingTop: 20}}>
+      contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE, paddingTop: 20}}>
       <View className="px-5">
         <View className="mb-2 flex-row items-center justify-between">
           <AppText

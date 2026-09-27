@@ -7,6 +7,7 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {HomeStackParamList} from '../App';
 import useContentStore from '../lib/zustand/contentStore';
 import AppText from './ui/Text';
+import GlassSurface from './ui/GlassSurface';
 import {useM3Colors} from '../theme/M3PaletteContext';
 
 export interface HeroStripItem {
@@ -80,12 +81,12 @@ const HeroStrip = ({posts, activeLink, onSelect}: HeroStripProps) => {
       const isActive = item.link === activeLink;
       if (isActive) {
         return (
-          <View
+          <GlassSurface
+            radius={14}
+            intensity={70}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: colors.surfaceContainerHigh,
-              borderRadius: 14,
               padding: 8,
               gap: 10,
               width: ACTIVE_WIDTH,
@@ -129,7 +130,7 @@ const HeroStrip = ({posts, activeLink, onSelect}: HeroStripProps) => {
                 color={colors.onPrimary}
               />
             </Pressable>
-          </View>
+          </GlassSurface>
         );
       }
       return (

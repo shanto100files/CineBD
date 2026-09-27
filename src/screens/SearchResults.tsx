@@ -6,6 +6,7 @@ import {SearchStackParamList, HomeStackParamList} from '../App';
 import {providerManager} from '../lib/services/ProviderManager';
 import useContentStore from '../lib/zustand/contentStore';
 import AppText from '../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../theme/layout';
 import LoadingIndicator from '../components/ui/LoadingIndicator';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import {useNavigation} from '@react-navigation/native';
@@ -535,7 +536,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         </View>
       ) : loading && allPosts.length > 0 ? (
         <ScrollView
-          contentContainerStyle={{paddingHorizontal: 16, paddingTop: 8, paddingBottom: 64}}
+          contentContainerStyle={{paddingHorizontal: 16, paddingTop: 8, paddingBottom: FLOATING_TAB_BAR_RESERVE}}
           showsVerticalScrollIndicator={false}>
           {baseFiltered.length > 0 ? renderFilterHeader() : null}
           {renderGrid(filteredPosts)}
@@ -551,7 +552,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={{paddingHorizontal: 16, paddingTop: 8, paddingBottom: 64}}
+          contentContainerStyle={{paddingHorizontal: 16, paddingTop: 8, paddingBottom: FLOATING_TAB_BAR_RESERVE}}
           showsVerticalScrollIndicator={false}>
           {baseFiltered.length > 0 ? renderFilterHeader() : null}
           {renderGrid(filteredPosts)}

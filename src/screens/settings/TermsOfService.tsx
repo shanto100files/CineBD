@@ -1,6 +1,7 @@
 import React from 'react';
 import {View, ScrollView, StyleSheet} from 'react-native';
 import {useM3Colors} from '../../theme/M3PaletteContext';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import AppText from '../../components/ui/Text';
 import {MaterialIcons} from '@expo/vector-icons';
 import {useNavigation} from '@react-navigation/native';
@@ -86,7 +87,7 @@ export default function TermsOfService() {
 const styles = StyleSheet.create({
   container: {flex: 1},
   header: {flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1},
-  content: {padding: 16},
+  content: {padding: 16, paddingBottom: FLOATING_TAB_BAR_RESERVE},
   card: {padding: 20, borderRadius: 16, borderWidth: 1},
   bodyText: {color: '#ccc', lineHeight: 22, marginBottom: 4},
   disclaimer: {flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 20, borderWidth: 1},

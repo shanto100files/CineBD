@@ -12,6 +12,7 @@ import debounce from 'lodash/debounce';
 import Button from '../components/ui/Button';
 import IconButton from '../components/ui/IconButton';
 import AppText from '../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../theme/layout';
 import SearchField, {type SearchFieldRef} from '../components/ui/SearchField';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import {
@@ -372,7 +373,7 @@ const Search = () => {
               data={searchHistory}
               keyExtractor={historyKeyExtractor}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{paddingBottom: 20}}
+              contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}
               renderItem={renderHistoryItem}
               removeClippedSubviews={false}
               maxToRenderPerBatch={10}

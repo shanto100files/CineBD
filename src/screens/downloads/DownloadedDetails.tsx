@@ -253,7 +253,9 @@ const DownloadedDetails = ({ navigation, route }: DownloadedDetailsProps) => {
           />
         )}
       </View>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}
+        showsVerticalScrollIndicator={false}>
         <View className="relative h-[340px] w-full">
           <LinearGradient
             colors={['rgba(0,0,0,0.08)', 'rgba(0,0,0,0.18)', '#000000']}

@@ -28,6 +28,7 @@ import Tutorial from '../../components/Touturial';
 import {QueryErrorBoundary} from '../../components/ErrorBoundary';
 import {StatusBar} from 'expo-status-bar';
 import AppText from '../../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import ContinueWatching from '../../components/ContinueWatching';
 import FriendsActivityRow from '../../components/FriendsActivityRow';
@@ -364,6 +365,7 @@ const Home = ({navigation}: Props) => {
               scrollEventThrottle={16} // Optimize scroll performance
               showsVerticalScrollIndicator={false}
               className="bg-m3-background"
+              contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}
               refreshControl={
                 <RefreshControl
                   colors={[colors.primary]}

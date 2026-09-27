@@ -34,6 +34,7 @@ import IconButton from '../../components/ui/IconButton';
 import SettingsRow from '../../components/ui/SettingsRow';
 import SettingsSection from '../../components/ui/SettingsSection';
 import AppText from '../../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import {showAppDialog} from '../../lib/zustand/appDialogStore';
 import {clearAppCache} from '../../lib/clearAppCache';
@@ -329,7 +330,7 @@ const Settings = ({navigation}: Props) => {
       layout={Layout.springify()}
       contentContainerStyle={{
         paddingTop: 15,
-        paddingBottom: 40,
+        paddingBottom: FLOATING_TAB_BAR_RESERVE,
         flexGrow: 1,
       }}>
       <View style={{paddingHorizontal: 20}}>

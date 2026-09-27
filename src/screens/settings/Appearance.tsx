@@ -5,6 +5,7 @@ import {Pressable, ScrollView, View} from 'react-native';
 import type {SettingsStackParamList} from '../../App';
 import AppearancePreference from './components/AppearancePreference';
 import AppText from '../../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'Appearance'>;
@@ -15,7 +16,7 @@ const Appearance = ({navigation}: Props) => {
   return (
     <ScrollView
       style={{backgroundColor: colors.background}}
-      contentContainerStyle={{padding: 20, paddingBottom: 40}}
+      contentContainerStyle={{padding: 20, paddingBottom: FLOATING_TAB_BAR_RESERVE}}
       showsVerticalScrollIndicator={false}>
       <View
         style={{alignItems: 'center', flexDirection: 'row', marginBottom: 24}}>

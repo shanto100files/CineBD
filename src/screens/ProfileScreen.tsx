@@ -5,6 +5,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {showAppDialog} from '../lib/zustand/appDialogStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
+import {FLOATING_TAB_BAR_RESERVE} from '../theme/layout';
 import AppText from '../components/ui/Text';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -116,7 +117,7 @@ export default function ProfileScreen() {
   return (
     <ScrollView
       style={{backgroundColor: colors.background, flex: 1}}
-      contentContainerStyle={{paddingBottom: 40}}>
+      contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}>
       {/* Header card */}
       <View
         style={{

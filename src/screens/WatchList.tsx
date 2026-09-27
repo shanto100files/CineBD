@@ -18,6 +18,7 @@ import type {WatchListStackParamList} from '../App';
 import MediaPosterCard from '../components/MediaPosterCard';
 import SharedFeed from '../components/friends/SharedFeed';
 import AppText from '../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../theme/layout';
 import type {WatchListItem} from '../lib/storage';
 import {settingsStorage} from '../lib/storage';
 import {syncFromSharedFolder} from '../lib/sync/syncService';
@@ -288,7 +289,7 @@ const WatchList = () => {
             numColumns={numColumns}
             contentContainerStyle={{
               paddingTop: isSelectionMode ? 14 : 0,
-              paddingBottom: isSelectionMode ? 120 : 50,
+              paddingBottom: isSelectionMode ? 120 : FLOATING_TAB_BAR_RESERVE,
             }}
             showsVerticalScrollIndicator={false}
           />

@@ -22,6 +22,7 @@ import ReactNativeHapticFeedback, {
 import type {DownloadsStackParamList} from '../../App';
 import MediaPosterCard from '../../components/MediaPosterCard';
 import AppText from '../../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import {
   deleteDownloadOutput,
 } from '../../lib/downloadDestination';
@@ -124,7 +125,7 @@ const LocalVideosGrid = ({
       columnWrapperStyle={{gap: GRID_GAP}}
       contentContainerStyle={{
         gap: 14,
-        paddingBottom: 80,
+        paddingBottom: FLOATING_TAB_BAR_RESERVE,
         paddingHorizontal: GRID_PADDING,
         paddingTop: topInset + 12,
       }}
@@ -530,7 +531,7 @@ const Downloads = () => {
             : Platform.OS === 'android'
             ? topInset + 28
             : topInset + 12,
-          paddingBottom: isSelectionMode ? 120 : 80,
+          paddingBottom: isSelectionMode ? 120 : FLOATING_TAB_BAR_RESERVE,
         }}
         ListHeaderComponent={
           !isSelectionMode ? (

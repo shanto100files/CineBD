@@ -15,6 +15,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
+import {FLOATING_TAB_BAR_RESERVE} from '../theme/layout';
 
 /**
  * Login screen:
@@ -264,6 +265,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     paddingTop: 60,
+    paddingBottom: FLOATING_TAB_BAR_RESERVE,
   },
   brandWrap: {alignItems: 'center', marginBottom: 30},
   logoRing: {

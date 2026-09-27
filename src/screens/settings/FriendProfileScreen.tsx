@@ -10,6 +10,7 @@ import {
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {SettingsStackParamList} from '../../App';
 import AppText from '../../components/ui/Text';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import FriendAvatar from '../../components/friends/FriendAvatar';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import {friendsService, FriendProfile} from '../../lib/services/friendsService';
@@ -124,7 +125,7 @@ const FriendProfileScreen = ({navigation, route}: Props) => {
       {loading ? (
         <ActivityIndicator style={{marginTop: 60}} size="large" color={colors.primary} />
       ) : (
-        <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 40}}>
+        <ScrollView contentContainerStyle={{padding: 20, paddingBottom: FLOATING_TAB_BAR_RESERVE}}>
           <View style={{alignItems: 'center', marginTop: 10}}>
             <FriendAvatar
               name={profile?.username || username || '?'}

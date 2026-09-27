@@ -13,6 +13,7 @@ import SettingsSwitchRow from '../../components/ui/SettingsSwitchRow';
 import AppText from '../../components/ui/Text';
 import LoadingIndicator from '../../components/ui/LoadingIndicator';
 import {showAppDialog} from '../../lib/zustand/appDialogStore';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 
 const deletePartialFile = async (filePath: string) => {
   try {
@@ -158,7 +159,9 @@ const About = () => {
   );
 
   return (
-    <View className="flex-1 bg-m3-background px-5 pt-5">
+    <View
+      className="flex-1 bg-m3-background px-5 pt-5"
+      style={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}>
       <View className="mb-7">
         <AppText
           role="headlineLargeEmphasized"

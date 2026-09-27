@@ -210,7 +210,7 @@ const PremiumScreen = ({navigation}: Props) => {
       </View>
 
       <ScrollView
-        contentContainerStyle={{paddingBottom: insets.bottom + 20}}
+        contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
 
         {/* Premium Hero (MovieBox-style) */}

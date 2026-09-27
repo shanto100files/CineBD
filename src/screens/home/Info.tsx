@@ -31,6 +31,7 @@ import InfoStoryModal from './components/InfoStoryModal';
 import ShareWithFriendsSheet from './components/ShareWithFriendsSheet';
 import InfoSkeleton from './components/InfoSkeleton';
 import StatusBarScrim from '../../components/ui/StatusBarScrim';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'Info'>;
 
@@ -326,6 +327,7 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
             data={[]}
             keyExtractor={(_, index) => String(index)}
             renderItem={() => null}
+            contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}
             ListHeaderComponent={
               <>
                 <ContentOverview

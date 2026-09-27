@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import {View, ScrollView, TextInput, TouchableOpacity, StyleSheet, ToastAndroid, ActivityIndicator} from 'react-native';
 import {useM3Colors} from '../../theme/M3PaletteContext';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import AppText from '../../components/ui/Text';
 import {MaterialIcons} from '@expo/vector-icons';
 import {useNavigation} from '@react-navigation/native';
@@ -155,7 +156,7 @@ export default function ReportScreen() {
 const styles = StyleSheet.create({
   container: {flex: 1},
   header: {flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1},
-  content: {padding: 16},
+  content: {padding: 16, paddingBottom: FLOATING_TAB_BAR_RESERVE},
   typeRow: {flexDirection: 'row', gap: 10},
   typeCard: {flex: 1, padding: 14, borderRadius: 12, alignItems: 'center'},
   input: {borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 14},
