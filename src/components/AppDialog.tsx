@@ -1,15 +1,14 @@
 import {MaterialCommunityIcons} from '@expo/vector-icons';
-import {
-  AlertDialog,
-  Host,
-  RNHostView,
-  Text,
-  TextButton,
-} from '@expo/ui/jetpack-compose';
 import React from 'react';
-import {ScrollView, Text as ReactNativeText, View} from 'react-native';
+import {
+  Modal,
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Markdown from 'react-native-markdown-display';
-import {useM3Colors, useM3HostTheme} from '../theme/M3PaletteContext';
+import {useM3Colors} from '../theme/M3PaletteContext';
+import AppText from './ui/Text';
 
 export type AppDialogVariant = 'info' | 'success' | 'warning' | 'error';
 
@@ -57,7 +56,6 @@ const AppDialog = ({
 }: AppDialogProps) => {
   const appearance = variantStyles[variant];
   const colors = useM3Colors();
-  const hostTheme = useM3HostTheme();
   const iconColor = colors[appearance.colorRole];
   const confirmAction = actions[actions.length - 1];
   const dismissAction = actions.length > 1 ? actions[0] : undefined;
@@ -69,138 +67,149 @@ const AppDialog = ({
     }
   };
 
+  const renderButton = (action: AppDialogAction) => {
+    const isConfirm = action === confirmAction;
+    const contentColor =
+      action.variant === 'destructive'
+        ? colors.error
+        : isConfirm
+          ? colors.primary
+          : colors.onSurfaceVariant;
+    return (
+      <TouchableOpacity
+        key={action.label}
+        testID={action.testID}
+        activeOpacity={0.7}
+        disabled={action.disabled}
+        onPress={() => handleAction(action)}
+        style={{
+          alignItems: 'center',
+          borderRadius: 20,
+          justifyContent: 'center',
+          minWidth: 64,
+          opacity: action.disabled ? 0.4 : 1,
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+        }}>
+        <AppText
+          role="labelLargeEmphasized"
+          style={{color: contentColor, textAlign: 'center'}}>
+          {action.label}
+        </AppText>
+      </TouchableOpacity>
+    );
+  };
+
   if (!visible) {
     return null;
   }
 
   return (
-    <View
-      pointerEvents="box-none"
-      style={{left: 0, position: 'absolute', top: 0, zIndex: 1000}}>
-      <Host matchContents {...hostTheme}>
-        <AlertDialog
-          colors={{
-            containerColor: colors.surfaceContainerHigh,
-            iconContentColor: iconColor,
-            titleContentColor: colors.onSurface,
-            textContentColor: colors.onSurfaceVariant,
-          }}
-          onDismissRequest={onDismiss}>
-          <AlertDialog.Title>
-            <RNHostView matchContents>
-              <View
-                style={{
-                  alignItems: 'center',
-                  flexDirection: 'row',
-                  justifyContent: 'flex-start',
-                  width: 280,
-                }}>
-                <MaterialCommunityIcons
-                  name={appearance.icon}
-                  size={28}
-                  color={iconColor}
-                />
-                <ReactNativeText
-                  style={{
-                    color: colors.onSurface,
-                    flex: 1,
-                    fontSize: 24,
-                    fontWeight: '700',
-                    marginLeft: 16,
-                    textAlign: 'left',
-                  }}>
-                  {title}
-                </ReactNativeText>
-              </View>
-            </RNHostView>
-          </AlertDialog.Title>
-          <AlertDialog.Text>
+    <Modal
+      transparent
+      visible
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onDismiss}>
+      <View
+        style={{
+          alignItems: 'center',
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          flex: 1,
+          justifyContent: 'center',
+          padding: 24,
+        }}>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={onDismiss}
+          style={{bottom: 0, left: 0, position: 'absolute', right: 0, top: 0}}
+        />
+        <View
+          style={{
+            backgroundColor: colors.surfaceContainerHigh,
+            borderRadius: 28,
+            elevation: 8,
+            maxWidth: 400,
+            paddingHorizontal: 24,
+            paddingTop: 24,
+            width: '100%'}}>
+          <View style={{alignItems: 'center', flexDirection: 'row', marginBottom: 12}}>
+            <MaterialCommunityIcons
+              name={appearance.icon}
+              size={28}
+              color={iconColor}
+            />
+            <AppText
+              role="titleLargeEmphasized"
+              style={{
+                color: colors.onSurface,
+                flex: 1,
+                marginLeft: 16,
+                textAlign: 'left',
+              }}>
+              {title}
+            </AppText>
+          </View>
+          <ScrollView
+            nestedScrollEnabled
+            style={{maxHeight: 360}}
+            contentContainerStyle={{paddingBottom: 4}}>
             {messageFormat === 'markdown' ? (
-              <RNHostView matchContents>
-                <ScrollView
-                  nestedScrollEnabled
-                  style={{maxHeight: 360, width: 280}}
-                  contentContainerStyle={{paddingRight: 8}}>
-                  <Markdown
-                    style={{
-                      body: {color: colors.onSurfaceVariant, fontSize: 14},
-                      bullet_list: {marginVertical: 4},
-                      code_inline: {
-                        backgroundColor: colors.surfaceContainerHighest,
-                        color: colors.onSurface,
-                      },
-                      fence: {
-                        backgroundColor: colors.surfaceContainerHighest,
-                        borderColor: colors.outlineVariant,
-                        color: colors.onSurface,
-                      },
-                      heading1: {
-                        color: colors.onSurface,
-                        fontSize: 20,
-                        marginVertical: 8,
-                      },
-                      heading2: {
-                        color: colors.onSurface,
-                        fontSize: 18,
-                        marginVertical: 7,
-                      },
-                      heading3: {
-                        color: colors.onSurface,
-                        fontSize: 16,
-                        marginVertical: 6,
-                      },
-                      link: {color: colors.primary},
-                      ordered_list: {marginVertical: 4},
-                      paragraph: {marginBottom: 8, marginTop: 0},
-                    }}>
-                    {message}
-                  </Markdown>
-                </ScrollView>
-              </RNHostView>
-            ) : (
-              <Text style={{typography: 'bodyMedium'}}>{message}</Text>
-            )}
-          </AlertDialog.Text>
-          {dismissAction ? (
-            <AlertDialog.DismissButton>
-              <TextButton
-                enabled={!dismissAction.disabled}
-                onClick={() => handleAction(dismissAction)}
-                colors={{contentColor: colors.onSurfaceVariant}}>
-                <Text
-                  color={String(colors.onSurfaceVariant)}
-                  style={{typography: 'labelLarge', fontWeight: '700'}}>
-                  {dismissAction.label}
-                </Text>
-              </TextButton>
-            </AlertDialog.DismissButton>
-          ) : null}
-          {confirmAction ? (
-            <AlertDialog.ConfirmButton>
-              <TextButton
-                enabled={!confirmAction.disabled}
-                onClick={() => handleAction(confirmAction)}
-                colors={{
-                  contentColor:
-                    confirmAction.variant === 'destructive'
-                      ? colors.error
-                      : colors.primary,
+              <Markdown
+                style={{
+                  body: {color: colors.onSurfaceVariant, fontSize: 14},
+                  bullet_list: {marginVertical: 4},
+                  code_inline: {
+                    backgroundColor: colors.surfaceContainerHighest,
+                    color: colors.onSurface,
+                  },
+                  fence: {
+                    backgroundColor: colors.surfaceContainerHighest,
+                    borderColor: colors.outlineVariant,
+                    color: colors.onSurface,
+                  },
+                  heading1: {
+                    color: colors.onSurface,
+                    fontSize: 20,
+                    marginVertical: 8,
+                  },
+                  heading2: {
+                    color: colors.onSurface,
+                    fontSize: 18,
+                    marginVertical: 7,
+                  },
+                  heading3: {
+                    color: colors.onSurface,
+                    fontSize: 16,
+                    marginVertical: 6,
+                  },
+                  link: {color: colors.primary},
+                  ordered_list: {marginBottom: 4, marginTop: 4},
+                  paragraph: {marginBottom: 6, marginTop: 0},
                 }}>
-                <Text
-                  color={String(
-                    confirmAction.variant === 'destructive'
-                      ? colors.error
-                      : colors.primary,
-                  )}
-                  style={{typography: 'labelLarge', fontWeight: '700'}}>
-                  {confirmAction.label}
-                </Text>
-              </TextButton>
-            </AlertDialog.ConfirmButton>
-          ) : null}
-        </AlertDialog>
-      </Host>
-    </View>
+                {message}
+              </Markdown>
+            ) : (
+              <AppText role="bodyMedium" style={{color: colors.onSurfaceVariant}}>
+                {message}
+              </AppText>
+            )}
+          </ScrollView>
+          <View
+            style={{
+              alignItems: 'center',
+              flexDirection: 'row',
+              gap: 4,
+              justifyContent: 'flex-end',
+              paddingBottom: 16,
+              paddingTop: 12,
+            }}>
+            {dismissAction ? renderButton(dismissAction) : null}
+            {confirmAction ? renderButton(confirmAction) : null}
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 };
 

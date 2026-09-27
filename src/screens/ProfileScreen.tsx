@@ -48,6 +48,71 @@ export default function ProfileScreen() {
 
   const initial = (user?.username || '?').slice(0, 1).toUpperCase();
 
+  const openAvatarPicker = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/jpeg', 'image/png', 'image/webp'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets?.length) {
+        return;
+      }
+      const asset = result.assets[0];
+      const res = await uploadAvatar(asset.uri, asset.mimeType || 'image/jpeg');
+      if (res.success) {
+        showAppDialog({
+          title: 'সফল!',
+          message: 'প্রোফাইল ছবি আপডেট হয়েছে',
+          variant: 'success',
+          actions: [{label: 'ঠিক আছে'}],
+        });
+      } else {
+        showAppDialog({
+          title: 'সমস্যা',
+          message: res.error || 'ছবি আপলোড হয়নি',
+          variant: 'error',
+          actions: [{label: 'ঠিক আছে'}],
+        });
+      }
+    } catch {
+      showAppDialog({
+        title: 'সমস্যা',
+        message: 'ছবি বাছাই করা যায়নি',
+        variant: 'error',
+        actions: [{label: 'ঠিক আছে'}],
+      });
+    }
+  };
+
+  const confirmRemoveAvatar = () => {
+    if (!avatarUri) {
+      return;
+    }
+    showAppDialog({
+      title: 'প্রোফাইল ছবি',
+      message: 'ছবিটা সরাবো?',
+      variant: 'warning',
+      actions: [
+        {label: 'বাতিল'},
+        {
+          label: 'সরাও',
+          variant: 'destructive',
+          onPress: async () => {
+            const res = await removeAvatar();
+            if (!res.success) {
+              showAppDialog({
+                title: 'সমস্যা',
+                message: res.error || 'ছবি সরানো যায়নি',
+                variant: 'error',
+                actions: [{label: 'ঠিক আছে'}],
+              });
+            }
+          },
+        },
+      ],
+    });
+  };
+
   return (
     <ScrollView
       style={{backgroundColor: colors.background, flex: 1}}
@@ -62,111 +127,53 @@ export default function ProfileScreen() {
           paddingBottom: 22,
           paddingTop: 48,
         }}>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={async () => {
-            try {
-              const result = await DocumentPicker.getDocumentAsync({
-                type: ['image/jpeg', 'image/png', 'image/webp'],
-                copyToCacheDirectory: true,
-              });
-              if (result.canceled || !result.assets?.length) {
-                return;
-              }
-              const asset = result.assets[0];
-              const res = await uploadAvatar(asset.uri, asset.mimeType || 'image/jpeg');
-              if (res.success) {
-                showAppDialog({
-                  title: 'সফল!',
-                  message: 'প্রোফাইল ছবি আপডেট হয়েছে',
-                  variant: 'success',
-                  actions: [{label: 'ঠিক আছে'}],
-                });
-              } else {
-                showAppDialog({
-                  title: 'সমস্যা',
-                  message: res.error || 'ছবি আপলোড হয়নি',
-                  variant: 'error',
-                  actions: [{label: 'ঠিক আছে'}],
-                });
-              }
-            } catch {
-              showAppDialog({
-                title: 'সমস্যা',
-                message: 'ছবি বাছাই করা যায়নি',
-                variant: 'error',
-                actions: [{label: 'ঠিক আছে'}],
-              });
-            }
-          }}
-          onLongPress={() => {
-            if (!avatarUri) {
-              return;
-            }
-            showAppDialog({
-              title: 'প্রোফাইল ছবি',
-              message: 'ছবিটা সরাবো?',
-              variant: 'warning',
-              actions: [
-                {label: 'বাতিল'},
-                {
-                  label: 'সরাও',
-                  variant: 'destructive',
-                  onPress: async () => {
-                    const res = await removeAvatar();
-                    if (!res.success) {
-                      showAppDialog({
-                        title: 'সমস্যা',
-                        message: res.error || 'ছবি সরানো যায়নি',
-                        variant: 'error',
-                        actions: [{label: 'ঠিক আছে'}],
-                      });
-                    }
-                  },
-                },
-              ],
-            });
-          }}
-          style={[
-            styles.avatar,
-            {backgroundColor: colors.primaryContainer, borderColor: colors.primary},
-          ]}>
-          {avatarUri ? (
-            <Image
-              source={{uri: avatarUri}}
-              style={{borderRadius: 49, height: '100%', width: '100%'}}
-            />
-          ) : (
-            <AppText
-              role="displayMediumEmphasized"
-              style={{color: colors.onPrimaryContainer}}>
-              {initial}
-            </AppText>
-          )}
-          {/* Camera badge sits outside the avatar edge so it is clearly visible */}
-          <View
-            pointerEvents="none"
+        <View>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={openAvatarPicker}
+            onLongPress={confirmRemoveAvatar}
+            style={[
+              styles.avatar,
+              {backgroundColor: colors.primaryContainer, borderColor: colors.primary},
+            ]}>
+            {avatarUri ? (
+              <Image
+                source={{uri: avatarUri}}
+                style={{borderRadius: 49, height: '100%', width: '100%'}}
+              />
+            ) : (
+              <AppText
+                role="displayMediumEmphasized"
+                style={{color: colors.onPrimaryContainer}}>
+                {initial}
+              </AppText>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={openAvatarPicker}
+            accessibilityLabel="প্রোফাইল ছবি বদলান"
             style={{
               alignItems: 'center',
               backgroundColor: colors.primary,
               borderColor: colors.surfaceContainerLowest,
-              borderRadius: 16,
+              borderRadius: 18,
               borderWidth: 3,
-              bottom: -4,
-              elevation: 4,
-              height: 32,
+              bottom: -6,
+              elevation: 5,
+              height: 36,
               justifyContent: 'center',
               position: 'absolute',
-              right: -4,
+              right: -6,
               shadowColor: '#000',
               shadowOffset: {width: 0, height: 2},
-              shadowOpacity: 0.35,
-              shadowRadius: 3,
-              width: 32,
+              shadowOpacity: 0.4,
+              shadowRadius: 4,
+              width: 36,
             }}>
-            <MaterialIcons name="photo-camera" size={16} color={colors.onPrimary} />
-          </View>
-        </TouchableOpacity>
+            <MaterialIcons name="photo-camera" size={18} color={colors.onPrimary} />
+          </TouchableOpacity>
+        </View>
 
         <AppText
           role="headlineMedium"
