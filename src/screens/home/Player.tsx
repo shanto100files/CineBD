@@ -533,6 +533,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
     setExternalSubs,
     isLoading: streamLoading,
     error: streamError,
+    refetch: refetchStream,
     switchToNextStream,
   } = useStream({
     activeEpisode,
@@ -1896,6 +1897,13 @@ const Player = ({ route }: Props): React.JSX.Element => {
         <SystemBars hidden={true} />
         <StatusBar translucent={true} hidden={true} />
         <OrientationLocker orientation={LANDSCAPE} />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{top: 12, bottom: 12, left: 12, right: 12}}
+          accessibilityLabel="Back"
+          className="absolute top-4 left-4 z-10 p-2 rounded-full">
+          <MaterialIcons name="arrow-back" size={26} color="#FFFFFF" />
+        </TouchableOpacity>
         {/* create ripple effect */}
         <TouchableNativeFeedback
           background={TouchableNativeFeedback.Ripple(
@@ -1927,6 +1935,11 @@ const Player = ({ route }: Props): React.JSX.Element => {
         <Text className="text-red-500 text-lg text-center mb-4">
           Failed to load stream. Please try again.
         </Text>
+        <TouchableOpacity
+          className="bg-primary px-6 py-2.5 rounded-md mb-3"
+          onPress={() => refetchStream()}>
+          <Text className="text-white font-semibold">Retry</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           className="bg-red-600 px-4 py-2 rounded-md"
           onPress={() => navigation.goBack()}>

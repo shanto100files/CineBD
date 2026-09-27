@@ -16,6 +16,7 @@ import {MaterialIcons} from '@expo/vector-icons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppText from '../../components/ui/Text';
 import {useM3Colors} from '../../theme/M3PaletteContext';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import {useAuthStore} from '../../lib/zustand/authStore';
 import PremiumHeroCard from '../../components/PremiumHeroCard';
 import PremiumPlanPills from '../../components/PremiumPlanPills';

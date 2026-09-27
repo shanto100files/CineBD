@@ -12,8 +12,11 @@ import {
 } from '../lib/services/initService';
 
 const API = 'https://cinepix.top/api/app';
-const DOWNLOAD_URL_FALLBACK = 'https://cinepix.top/app';
+const RELEASES_URL = 'https://github.com/shanto100files/CineBD/releases';
 const APK_PATH = `${RNFS.CachesDirectoryPath}/cinebd-update.apk`;
+
+const isApkUrl = (url: string) =>
+  /^https:\/\//i.test(url) && /\.apk([?#]|$)/i.test(url);
 
 interface Props {
   killSwitchBlocked?: boolean;
@@ -53,7 +56,7 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason, onDismiss}
         headers: {'X-App-Key': HARDCODED_KILL_KEY},
       });
       const {download_url, changelog: cl} = res.data;
-      setDownloadUrl(download_url || DOWNLOAD_URL_FALLBACK);
+      setDownloadUrl(isApkUrl(download_url) ? download_url : '');
       setChangelog(cl || '');
       if (killSwitchBlocked) {
         setStatus('kill_blocked');
@@ -71,7 +74,7 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason, onDismiss}
         }
       }
     } catch {
-      setDownloadUrl(DOWNLOAD_URL_FALLBACK);
+      setDownloadUrl('');
       setStatus(killSwitchBlocked ? 'kill_blocked' : 'network_error');
     }
   };
@@ -95,10 +98,15 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason, onDismiss}
   };
 
   const downloadAndInstall = async () => {
-    const url = downloadUrl || DOWNLOAD_URL_FALLBACK;
+    const url = downloadUrl;
 
     if (downloaded) {
       openInstall();
+      return;
+    }
+
+    if (!isApkUrl(url)) {
+      Linking.openURL(RELEASES_URL);
       return;
     }
 
@@ -169,7 +177,7 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason, onDismiss}
           flags: 1,
         });
       } else {
-        Linking.openURL(downloadUrl || DOWNLOAD_URL_FALLBACK);
+        Linking.openURL(isApkUrl(downloadUrl) ? downloadUrl : RELEASES_URL);
       }
     } catch {
       try {
@@ -182,10 +190,10 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason, onDismiss}
             flags: 1,
           });
         } else {
-          Linking.openURL(downloadUrl || DOWNLOAD_URL_FALLBACK);
+          Linking.openURL(isApkUrl(downloadUrl) ? downloadUrl : RELEASES_URL);
         }
       } catch {
-        Linking.openURL(downloadUrl || DOWNLOAD_URL_FALLBACK);
+        Linking.openURL(isApkUrl(downloadUrl) ? downloadUrl : RELEASES_URL);
       }
     }
   };
@@ -238,7 +246,7 @@ export default function ForceUpdateScreen({killSwitchBlocked, reason, onDismiss}
       </TouchableOpacity>
 
       {!downloaded && (
-        <TouchableOpacity style={styles.fallbackBtn} onPress={() => Linking.openURL(downloadUrl || DOWNLOAD_URL_FALLBACK)} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.fallbackBtn} onPress={() => Linking.openURL(isApkUrl(downloadUrl) ? downloadUrl : RELEASES_URL)} activeOpacity={0.8}>
           <Text style={styles.fallbackBtnText}>Open in Browser</Text>
         </TouchableOpacity>
       )}

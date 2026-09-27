@@ -37,6 +37,7 @@ import useDownloadsStore, {
   selectCompletedDownloads,
 } from '../../lib/zustand/downloadsStore';
 import { useM3Colors } from '../../theme/M3PaletteContext';
+import { FLOATING_TAB_BAR_RESERVE } from '../../theme/layout';
 
 type DownloadedDetailsProps = CompositeScreenProps<
   NativeStackScreenProps<DownloadsStackParamList, 'DownloadedDetails'>,
