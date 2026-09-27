@@ -93,3 +93,6 @@ google-services.json
 #env
 .env
 .env.*.ota-export/
+
+build_test/
+.ota-export/
