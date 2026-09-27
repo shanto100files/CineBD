@@ -1,8 +1,10 @@
 import {BlurView} from 'expo-blur';
 import React from 'react';
-import {StyleSheet, View, ViewProps} from 'react-native';
+import {Platform, StyleSheet, View, ViewProps} from 'react-native';
 import {GLASS_BORDER, GLASS_TINT} from '../../theme/layout';
 import {M3_SHAPES} from '../../theme/shapes';
+
+const ANDROID_TINT = 'rgba(14, 14, 16, 0.72)';
 
 interface GlassSurfaceProps extends ViewProps {
   radius?: number;
@@ -37,15 +39,17 @@ const GlassSurface = ({
       },
       style,
     ]}>
-    <BlurView
-      blurMethod="dimezisBlurView"
-      intensity={intensity}
-      style={StyleSheet.absoluteFill}
-      tint="dark"
-    />
+    {Platform.OS === 'ios' ? (
+      <BlurView
+        blurMethod="dimezisBlurView"
+        intensity={intensity}
+        style={StyleSheet.absoluteFill}
+        tint="dark"
+      />
+    ) : null}
     <View
       pointerEvents="none"
-      style={[StyleSheet.absoluteFill, {backgroundColor: tint}]}
+      style={[StyleSheet.absoluteFill, {backgroundColor: Platform.OS === 'ios' ? tint : ANDROID_TINT}]}
     />
     {children}
   </View>

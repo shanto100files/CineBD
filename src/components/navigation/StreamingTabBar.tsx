@@ -42,6 +42,8 @@ const TAB_ROOT_SCREENS: Record<string, string> = {
   SettingsStack: 'Settings',
 };
 
+const ANDROID_TINT = 'rgba(14, 14, 16, 0.72)';
+
 const StreamingTabBar = ({
   state,
   descriptors,
@@ -185,15 +187,20 @@ const StreamingTabBar = ({
         shadowOpacity: 0.45,
         shadowRadius: 18,
       }}>
-      <BlurView
-        blurMethod="dimezisBlurView"
-        intensity={70}
-        style={StyleSheet.absoluteFill}
-        tint="dark"
-      />
+      {Platform.OS === 'ios' ? (
+        <BlurView
+          blurMethod="dimezisBlurView"
+          intensity={70}
+          style={StyleSheet.absoluteFill}
+          tint="dark"
+        />
+      ) : null}
       <View
         pointerEvents="none"
-        style={[StyleSheet.absoluteFill, {backgroundColor: GLASS_TINT}]}
+        style={[
+          StyleSheet.absoluteFill,
+          {backgroundColor: Platform.OS === 'ios' ? GLASS_TINT : ANDROID_TINT},
+        ]}
       />
       <View
         style={{
