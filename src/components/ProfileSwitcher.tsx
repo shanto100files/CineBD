@@ -5,7 +5,6 @@ import AppText from './ui/Text';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import useProfileStore, {UserProfile} from '../lib/zustand/profileStore';
 import {useAuthStore} from '../lib/zustand/authStore';
-import {useNavigation} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 /** YouTube 'Who's watching?'-style profile grid inside a full-screen modal. */
@@ -20,19 +19,24 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
   const user = useAuthStore(s => s.user);
   const isPremium = useAuthStore(s => s.isPremium);
   const isLoggedIn = useAuthStore(s => s.isLoggedIn);
-  const navigation = useNavigation() as any;
 
   // Reactive mirror of canCustomizeProfiles() (getState alone would not
-  // re-render the modal on login/logout).
-  const canCustomize = !!user?.is_admin || isPremium || !isLoggedIn;
+  // re-render the modal on login/logout). Guests take the login branch.
+  const canCustomize = !!user?.is_admin || isPremium;
 
   const goEdit = useCallback(
-    (profileId?: string) => {
+    (params: {profileId?: string; manage?: boolean}) => {
       onClose();
-      navigation.navigate('ProfileEdit', profileId ? {profileId} : {});
+      // Lazy require: App.tsx -> Hero -> this file (safe at call time).
+      require('../App').openProfileEdit(params);
     },
-    [onClose, navigation],
+    [onClose],
   );
+
+  const goLogin = useCallback(() => {
+    onClose();
+    require('../App').openLoginScreen();
+  }, [onClose]);
 
   const onSelect = useCallback(
     (id: string | null) => {
@@ -79,88 +83,163 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
             কে দেখছে?
           </AppText>
 
-          <View style={st.grid}>
-            {profiles.length > 0 && (
-              <Pressable style={st.avatarWrap} onPress={() => onSelect(null)}>
-                <View
-                  style={[
-                    st.avatar,
-                    {
-                      backgroundColor: colors.surfaceContainerHighest,
-                      borderColor: activeId === null ? colors.primary : 'transparent',
-                      borderWidth: activeId === null ? 3 : 0,
-                    },
-                  ]}>
-                  <MaterialCommunityIcons
-                    name="home-variant-outline"
-                    size={38}
-                    color={colors.onSurfaceVariant}
-                  />
-                </View>
-                <AppText style={[st.avatarName, activeId === null && {color: colors.primary}]}>
-                  ডিফল্ট
-                </AppText>
-              </Pressable>
-            )}
-            {profiles.map(p => (
-              <AvatarCircle
-                key={p.id}
-                p={p}
-                active={p.id === activeId}
-                onPress={() => onSelect(p.id)}
-                onLongPress={() => goEdit(p.id)}
-              />
-            ))}
-            {canCustomize && (
-              <Pressable style={st.avatarWrap} onPress={() => goEdit()}>
-                <View style={[st.avatar, {backgroundColor: colors.surfaceContainerHighest}]}>
-                  <MaterialCommunityIcons name="plus" size={40} color={colors.onSurfaceVariant} />
-                </View>
-                <AppText style={st.avatarName}>নতুন</AppText>
-              </Pressable>
-            )}
-          </View>
-
-          {presets.length > 0 && canCustomize && (
+          {!isLoggedIn ? (
             <>
-              <AppText role="titleSmallEmphasized" style={{marginTop: 18, color: colors.onSurfaceVariant}}>
-                অ্যাডমিন প্রিসেট
-              </AppText>
+              <View style={{alignItems: 'center', paddingHorizontal: 4}}>
+                <MaterialCommunityIcons
+                  name="account-lock-outline"
+                  size={46}
+                  color={colors.onSurfaceVariant}
+                />
+                <AppText
+                  style={{marginTop: 10, color: colors.onSurface, fontWeight: '600', textAlign: 'center'}}>
+                  প্রোফাইল ব্যবহার করতে লগইন করুন
+                </AppText>
+                <AppText style={st.guestBody}>
+                  প্রোফাইলগুলো আপনার অ্যাকাউন্ট (user ID) এ সংরক্ষিত হয় — লগইন করলে যেকোনো
+                  ডিভাইসেই সেগুলো পাবেন।
+                </AppText>
+                {profiles.length > 0 && (
+                  <AppText style={st.guestNote}>
+                    আপনার পুরনো প্রোফাইল লগইন করলে অ্যাকাউন্টে যুক্ত হবে।
+                  </AppText>
+                )}
+                <Pressable style={st.loginBtn} onPress={goLogin}>
+                  <MaterialCommunityIcons name="login" size={20} color={colors.primary} />
+                  <AppText style={{color: colors.primary, fontWeight: '700'}}>লগইন করুন</AppText>
+                </Pressable>
+              </View>
+
+              {presets.length > 0 && (
+                <>
+                  <AppText role="titleSmallEmphasized" style={{marginTop: 18, color: colors.onSurfaceVariant}}>
+                    প্রিসেট প্রোফাইল
+                  </AppText>
+                  <View style={st.grid}>
+                    {presets.map(p => (
+                      <Pressable key={p.id} style={st.avatarWrap} onPress={goLogin}>
+                        <View style={[st.avatar, {backgroundColor: p.color, opacity: 0.85}]}>
+                          <MaterialCommunityIcons name={(p.avatar as any) || 'shape'} size={38} color="#FFF" />
+                        </View>
+                        <AppText style={st.avatarName} numberOfLines={1}>
+                          {p.name}
+                        </AppText>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              )}
+            </>
+          ) : (
+            <>
               <View style={st.grid}>
-                {presets.map(p => (
-                  <Pressable
-                    key={p.id}
-                    style={st.avatarWrap}
-                    onPress={() => {
-                      const created = applyPreset(p.id);
-                      if (!created) {
-                        ToastAndroid.show('সর্বোচ্চ ৮টি প্রোফাইল করা যাবে', ToastAndroid.SHORT);
-                        return;
-                      }
-                      onSelect(created.id);
-                    }}>
-                    <View style={[st.avatar, {backgroundColor: p.color, opacity: 0.85}]}>
-                      <MaterialCommunityIcons name={(p.avatar as any) || 'shape' } size={38} color="#FFF" />
+                {profiles.length > 0 && (
+                  <Pressable style={st.avatarWrap} onPress={() => onSelect(null)}>
+                    <View
+                      style={[
+                        st.avatar,
+                        {
+                          backgroundColor: colors.surfaceContainerHighest,
+                          borderColor: activeId === null ? colors.primary : 'transparent',
+                          borderWidth: activeId === null ? 3 : 0,
+                        },
+                      ]}>
+                      <MaterialCommunityIcons
+                        name="home-variant-outline"
+                        size={38}
+                        color={colors.onSurfaceVariant}
+                      />
                     </View>
-                    <AppText style={st.avatarName} numberOfLines={1}>{p.name}</AppText>
+                    <AppText style={[st.avatarName, activeId === null && {color: colors.primary}]}>
+                      ডিফল্ট
+                    </AppText>
                   </Pressable>
+                )}
+                {profiles.map(p => (
+                  <AvatarCircle
+                    key={p.id}
+                    p={p}
+                    active={p.id === activeId}
+                    onPress={() => onSelect(p.id)}
+                    onLongPress={() => goEdit({profileId: p.id})}
+                  />
                 ))}
+                {canCustomize && (
+                  <Pressable style={st.avatarWrap} onPress={() => goEdit({})}>
+                    <View style={[st.avatar, {backgroundColor: colors.surfaceContainerHighest}]}>
+                      <MaterialCommunityIcons name="plus" size={40} color={colors.onSurfaceVariant} />
+                    </View>
+                    <AppText style={st.avatarName}>নতুন</AppText>
+                  </Pressable>
+                )}
+              </View>
+
+              {presets.length > 0 && (
+                <>
+                  <AppText role="titleSmallEmphasized" style={{marginTop: 18, color: colors.onSurfaceVariant}}>
+                    প্রিসেট প্রোফাইল
+                  </AppText>
+                  <View style={st.grid}>
+                    {presets.map(p => {
+                      const added = profiles.some(lp => lp.name === p.name);
+                      return (
+                      <Pressable
+                        key={p.id}
+                        style={[st.avatarWrap, added && {opacity: 0.55}]}
+                        onPress={() => {
+                          const existingLocal = profiles.find(lp => lp.name === p.name);
+                          if (existingLocal) {
+                            ToastAndroid.show(
+                              'প্রোফাইল আগে থেকেই আছে — সুইচ করা হয়েছে',
+                              ToastAndroid.SHORT,
+                            );
+                            onSelect(existingLocal.id);
+                            return;
+                          }
+                          const created = applyPreset(p.id);
+                          if (!created) {
+                            ToastAndroid.show('সর্বোচ্চ ৮টি প্রোফাইল করা যাবে', ToastAndroid.SHORT);
+                            return;
+                          }
+                          ToastAndroid.show(
+                            'প্রোফাইল যোগ হয়েছে: ' + created.name,
+                            ToastAndroid.SHORT,
+                          );
+                          onSelect(created.id);
+                        }}>
+                        <View style={[st.avatar, {backgroundColor: p.color, opacity: 0.85}]}>
+                          <MaterialCommunityIcons name={(p.avatar as any) || 'shape' } size={38} color="#FFF" />
+                          {added && (
+                            <View style={st.addedBadge}>
+                              <MaterialCommunityIcons name="check" size={12} color="#FFF" />
+                            </View>
+                          )}
+                        </View>
+                        <AppText style={st.avatarName} numberOfLines={1}>{p.name}</AppText>
+                      </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              <View style={st.footerRow}>
+                <AppText style={st.accountNote}>
+                  প্রোফাইল আপনার অ্যাকাউন্টে সংরক্ষিত হয় — নতুন ডিভাইসে লগইন করলেই পাবেন।
+                </AppText>
+                {canCustomize ? (
+                  <Pressable style={st.footerBtn} onPress={() => goEdit({manage: true})}>
+                    <MaterialCommunityIcons name="pencil" size={20} color={colors.primary} />
+                    <AppText style={{color: colors.primary}}>প্রোফাইল ম্যানেজ করুন</AppText>
+                  </Pressable>
+                ) : (
+                  <AppText style={{color: colors.onSurfaceVariant, fontSize: 12}}>
+                    প্রোফাইল কাস্টমাইজ করতে প্রিমিয়াম লাগবে
+                  </AppText>
+                )}
               </View>
             </>
           )}
-
-          <View style={st.footerRow}>
-            {canCustomize ? (
-              <Pressable style={st.footerBtn} onPress={() => goEdit()}>
-                <MaterialCommunityIcons name="pencil" size={20} color={colors.primary} />
-                <AppText style={{color: colors.primary}}>প্রোফাইল ম্যানেজ করুন</AppText>
-              </Pressable>
-            ) : (
-              <AppText style={{color: colors.onSurfaceVariant, fontSize: 12}}>
-                প্রোফাইল কাস্টমাইজ করতে প্রিমিয়াম লাগবে
-              </AppText>
-            )}
-          </View>
         </Pressable>
       </Pressable>
     </Modal>
@@ -207,6 +286,11 @@ const st = StyleSheet.create({
   avatar: {width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
   avatarName: {marginTop: 6, fontSize: 12, color: '#DDD', maxWidth: 72},
   familyBadge: {position: 'absolute', top: 46, right: 8, backgroundColor: '#2E7D32', borderRadius: 8, padding: 2},
+  addedBadge: {position: 'absolute', top: -2, right: -2, backgroundColor: '#2E7D32', borderRadius: 10, padding: 2, borderWidth: 2, borderColor: '#1C1C1E'},
+  guestBody: {marginTop: 8, fontSize: 13, color: '#BBB', textAlign: 'center', lineHeight: 19},
+  guestNote: {marginTop: 8, fontSize: 12, color: '#8BC34A', textAlign: 'center'},
+  loginBtn: {flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, paddingHorizontal: 26, paddingVertical: 11, borderRadius: 24, borderWidth: 1.5, borderColor: 'rgba(120,140,255,0.6)'},
+  accountNote: {fontSize: 11, color: '#9E9E9E', textAlign: 'center', marginBottom: 4, paddingHorizontal: 8},
   footerRow: {marginTop: 16, alignItems: 'center'},
   footerBtn: {flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8},
 });

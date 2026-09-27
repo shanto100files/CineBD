@@ -32,8 +32,10 @@ const AVATAR_COLORS = [
  * Create / edit a profile.
  * Route params: {profileId?: string} — absent = create mode.
  *
+ * Profiles are account-synced: login is required (the switcher gates
+ * guests), and edits push to the server keyed by user id.
+ *
  * Provider selection rules:
- *  - guests: only `all`-mode providers (open catalog)
  *  - free users: read-only — they use admin presets as-is
  *  - premium/admin: any provider they are entitled to (single or multi)
  */
@@ -52,7 +54,6 @@ export default function ProfileEditScreen() {
   const installedProviders = useContentStore(s => s.installedProviders);
   const entAllowed = useEntitlementStore(s => s.allowed);
   const user = useAuthStore(s => s.user);
-  const isPremium = useAuthStore(s => s.isPremium);
   const canCustomize = canCustomizeProfiles();
 
   const [name, setName] = useState(existing?.name || '');
@@ -94,6 +95,10 @@ export default function ProfileEditScreen() {
     providers === null || providers.includes(value);
 
   const save = () => {
+    if (!useAuthStore.getState().isLoggedIn) {
+      ToastAndroid.show('প্রোফাইল সেভ করতে লগইন করুন', ToastAndroid.SHORT);
+      return;
+    }
     if (!name.trim()) {
       ToastAndroid.show('প্রোফাইলের নাম দিন', ToastAndroid.SHORT);
       return;
@@ -117,12 +122,66 @@ export default function ProfileEditScreen() {
     navigation.goBack();
   };
 
+  const manageMode = !!route.params?.manage && !editId;
+
+  if (manageMode) {
+    return (
+      <View style={{flex: 1, backgroundColor: colors.background}}>
+        <ScrollView contentContainerStyle={{padding: 18, paddingBottom: 60}}>
+          <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, marginBottom: 6}}>
+            প্রোফাইল ম্যানেজ
+          </AppText>
+          <AppText style={{color: colors.onSurfaceVariant, fontSize: 12, marginBottom: 16}}>
+            সম্পাদনা করতে ট্যাপ করুন। মুছতে সম্পাদনা পর্দায় “প্রোফাইল মুছুন” চাপুন।
+          </AppText>
+          <AppText style={{color: colors.onSurfaceVariant, fontSize: 12, marginTop: -10, marginBottom: 14}}>
+            প্রোফাইল আপনার অ্যাকাউন্টে (user ID) সংরক্ষিত হয় — অন্য ডিভাইসে লগইন করলেও পাবেন।
+          </AppText>
+
+          <Pressable
+            style={[st.row, {backgroundColor: colors.surfaceContainerHigh, marginBottom: 8}]}
+            onPress={() => navigation.push('ProfileEdit', {})}>
+            <MaterialCommunityIcons name="plus" size={22} color={colors.primary} />
+            <AppText style={{flex: 1, marginLeft: 12, color: colors.onSurface}}>নতুন প্রোফাইল</AppText>
+          </Pressable>
+
+          {profiles.map(p => (
+            <Pressable
+              key={p.id}
+              style={[st.row, {backgroundColor: colors.surfaceContainerHigh, marginBottom: 6}]}
+              onPress={() => navigation.push('ProfileEdit', {profileId: p.id})}>
+              <View style={[st.manageAvatar, {backgroundColor: p.color}]}>
+                <MaterialCommunityIcons name={(p.avatar as any) || 'account'} size={20} color="#FFF" />
+              </View>
+              <View style={{flex: 1, marginLeft: 12}}>
+                <AppText style={{color: colors.onSurface}}>{p.name}</AppText>
+                {p.kind === 'family' && (
+                  <AppText style={{color: colors.onSurfaceVariant, fontSize: 11}}>ফ্যামিলি মোড</AppText>
+                )}
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceVariant} />
+            </Pressable>
+          ))}
+
+          {profiles.length === 0 && (
+            <AppText style={{color: colors.onSurfaceVariant, fontSize: 13, marginTop: 12}}>
+              এখনো কোনো প্রোফাইল নেই
+            </AppText>
+          )}
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       style={{flex: 1, backgroundColor: colors.background}}
       contentContainerStyle={{padding: 18, paddingBottom: 60}}>
-      <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, marginBottom: 16}}>
+      <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, marginBottom: 6}}>
         {existing ? 'প্রোফাইল সম্পাদনা' : 'নতুন প্রোফাইল'}
+      </AppText>
+      <AppText style={{color: colors.onSurfaceVariant, fontSize: 12, marginBottom: 16}}>
+        সেভ করলে প্রোফাইলটি আপনার অ্যাকাউন্টে (user ID) সংরক্ষিত হবে — অন্য ডিভাইসে লগইন করলেও পাবেন।
       </AppText>
 
       {/* Preview */}
@@ -202,9 +261,7 @@ export default function ProfileEditScreen() {
         <View style={[st.lockBox, {backgroundColor: colors.surfaceContainerHigh}]}>
           <MaterialCommunityIcons name="lock-outline" size={20} color={colors.onSurfaceVariant} />
           <AppText style={{color: colors.onSurfaceVariant, flex: 1, marginLeft: 10, fontSize: 13}}>
-            {isPremium || user?.is_admin
-              ? 'প্রোভাইডার নির্বাচন করতে পারবেন না'
-              : 'প্রোভাইডার কাস্টমাইজ করতে প্রিমিয়াম অ্যাকাউন্ট লাগবে'}
+            প্রোভাইডার কাস্টমাইজ করতে প্রিমিয়াম অ্যাকাউন্ট লাগবে
           </AppText>
         </View>
       ) : (
@@ -279,6 +336,7 @@ const st = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(128,128,128,0.15)', borderWidth: 0,
   },
+  manageAvatar: {width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center'},
   colorCell: {width: 36, height: 36, borderRadius: 18},
   lockBox: {flexDirection: 'row', alignItems: 'center', borderRadius: 12, padding: 12},
   saveBtn: {

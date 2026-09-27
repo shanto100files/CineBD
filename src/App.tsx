@@ -194,7 +194,7 @@ export type SettingsStackParamList = {
   Extensions: undefined;
   DownloadsStack: undefined;
   ProviderSelect: undefined;
-  ProfileEdit: {profileId?: string} | undefined;
+  ProfileEdit: {profileId?: string; manage?: boolean} | undefined;
   Friends: undefined;
   FriendProfile: {userId: number; username: string};
   FriendChat: {userId: number; username: string};
@@ -258,6 +258,44 @@ export const openFriendChat = (userId: number, username: string): void => {
     );
   } catch (error) {
     console.warn('[Push] failed to open friend chat:', error);
+  }
+};
+
+/** Open the profile editor (create / edit / manage) from anywhere. */
+export const openProfileEdit = (params: {profileId?: string; manage?: boolean} = {}): void => {
+  try {
+    if (!navigationRef.isReady()) {
+      return;
+    }
+    navigationRef.dispatch(
+      require('@react-navigation/native').CommonActions.navigate('TabStack', {
+        screen: 'SettingsStack',
+        params: {
+          screen: 'ProfileEdit',
+          params,
+        },
+      }),
+    );
+  } catch (error) {
+    console.warn('[Profile] failed to open profile screen:', error);
+  }
+};
+
+export const openLoginScreen = (): void => {
+  try {
+    if (!navigationRef.isReady()) {
+      return;
+    }
+    navigationRef.dispatch(
+      require('@react-navigation/native').CommonActions.navigate('TabStack', {
+        screen: 'SettingsStack',
+        params: {
+          screen: 'Login',
+        },
+      }),
+    );
+  } catch (error) {
+    console.warn('[Auth] failed to open login screen:', error);
   }
 };
 
