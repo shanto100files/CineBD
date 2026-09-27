@@ -1,5 +1,5 @@
 import React, {useCallback} from 'react';
-import {Modal, Pressable, StyleSheet, ToastAndroid, View} from 'react-native';
+import {Modal, Pressable, ScrollView, StyleSheet, ToastAndroid, View} from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AppText from './ui/Text';
 import {useM3Colors} from '../theme/M3PaletteContext';
@@ -64,6 +64,15 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
           color="#FFFFFF"
         />
       </View>
+      {canCustomize && (
+        <Pressable
+          style={st.editBadge}
+          hitSlop={8}
+          onPress={() => goEdit({profileId: p.id})}
+          accessibilityLabel="প্রোফাইল সম্পাদনা">
+          <MaterialCommunityIcons name="pencil" size={11} color="#FFFFFF" />
+        </Pressable>
+      )}
       <AppText style={[st.avatarName, active && {color: colors.primary}]} numberOfLines={1}>
         {p.name}
       </AppText>
@@ -77,8 +86,14 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={[st.backdrop, {paddingTop: insets.top + 20}]} onPress={onClose}>
+      <Pressable
+        style={[st.backdrop, {paddingTop: insets.top + 20, paddingBottom: insets.bottom + 24}]}
+        onPress={onClose}>
         <Pressable style={[st.sheet, {backgroundColor: colors.surfaceContainerLow}]} onPress={() => {}}>
+          <ScrollView
+            style={{flexShrink: 1}}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{paddingBottom: 4}}>
           <AppText role="headlineMediumEmphasized" style={st.title}>
             কে দেখছে?
           </AppText>
@@ -240,6 +255,7 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
               </View>
             </>
           )}
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -279,13 +295,14 @@ export default ProfileAvatarChip;
 
 const st = StyleSheet.create({
   backdrop: {flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24},
-  sheet: {width: '100%', maxWidth: 420, borderRadius: 24, padding: 22, paddingBottom: 16},
+  sheet: {width: '100%', maxWidth: 420, maxHeight: '86%', borderRadius: 24, padding: 22, paddingBottom: 16},
   title: {textAlign: 'center', marginBottom: 16, color: '#FFF'},
   grid: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14},
   avatarWrap: {alignItems: 'center', width: 74},
   avatar: {width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
   avatarName: {marginTop: 6, fontSize: 12, color: '#DDD', maxWidth: 72},
   familyBadge: {position: 'absolute', top: 46, right: 8, backgroundColor: '#2E7D32', borderRadius: 8, padding: 2},
+  editBadge: {position: 'absolute', top: -3, right: -3, backgroundColor: '#3A3A3C', borderRadius: 11, padding: 4, borderWidth: 2, borderColor: '#1C1C1E'},
   addedBadge: {position: 'absolute', top: -2, right: -2, backgroundColor: '#2E7D32', borderRadius: 10, padding: 2, borderWidth: 2, borderColor: '#1C1C1E'},
   guestBody: {marginTop: 8, fontSize: 13, color: '#BBB', textAlign: 'center', lineHeight: 19},
   guestNote: {marginTop: 8, fontSize: 12, color: '#8BC34A', textAlign: 'center'},

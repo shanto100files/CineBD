@@ -22,6 +22,7 @@ import {useEntitlementStore} from '../../lib/zustand/entitlementStore';
 import {useAuthStore} from '../../lib/zustand/authStore';
 import {settingsStorage} from '../../lib/storage';
 import {extensionStorage} from '../../lib/storage/extensionStorage';
+import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 
 const AVATAR_COLORS = [
   '#EF5350', '#AB47BC', '#5C6BC0', '#29B6F6', '#26A69A',
@@ -127,7 +128,7 @@ export default function ProfileEditScreen() {
   if (manageMode) {
     return (
       <View style={{flex: 1, backgroundColor: colors.background}}>
-        <ScrollView contentContainerStyle={{padding: 18, paddingBottom: 60}}>
+        <ScrollView contentContainerStyle={{padding: 18, paddingBottom: FLOATING_TAB_BAR_RESERVE}}>
           <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, marginBottom: 6}}>
             প্রোফাইল ম্যানেজ
           </AppText>
@@ -176,7 +177,7 @@ export default function ProfileEditScreen() {
   return (
     <ScrollView
       style={{flex: 1, backgroundColor: colors.background}}
-      contentContainerStyle={{padding: 18, paddingBottom: 60}}>
+      contentContainerStyle={{padding: 18, paddingBottom: FLOATING_TAB_BAR_RESERVE}}>
       <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, marginBottom: 6}}>
         {existing ? 'প্রোফাইল সম্পাদনা' : 'নতুন প্রোফাইল'}
       </AppText>
