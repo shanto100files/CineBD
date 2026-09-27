@@ -134,7 +134,12 @@ export async function initializeApp(
     } catch {}
 
     // 18+ gating: hide adult providers unless the age gate was passed.
-    const adultAllowed = settingsStorage.isAdultEnabled();
+    // PROFILE-AWARE: a family profile always blocks adult content.
+    let adultAllowed = settingsStorage.isAdultEnabled();
+    try {
+      const {isAdultAllowedForActiveProfile} = require('../zustand/profileStore');
+      adultAllowed = isAdultAllowedForActiveProfile();
+    } catch {}
     const installed = getGatedInstalledProviders();
     useContentStore.setState({installedProviders: installed});
     const contentStore = useContentStore.getState();

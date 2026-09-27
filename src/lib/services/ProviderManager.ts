@@ -5,7 +5,6 @@ import {Catalog, EpisodeLink, Info, Post, Stream, SettingsField} from '../provid
 import {extensionManager} from './ExtensionManager';
 import {extensionStorage} from '../storage/extensionStorage';
 import {providerKvStorage} from '../storage/StorageService';
-import {settingsStorage} from '../storage/SettingsStorage';
 import {MAX_STATE_BYTES} from '../sandbox/protocol';
 import {sandboxBridge, setSandboxStateHandler} from '../sandbox/sandboxBridge';
 
@@ -82,12 +81,14 @@ export class ProviderManager {
   private isModuleAllowed(providerValue: string): boolean {
     // Hard 18+ gate: even if a stale provider list somewhere still contains
     // an adult provider, no module code can execute for it while the age
-    // gate is off. This is the single choke point for every fetch.
+    // gate is off. PROFILE-AWARE: a family profile always blocks adult.
+    // This is the single choke point for every fetch.
     try {
+      const {isAdultAllowedForActiveProfile} = require('../zustand/profileStore');
       const meta = extensionStorage
         .getInstalledProviders()
         .find(p => p.value === providerValue);
-      if (meta?.is_adult && !settingsStorage.isAdultEnabled()) {
+      if (meta?.is_adult && !isAdultAllowedForActiveProfile()) {
         return false;
       }
     } catch (error) {

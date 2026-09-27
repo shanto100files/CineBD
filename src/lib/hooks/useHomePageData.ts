@@ -7,6 +7,7 @@ import useContentStore from '../zustand/contentStore';
 import axios from 'axios';
 import {useAuthStore} from '../zustand/authStore';
 import {useEntitlementStore} from '../zustand/entitlementStore';
+import {useProfileStore} from '../zustand/profileStore';
 
 async function syncToServer(providerValue: string, sections: HomePageData[]) {
   try {
@@ -38,6 +39,7 @@ export const useHomePageData = ({
   const homeProviderValue = useContentStore(state => state.homeProviderValue);
   const token = useAuthStore(s => s.token);
   const entAllowed = useEntitlementStore(s => s.allowed);
+  const activeProfileId = useProfileStore(s => s.activeId);
 
   // Keep entitlements fresh (login/logout drives this too via the store).
   useEffect(() => {
@@ -46,8 +48,17 @@ export const useHomePageData = ({
 
   const providersToFetch = React.useMemo(() => {
     if (!installedProviders || installedProviders.length === 0) return [provider];
-    let candidates: any[];
-    if (homeProviderValue) {
+    let candidates: any[] = [];
+    // Active profile's explicit provider set wins over the global home picker.
+    const profile = useProfileStore.getState().activeProfile();
+    if (profile?.providers) {
+      const vals = profile.providers;
+      const matched = installedProviders.filter((p: any) => vals.includes(p.value));
+      if (matched.length > 0) {
+        candidates = matched;
+      }
+    }
+    if (candidates.length === 0 && homeProviderValue) {
       const vals = homeProviderValue.split(',').filter(Boolean);
       if (vals.length > 0) {
         const matched = installedProviders.filter((p: any) => vals.includes(p.value));
@@ -56,7 +67,7 @@ export const useHomePageData = ({
         }
       }
     }
-    if (!candidates) {
+    if (candidates.length === 0) {
       const homeProviders = installedProviders.filter((p: any) => p.show_on_home !== false);
       candidates = homeProviders.length > 0 ? homeProviders : installedProviders;
     }
@@ -64,10 +75,10 @@ export const useHomePageData = ({
     // admin-granted (`selected`) providers; signed-in restricted accounts
     // fetch exactly the providers the server granted them.
     return useEntitlementStore.getState().applyTo(candidates);
-  }, [installedProviders, entAllowed, provider, homeProviderValue]);
+  }, [installedProviders, entAllowed, provider, homeProviderValue, activeProfileId]);
 
   const query = useQuery<HomePageData[], Error>({
-    queryKey: ['homePageData', 'aggregate', providersToFetch.map(p => p.value).sort().join(','), token || 'anon'],
+    queryKey: ['homePageData', 'aggregate', activeProfileId || 'nopf', providersToFetch.map(p => p.value).sort().join(','), token || 'anon'],
     queryFn: async ({signal}) => {
       const allData: HomePageData[] = [];
 

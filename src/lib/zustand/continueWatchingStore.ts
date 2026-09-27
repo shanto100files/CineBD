@@ -78,6 +78,30 @@ async function serverFetch(): Promise<ContinueWatchingItem[]> {
   }
 }
 
+/** Active profile id for storage namespacing ("" = no profile). */
+const activeHistoryScope = (): string => {
+  try {
+    const {default: useProfileStore} = require('./profileStore');
+    return useProfileStore.getState().activeId || '';
+  } catch {
+    return '';
+  }
+};
+
+// Wrap the zustand storage so the persisted key becomes per-profile:
+// continue-watching-storage → cw:pf:<id> (legacy key when no profile).
+const scopedStorage = (() => {
+  const base = createZustandStorage();
+  const makeKey = (p: string) => (p ? `cw:pf:${p}` : 'continue-watching-storage');
+  return {
+    setItem: (_name: string, value: string) => {
+      base.setItem(makeKey(activeHistoryScope()), value);
+    },
+    getItem: (_name: string) => base.getItem(makeKey(activeHistoryScope())),
+    removeItem: (_name: string) => base.removeItem(makeKey(activeHistoryScope())),
+  };
+})();
+
 const useContinueWatchingStore = create<ContinueWatchingState>()(
   persist(
     set => ({
@@ -132,9 +156,25 @@ const useContinueWatchingStore = create<ContinueWatchingState>()(
     }),
     {
       name: 'continue-watching-storage',
-      storage: createJSONStorage(() => createZustandStorage()),
+      storage: createJSONStorage(() => scopedStorage as any),
     },
   ),
 );
+
+/**
+ * Reload history for the active profile after a switch. Rehydrates the
+ * scoped persisted state and replaces the in-memory items.
+ */
+export const reloadHistoryForProfile = async () => {
+  try {
+    const raw = scopedStorage.getItem('continue-watching-storage');
+    let items: ContinueWatchingItem[] = [];
+    if (raw && typeof (raw as any).then !== 'function') {
+      const parsed = JSON.parse(String(raw));
+      items = parsed?.state?.items || [];
+    }
+    useContinueWatchingStore.setState({items});
+  } catch {}
+};
 
 export default useContinueWatchingStore;

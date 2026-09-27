@@ -18,6 +18,7 @@ import * as Updates from 'expo-updates';
 import * as Application from 'expo-application';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import useContentStore from '../../lib/zustand/contentStore';
+import useProfileStore from '../../lib/zustand/profileStore';
 import {
   NativeStackScreenProps,
   NativeStackNavigationProp,
@@ -64,6 +65,9 @@ const Settings = ({navigation}: Props) => {
   const colors = useM3Colors();
   const [preferredLanguage, setPreferredLanguage] = useState(settingsStorage.getPreferredLanguage());
   const [adultEnabled, setAdultEnabled] = useState(settingsStorage.isAdultEnabled());
+  const familyMode = useProfileStore(
+    s => s.profiles.find(p => p.id === s.activeId)?.kind === 'family',
+  );
   const [tvAdultEnabled, setTvAdultEnabled] = useState<boolean | null>(null);
   const [tvAdultSaving, setTvAdultSaving] = useState(false);
   const {user, isPremium, isLoggedIn, logout} = useAuthStore();
@@ -647,11 +651,13 @@ const Settings = ({navigation}: Props) => {
             <SettingsRow
               title={adultEnabled ? '18+ Content: On' : '18+ Content: Off'}
               description={
-                adultEnabled
-                  ? '18+ providers are visible'
-                  : 'Enable to see 18+ providers (age 18+)'
+                familyMode
+                  ? 'ফ্যামিলি প্রোফাইল — 18+ সবসময় লুকানো থাকবে'
+                  : adultEnabled
+                    ? '18+ providers are visible'
+                    : 'Enable to see 18+ providers (age 18+)'
               }
-              icon={adultEnabled ? 'eye' : 'eye-off'}
+              icon={adultEnabled && !familyMode ? 'eye' : 'eye-off'}
               iconBg={'#3A1A2A'}
               iconColor={'#F48FB1'}
               divider={false}

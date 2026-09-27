@@ -39,6 +39,7 @@ import DownloadedDetails from './screens/downloads/DownloadedDetails';
 import SubtitlePreference from './screens/settings/SubtitleSettings';
 import Extensions from './screens/settings/Extensions';
 import ProviderSelect from './screens/settings/ProviderSelect';
+import ProfileEditScreen from './screens/settings/ProfileEdit';
 import TermsOfService from './screens/settings/TermsOfService';
 import ReportScreen from './screens/settings/ReportScreen';
 import Constants from 'expo-constants';
@@ -47,6 +48,7 @@ import {updateProvidersService} from './lib/services/UpdateProviders';
 import {getGatedInstalledProviders} from './lib/utils/providerGate';
 import useContentStore from './lib/zustand/contentStore';
 import {useEntitlementStore} from './lib/zustand/entitlementStore';
+import useProfileStore from './lib/zustand/profileStore';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {initNetStatus} from './lib/netStatus';
 import * as ExpoUpdates from 'expo-updates';
@@ -192,6 +194,7 @@ export type SettingsStackParamList = {
   Extensions: undefined;
   DownloadsStack: undefined;
   ProviderSelect: undefined;
+  ProfileEdit: {profileId?: string} | undefined;
   Friends: undefined;
   FriendProfile: {userId: number; username: string};
   FriendChat: {userId: number; username: string};
@@ -318,6 +321,7 @@ const SettingsStackScreen = React.memo(() => {
       <SettingsStackNav.Screen name="DownloadsStack" component={DownloadsStackScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="SubTitlesPreferences" component={SubtitlePreference} options={subpageOptions} />
       <SettingsStackNav.Screen name="ProviderSelect" component={ProviderSelect} options={subpageOptions} />
+      <SettingsStackNav.Screen name="ProfileEdit" component={ProfileEditScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="Friends" component={FriendsScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="FriendProfile" component={FriendProfileScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="FriendChat" component={FriendChatScreen} options={subpageOptions} />
@@ -990,6 +994,8 @@ const App = () => {
         useContentStore.setState({installedProviders: gated});
       })
       .catch(() => {});
+    // Profile presets (admin-curated provider sets) for the switcher.
+    useProfileStore.getState().fetchPresets().catch(() => {});
   }, [appReady, splashOverlayVisible]);
 
   // Priority Rendering Logic

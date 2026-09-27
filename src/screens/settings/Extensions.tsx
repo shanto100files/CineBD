@@ -41,6 +41,7 @@ import ProviderTestProgressDialog, {
 import ProviderSettingsModal from './components/ProviderSettingsModal';
 import type {ProviderDiagnosticProgress} from '../../lib/services/providerDiagnostics';
 import AppText from '../../components/ui/Text';
+import {isAdultAllowedForActiveProfile} from '../../lib/zustand/profileStore';
 import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 
@@ -441,7 +442,7 @@ const Extensions = ({navigation}: Props) => {
     await refreshProviders(activeSourceAuthor);
   };
   const currentData = useMemo(() => {
-    const adultAllowed = settingsStorage.isAdultEnabled();
+    const adultAllowed = isAdultAllowedForActiveProfile();
     const isAdmin = !!useAuthStore.getState().user?.is_admin;
     const allProviders = [
       ...(availableProviders || []),

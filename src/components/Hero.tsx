@@ -24,6 +24,7 @@ import {useM3Colors} from '../theme/M3PaletteContext';
 import {mixHex} from '../theme/seeds';
 import Button from './ui/Button';
 import AppText from './ui/Text';
+import ProfileAvatarChip, {ProfileSwitcherModal} from './ProfileSwitcher';
 
 interface HeroProps {
   isDrawerOpen: boolean;
@@ -67,6 +68,7 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
   const insets = useSafeAreaInsets();
   const [logoFailed, setLogoFailed] = useState(false);
   const [heroColor, setHeroColor] = useState('#FFFFFF');
+  const [profileModal, setProfileModal] = useState(false);
   const provider = useContentStore(state => state.provider);
   const hero = useHeroStore(state => state.hero);
   const navigation =
@@ -242,6 +244,22 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer, disableDrawer}: HeroProps) => {
           />
         </Pressable>
       )}
+
+      <View
+        style={{
+          position: 'absolute',
+          left: 16,
+          top: insets.top + 6,
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}>
+        <ProfileAvatarChip onPress={() => setProfileModal(true)} />
+      </View>
+
+      <ProfileSwitcherModal
+        visible={profileModal}
+        onClose={() => setProfileModal(false)}
+      />
 
       <Animated.View
         entering={FadeInDown.delay(100).springify().damping(18).stiffness(180)}

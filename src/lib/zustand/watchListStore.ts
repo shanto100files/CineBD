@@ -52,14 +52,24 @@ async function serverFetch(): Promise<WatchList[]> {
   }
 }
 
+/** Active profile id ("" = no profile). Lazy require avoids circular imports. */
+export const activeWatchScope = (): string => {
+  try {
+    const {default: useProfileStore} = require('./profileStore');
+    return useProfileStore.getState().activeId || '';
+  } catch {
+    return '';
+  }
+};
+
+const scoped = (): WatchList[] => watchListStorage.getWatchList(activeWatchScope());
+
 const useWatchListStore = create<WatchListStore>()(set => ({
-  watchList: watchListStorage.getWatchList(),
+  watchList: scoped(),
 
   removeItem: link => {
-    const removedItem = watchListStorage
-      .getWatchList()
-      .find(i => i.link === link);
-    const newWatchList = watchListStorage.removeFromWatchList(link);
+    const removedItem = scoped().find(i => i.link === link);
+    const newWatchList = watchListStorage.removeFromWatchList(link, activeWatchScope());
     set({watchList: newWatchList});
     if (removedItem) {
       serverToggle(removedItem);
@@ -67,7 +77,7 @@ const useWatchListStore = create<WatchListStore>()(set => ({
   },
 
   addItem: item => {
-    const newWatchList = watchListStorage.addToWatchList(item);
+    const newWatchList = watchListStorage.addToWatchList(item, activeWatchScope());
     set({watchList: newWatchList});
     serverToggle(item);
   },
@@ -77,19 +87,27 @@ const useWatchListStore = create<WatchListStore>()(set => ({
     if (!token) return;
     const serverItems = await serverFetch();
     if (serverItems.length === 0) return;
-    const localItems = watchListStorage.getWatchList();
+    const localItems = scoped();
     const localLinks = new Set(localItems.map(i => i.link));
     let changed = false;
     for (const si of serverItems) {
       if (!localLinks.has(si.link)) {
-        watchListStorage.addToWatchList(si);
+        watchListStorage.addToWatchList(si, activeWatchScope());
         changed = true;
       }
     }
     if (changed) {
-      set({watchList: watchListStorage.getWatchList()});
+      set({watchList: watchListStorage.getWatchList(activeWatchScope())});
     }
   },
 }));
+
+/**
+ * Reload the list from the scoped storage after a profile switch.
+ * Called by the profile switcher when the active profile changes.
+ */
+export const reloadWatchListForProfile = () => {
+  useWatchListStore.setState({watchList: scoped()});
+};
 
 export default useWatchListStore;

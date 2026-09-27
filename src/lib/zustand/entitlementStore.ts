@@ -4,7 +4,10 @@ import {MMKV} from '../Mmkv';
 import {useAuthStore} from './authStore';
 import useContentStore from './contentStore';
 import {extensionStorage, ProviderExtension} from '../storage/extensionStorage';
-import {settingsStorage} from '../storage';
+import {
+  useProfileStore,
+  isAdultAllowedForActiveProfile,
+} from './profileStore';
 
 const API = 'https://cinepix.top/api/app';
 const CACHE_KEY = 'entitlements:providers';
@@ -53,10 +56,19 @@ const readCache = (): string[] | null => {
 /** Re-filter the visible installed-provider list after entitlements change. */
 const reGateInstalledProviders = () => {
   try {
+    // Profile first: an explicit per-profile provider set (or family mode)
+    // filters below the entitlement gate. Circular import is safe here
+    // because both stores are only used inside function bodies.
+    const {providersForActiveProfile} = require('./profileStore');
+    const filtered = providersForActiveProfile(
+      useEntitlementStore.getState().gatedInstalled(),
+    );
+    useContentStore.setState({installedProviders: filtered});
+  } catch {
     useContentStore.setState({
       installedProviders: useEntitlementStore.getState().gatedInstalled(),
     });
-  } catch {}
+  }
 };
 
 export const useEntitlementStore = create<EntitlementState>((set, get) => ({
@@ -115,10 +127,24 @@ export const useEntitlementStore = create<EntitlementState>((set, get) => ({
 
   gatedInstalled: () => {
     const installed = extensionStorage.getInstalledProviders() || [];
-    const adultOk = settingsStorage.isAdultEnabled();
+    // 18+ gate is PROFILE-AWARE: a family profile always blocks adult,
+    // other profiles defer to the device age-gate setting.
+    const adultOk = isAdultAllowedForActiveProfile();
     const {allowed, isAdmin} = get();
     const admin = isAdmin || !!useAuthStore.getState().user?.is_admin;
-    return installed.filter(p => {
+    // Per-profile provider set: null = aggregate, array = explicit values.
+    let profileFiltered = installed;
+    try {
+      const profile = useProfileStore.getState().activeProfile();
+      if (profile?.providers) {
+        const wanted = new Set(profile.providers);
+        profileFiltered = installed.filter(p => wanted.has(p.value));
+      }
+      if (profile?.kind === 'family') {
+        profileFiltered = profileFiltered.filter(p => !p.is_adult);
+      }
+    } catch {}
+    return profileFiltered.filter(p => {
       if (!adultOk && p.is_adult) return false;
       if (admin) return true;
       if (allowed === null) {
@@ -132,6 +158,17 @@ export const useEntitlementStore = create<EntitlementState>((set, get) => ({
   applyTo: candidates => {
     const {allowed, isAdmin} = get();
     const admin = isAdmin || !!useAuthStore.getState().user?.is_admin;
+    // Per-profile provider set first (family mode hides 18+ even for admin).
+    try {
+      const profile = useProfileStore.getState().activeProfile();
+      if (profile?.providers) {
+        const wanted = new Set(profile.providers);
+        candidates = candidates.filter(p => wanted.has(p.value));
+      }
+      if (profile?.kind === 'family') {
+        candidates = candidates.filter(p => !(p as any).is_adult);
+      }
+    } catch {}
     if (admin) return candidates;
     if (allowed === null) {
       // Anonymous or open-catalog account: only self-selectable providers.
