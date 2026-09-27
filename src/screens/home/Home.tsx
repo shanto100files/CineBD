@@ -10,6 +10,10 @@ import useContentStore from '../../lib/zustand/contentStore';
 import useHeroStore from '../../lib/zustand/herostore';
 import {syncFromSharedFolder} from '../../lib/sync/syncService';
 import {useAuthStore} from '../../lib/zustand/authStore';
+import {useEntitlementStore} from '../../lib/zustand/entitlementStore';
+import {useProfileStore} from '../../lib/zustand/profileStore';
+import {getGatedInstalledProviders} from '../../lib/utils/providerGate';
+import {extensionStorage} from '../../lib/storage/extensionStorage';
 import {
   useHomePageData,
   getRandomHeroPost,
@@ -146,6 +150,7 @@ const Home = ({navigation}: Props) => {
       clearHeroCache(provider?.value);
       await Promise.allSettled([
         refetch(),
+        useEntitlementStore.getState().refresh(),
         syncFromSharedFolder().catch(e =>
           console.warn('[CinepixSync] Home refresh sync failed:', e),
         ),
@@ -261,8 +266,7 @@ const Home = ({navigation}: Props) => {
   }, [provider?.value, installedProviders, adultEnabled]);
 
   // Auto-install / auto-update providers from server on every app open
-  useEffect(() => {
-    if (autoInstalling) return;
+  const runAutoInstall = useCallback(() => {
     setAutoInstalling(true);
     extensionManager
       .fetchManifest(undefined, true)
@@ -270,6 +274,10 @@ const Home = ({navigation}: Props) => {
       .catch(() => {})
       .finally(() => setAutoInstalling(false));
   }, []);
+
+  useEffect(() => {
+    runAutoInstall();
+  }, [runAutoInstall]);
 
   // Fetch ads (deferred until after first paint so startup stays light)
   const [adsReady, setAdsReady] = useState(false);
@@ -305,12 +313,57 @@ const Home = ({navigation}: Props) => {
     markHomeReady();
   }, []);
 
+  const activeProfileInfo = (() => {
+    try {
+      const p = useProfileStore.getState().activeProfile();
+      return {
+        family: p?.kind === 'family',
+        explicitSet: !!p && p.kind !== 'family' && Array.isArray(p.providers),
+      };
+    } catch {
+      return {family: false, explicitSet: false};
+    }
+  })();
+  const deviceAdultOff = !settingsStorage.isAdultEnabled();
+  const rawHasAdult = (() => {
+    try {
+      return (extensionStorage.getInstalledProviders() || []).some(p => p.is_adult);
+    } catch {
+      return false;
+    }
+  })();
+  const showSwitchProfile = activeProfileInfo.family || activeProfileInfo.explicitSet;
+  const showEnableAdult = deviceAdultOff && rawHasAdult;
+  const showGenericReason =
+    !activeProfileInfo.family && !activeProfileInfo.explicitSet && !showEnableAdult;
+
+  const switchToDefaultProfile = () => useProfileStore.getState().setActive(null);
+  const enableAdult = () => {
+    settingsStorage.setAdultEnabled(true);
+    useContentStore.setState({installedProviders: getGatedInstalledProviders()});
+    useEntitlementStore.getState().refresh();
+  };
+  const retryProviderLoad = () => {
+    runAutoInstall();
+    useEntitlementStore.getState().refresh();
+  };
+
   // Show loading state while providers are being installed
   if (
     !installedProviders ||
     installedProviders.length === 0 ||
     !provider?.value
   ) {
+    const noVisibleProviders = !installedProviders || installedProviders.length === 0;
+    const ctaStyle = {
+      marginTop: 16,
+      backgroundColor: '#161616',
+      borderColor: '#333',
+      borderWidth: 1,
+      paddingHorizontal: 26,
+      paddingVertical: 11,
+      borderRadius: 999,
+    };
     return (
       <SafeAreaView style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 24}}>
         {autoInstalling ? (
@@ -319,11 +372,51 @@ const Home = ({navigation}: Props) => {
             <View style={{height: 16}} />
             <AppText style={{color: '#888', fontSize: 13}}>Please wait</AppText>
           </>
-        ) : (
+        ) : !noVisibleProviders ? (
           <>
             <AppText style={{color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center'}}>Loading content...</AppText>
             <View style={{height: 16}} />
-            <AppText style={{color: '#666', fontSize: 12, textAlign: 'center'}}>Pull to refresh</AppText>
+            <AppText style={{color: '#666', fontSize: 12, textAlign: 'center'}}>Please wait</AppText>
+          </>
+        ) : (
+          <>
+            <AppText style={{color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center'}}>কোনো প্রোভাইডার দেখা যাচ্ছে না</AppText>
+            <View style={{height: 10}} />
+            {activeProfileInfo.family && (
+              <AppText style={{color: '#999', fontSize: 13, textAlign: 'center'}}>
+                ফ্যামিলি প্রোফাইলে ১৮+ প্রোভাইডার লুকানো থাকে।
+              </AppText>
+            )}
+            {activeProfileInfo.explicitSet && (
+              <AppText style={{color: '#999', fontSize: 13, textAlign: 'center'}}>
+                সক্রিয় প্রোফাইলের প্রোভাইডার তালিকায় কিছু পাওয়া যায়নি।
+              </AppText>
+            )}
+            {showEnableAdult && (
+              <AppText style={{color: '#999', fontSize: 13, textAlign: 'center'}}>
+                {showSwitchProfile
+                  ? 'ডিভাইস সেটিংসেও ১৮+ কনটেন্ট বন্ধ আছে।'
+                  : '১৮+ কনটেন্ট বন্ধ থাকায় প্রোভাইডারগুলো লুকানো আছে।'}
+              </AppText>
+            )}
+            {showGenericReason && (
+              <AppText style={{color: '#999', fontSize: 13, textAlign: 'center'}}>
+                প্রোভাইডার ইনস্টল করা যায়নি — সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।
+              </AppText>
+            )}
+            {showSwitchProfile && (
+              <Pressable onPress={switchToDefaultProfile} style={ctaStyle}>
+                <AppText style={{color: '#fff', fontSize: 14, fontWeight: '700'}}>ডিফল্ট প্রোফাইলে ফিরুন</AppText>
+              </Pressable>
+            )}
+            {showEnableAdult && (
+              <Pressable onPress={enableAdult} style={ctaStyle}>
+                <AppText style={{color: '#fff', fontSize: 14, fontWeight: '700'}}>১৮+ চালু করুন</AppText>
+              </Pressable>
+            )}
+            <Pressable onPress={retryProviderLoad} style={ctaStyle}>
+              <AppText style={{color: '#fff', fontSize: 14, fontWeight: '700'}}>আবার চেষ্টা করুন</AppText>
+            </Pressable>
           </>
         )}
       </SafeAreaView>
