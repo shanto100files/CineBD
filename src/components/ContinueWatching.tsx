@@ -227,14 +227,16 @@ const ContinueWatching = () => {
             </TouchableOpacity>
             <AppText
               numberOfLines={1}
-              style={{ color: colors.onBackground, flex: 1, fontSize: 16, fontWeight: '600', letterSpacing: 0.15 }}>
+              role="titleMediumEmphasized"
+              style={{ color: colors.onBackground, flex: 1 }}>
               Continue watching
             </AppText>
           </View>
         ) : (
           <AppText
             numberOfLines={1}
-            style={{ color: colors.onBackground, flex: 1, fontSize: 16, fontWeight: '600', letterSpacing: 0.15 }}>
+            role="titleMediumEmphasized"
+            style={{ color: colors.onBackground, flex: 1 }}>
             Continue watching
           </AppText>
         )}

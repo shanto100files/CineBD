@@ -107,9 +107,14 @@ export const M3_SEEDS: SeedOption[] = [
   {name: 'White', color: DEFAULT_SEED},
   {name: 'Netflix', color: NETFLIX_SEED},
   {name: 'Tomato', color: '#FF6347'},
-  {name: 'Gray', color: '#9E9E9E'},
+  {name: 'Emerald', color: '#10B981'},
+  {name: 'Amber', color: '#F59E0B'},
+  {name: 'Rose', color: '#F43F5E'},
+  {name: 'Violet', color: '#8B5CF6'},
+  {name: 'Cyan', color: '#06B6D4'},
   {name: 'Blue', color: '#2196F3'},
   {name: 'Lavender', color: '#B2A4D4'},
+  {name: 'Gray', color: '#9E9E9E'},
 ];
 
 export const isCuratedSeed = (color: string): boolean =>

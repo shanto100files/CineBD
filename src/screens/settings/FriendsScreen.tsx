@@ -25,6 +25,7 @@ import {
 import FriendAvatar from '../../components/friends/FriendAvatar';
 import SharedFeed from '../../components/friends/SharedFeed';
 import {timeAgo} from '../../lib/utils/timeAgo';
+import {RADIUS, SURFACE_BORDER} from '../../theme/layout';
 
 type Tab = 'friends' | 'chats' | 'received';
 
@@ -299,7 +300,7 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
                 key={i}
                 style={{
                   backgroundColor: colors.surfaceContainerLow,
-                  borderRadius: 14,
+                  borderRadius: RADIUS.card,
                   height: 58,
                   marginBottom: 8,
                 }}
@@ -314,8 +315,8 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
               style={{
                 alignItems: 'center',
                 backgroundColor: colors.surfaceContainerLow,
-                borderColor: colors.outlineVariant,
-                borderRadius: 14,
+                borderColor: SURFACE_BORDER,
+                borderRadius: RADIUS.card,
                 borderWidth: 1,
                 flexDirection: 'row',
                 gap: 12,
@@ -364,7 +365,7 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
                 <View
                   style={{
                     backgroundColor: colors.surfaceContainerHigh,
-                    borderRadius: 14,
+                    borderRadius: RADIUS.card,
                     paddingHorizontal: 10,
                     paddingVertical: 5,
                   }}>
@@ -437,7 +438,7 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
                 alignItems: 'center',
                 backgroundColor: colors.primaryContainer + '33',
                 borderColor: colors.primary + '55',
-                borderRadius: 14,
+                borderRadius: RADIUS.card,
                 borderWidth: 1,
                 flexDirection: 'row',
                 gap: 12,
@@ -534,8 +535,8 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
             style={{
               alignItems: 'center',
               backgroundColor: unread > 0 ? colors.primaryContainer + '22' : colors.surfaceContainerLow,
-              borderColor: unread > 0 ? colors.primary + '44' : colors.outlineVariant,
-              borderRadius: 14,
+              borderColor: unread > 0 ? colors.primary + '44' : SURFACE_BORDER,
+              borderRadius: RADIUS.card,
               borderWidth: 1,
               flexDirection: 'row',
               gap: 12,
@@ -642,8 +643,8 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
                 style={{
                   alignItems: 'center',
                   backgroundColor: colors.surfaceContainerLow,
-                  borderColor: colors.outlineVariant,
-                  borderRadius: 14,
+                  borderColor: SURFACE_BORDER,
+                  borderRadius: RADIUS.card,
                   borderWidth: 1,
                   flexDirection: 'row',
                   gap: 12,
@@ -672,8 +673,8 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
         <View
           style={{
             backgroundColor: colors.surfaceContainerLow,
-            borderColor: colors.outlineVariant,
-            borderRadius: 14,
+              borderColor: SURFACE_BORDER,
+            borderRadius: RADIUS.card,
             borderWidth: 1,
             marginTop: 14,
             padding: 12,
@@ -771,8 +772,8 @@ export default function FriendsScreen({navigation}: Props): React.JSX.Element {
             style={{
               alignItems: 'center',
               backgroundColor: colors.surfaceContainerLow,
-              borderColor: colors.outlineVariant,
-              borderRadius: 14,
+            borderColor: SURFACE_BORDER,
+              borderRadius: RADIUS.card,
               borderWidth: 1,
               flexDirection: 'row',
               gap: 12,

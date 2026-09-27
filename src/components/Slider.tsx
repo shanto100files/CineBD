@@ -100,12 +100,10 @@ const Slider = ({
           />
           <AppText
             numberOfLines={1}
+            role="titleMediumEmphasized"
             style={{
               color: colors.onBackground,
               flex: 1,
-              fontSize: 16.5,
-              fontWeight: '700',
-              letterSpacing: 0.2,
               minWidth: 0,
             }}>
             {title}

@@ -6,6 +6,7 @@ import {
 } from '@expo/ui/jetpack-compose';
 import React from 'react';
 import {View, ViewProps} from 'react-native';
+import {RADIUS, SURFACE_BORDER} from '../../theme/layout';
 import {useM3Colors, useM3HostTheme} from '../../theme/M3PaletteContext';
 
 type SurfaceLevel = 'lowest' | 'low' | 'default' | 'high' | 'highest';
@@ -38,13 +39,13 @@ const Surface = ({
         contentColor={colors.onSurface}
         shape={Shape.RoundedCorner({
           cornerRadii: {
-            topStart: 28,
-            topEnd: 28,
-            bottomStart: 28,
-            bottomEnd: 28,
+            topStart: RADIUS.sheet,
+            topEnd: RADIUS.sheet,
+            bottomStart: RADIUS.sheet,
+            bottomEnd: RADIUS.sheet,
           },
         })}
-        border={outlined ? {width: 1, color: colors.outline} : undefined}>
+        border={outlined ? {width: 1, color: SURFACE_BORDER} : undefined}>
         <RNHostView matchContents>
           <View {...props} style={style} />
         </RNHostView>
