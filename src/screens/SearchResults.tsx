@@ -5,6 +5,10 @@ import {NativeStackScreenProps, NativeStackNavigationProp} from '@react-navigati
 import {SearchStackParamList, HomeStackParamList} from '../App';
 import {providerManager} from '../lib/services/ProviderManager';
 import useContentStore from '../lib/zustand/contentStore';
+import {
+  useProfileStore,
+  isAdultAllowedForActiveProfile,
+} from '../lib/zustand/profileStore';
 import AppText from '../components/ui/Text';
 import {FLOATING_TAB_BAR_RESERVE} from '../theme/layout';
 import LoadingIndicator from '../components/ui/LoadingIndicator';
@@ -32,9 +36,12 @@ const CACHE_KEY_PREFIX = 'search_cache_';
 const CACHE_TTL = 5 * 60 * 1000;
 const CONCURRENCY = 2;
 
-function getCachedResults(query: string): Post[] | null {
+// Cache is keyed per active profile so switching profiles never serves
+// another profile's result set.
+function getCachedResults(query: string, profileKey: string): Post[] | null {
   try {
-    const key = CACHE_KEY_PREFIX + query.toLowerCase().trim();
+    const key =
+      CACHE_KEY_PREFIX + profileKey + '_' + query.toLowerCase().trim();
     const raw = MMKV.getString(key);
     if (!raw) return null;
     const cached = JSON.parse(raw);
@@ -48,9 +55,10 @@ function getCachedResults(query: string): Post[] | null {
   }
 }
 
-function setCachedResults(query: string, posts: Post[]): void {
+function setCachedResults(query: string, profileKey: string, posts: Post[]): void {
   try {
-    const key = CACHE_KEY_PREFIX + query.toLowerCase().trim();
+    const key =
+      CACHE_KEY_PREFIX + profileKey + '_' + query.toLowerCase().trim();
     MMKV.setString(key, JSON.stringify({posts, time: Date.now()}));
   } catch {}
 }
@@ -128,6 +136,18 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
   const installedProviders = useContentStore(state => state.installedProviders);
   const provider = useContentStore(state => state.provider);
+  const activeProfileId = useProfileStore(state => state.activeId);
+  const activeProfile = useProfileStore(state => state.activeProfile);
+  // The server's instant "movienest" results only make sense for profiles
+  // that aggregate everything — explicit per-profile provider sets (e.g. an
+  // 18+ profile) can never match a general movies/series scraper.
+  const profileAllowsInstant = useMemo(() => {
+    try {
+      return !activeProfile()?.providers;
+    } catch {
+      return true;
+    }
+  }, [activeProfile, activeProfileId]);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const isOffline = useIsOffline();
@@ -149,10 +169,29 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   const cardWidth = (screenWidth - 56) / 3;
   const query = route.params.filter;
 
-  const baseFiltered = useMemo(
-    () => filterPosts(allPosts, query),
-    [allPosts, query],
-  );
+  // Profile gate: search must respect the active profile's provider set
+  // exactly like Home. Without this the screen searched every installed
+  // provider plus the server's instant "movienest" results even when the
+  // active profile only aggregates a subset (e.g. an 18+ profile showing
+  // family-profile movies and series).
+  const baseFiltered = useMemo(() => {
+    const adultByValue = new Map<string, boolean>();
+    for (const p of installedProviders) {
+      adultByValue.set(p.value, !!p.is_adult);
+    }
+    const profile = activeProfile();
+    const allowed = profile?.providers ? new Set(profile.providers) : null;
+    const adultOk = isAdultAllowedForActiveProfile();
+    return filterPosts(allPosts, query).filter(p => {
+      const value = p.provider || 'unknown';
+      if (!adultOk && adultByValue.get(value)) return false;
+      // Instant/movienest results carry no provider metadata — fall back to
+      // a title check so family/gated profiles don't see adult titles.
+      if (!adultOk && NSFW_REGEX.test(p.title || '')) return false;
+      if (allowed && !allowed.has(value)) return false;
+      return true;
+    });
+  }, [allPosts, query, installedProviders, activeProfile, activeProfileId]);
 
   // ---- provider chips data ----
   const providerCounts = useMemo(() => {
@@ -310,7 +349,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
     };
 
     const run = async () => {
-      const cached = getCachedResults(query);
+      const cached = getCachedResults(query, activeProfileId || 'none');
       if (cached && cached.length > 0) {
         resultsRef.current = [...cached];
         seenRef.current = new Set(cached.map(p => p.title + '|' + p.link));
@@ -321,11 +360,13 @@ const SearchResults = ({route}: Props): React.ReactElement => {
 
       setLoading(true);
 
-      const instantResults = await fetchInstantResults(query, signal);
-      if (signal.aborted) return;
-      if (instantResults.length > 0) {
-        addUnique(instantResults);
-        setAllPosts([...resultsRef.current]);
+      if (profileAllowsInstant) {
+        const instantResults = await fetchInstantResults(query, signal);
+        if (signal.aborted) return;
+        if (instantResults.length > 0) {
+          addUnique(instantResults);
+          setAllPosts([...resultsRef.current]);
+        }
       }
 
       let updateTimer: ReturnType<typeof setTimeout> | null = null;
@@ -372,7 +413,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
       if (!signal.aborted) {
         setAllPosts([...resultsRef.current]);
         setLoading(false);
-        setCachedResults(query, resultsRef.current);
+        setCachedResults(query, activeProfileId || 'none', resultsRef.current);
       }
     };
 
@@ -384,7 +425,13 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         abortController.current = null;
       }
     };
-  }, [route.params.filter, installedProviders, searchEpoch]);
+  }, [
+    route.params.filter,
+    installedProviders,
+    searchEpoch,
+    activeProfileId,
+    profileAllowsInstant,
+  ]);
 
   const handleItemPress = useCallback(
     (item: Post) => {

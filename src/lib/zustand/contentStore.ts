@@ -7,6 +7,28 @@ import {settingsStorage} from '../storage';
 
 const storage = new MMKVLoader().initialize();
 
+/**
+ * Cold-start provider list must already respect the active profile +
+ * entitlement gate. The initial state used to be the raw installed list,
+ * so screens that read it before any re-gate ran (e.g. SearchResults)
+ * briefly searched everything — family/18+ profile sets were ignored.
+ * Lazy require avoids a circular import (profileStore <-> this module).
+ */
+const initialInstalledProviders = (() => {
+  try {
+    const {getGatedInstalledProviders} = require('../utils/providerGate');
+    const gated = getGatedInstalledProviders();
+    if (gated && gated.length >= 0) {
+      return gated.slice().sort((a: ProviderExtension, b: ProviderExtension) =>
+        a.display_name.localeCompare(b.display_name),
+      );
+    }
+  } catch {}
+  return extensionStorage
+    .getInstalledProviders()
+    .sort((a, b) => a.display_name.localeCompare(b.display_name));
+})();
+
 export interface Content {
   provider: ProviderExtension;
   setProvider: (type: ProviderExtension) => void;
@@ -35,9 +57,7 @@ const useContentStore = create<Content>()(
         installedAt: 0,
         lastUpdated: 0,
       },
-      installedProviders: extensionStorage
-        .getInstalledProviders()
-        .sort((a, b) => a.display_name.localeCompare(b.display_name)),
+      installedProviders: initialInstalledProviders,
       availableProviders: [],
       activeExtensionProvider: null,
       homeProviderValue: settingsStorage.getHomeProvider(),
