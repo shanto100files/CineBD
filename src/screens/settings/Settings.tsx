@@ -72,19 +72,24 @@ const Settings = ({navigation}: Props) => {
   const [tvAdultSaving, setTvAdultSaving] = useState(false);
   // Set while the 18+ PIN setup/unlock screen is open; resolved on focus-return.
   const pendingAdultEnable = useRef(false);
+  // Unlock timestamp captured BEFORE the lock screen opened: on focus return,
+  // the unlock counts only if the timestamp advanced (i.e. a successful fresh
+  // authentication happened). A cancelled prompt keeps the old timestamp and
+  // does NOT enable 18+ — even if the 15-min session was still fresh.
+  const unlockedAtBeforePrompt = useRef(0);
   useEffect(() => {
     if (!isFocused || !pendingAdultEnable.current) return;
     pendingAdultEnable.current = false;
-    const {isAdultLockOpen, markUnlocked} = require('../../lib/adultLock');
-    if (isAdultLockOpen()) {
-      // The lock screen already called markUnlocked() on success; re-stamp
-      // here too so the 15-min session window starts from the focus return.
+    const {isAdultLockOpen, markUnlocked, getUnlockedAt} = require('../../lib/adultLock');
+    const unlockedNow = isAdultLockOpen() && getUnlockedAt() > unlockedAtBeforePrompt.current;
+    if (unlockedNow) {
+      // Re-stamp so the 15-min session window starts from the focus return.
       markUnlocked();
       settingsStorage.setAdultEnabled(true);
       setAdultEnabled(true);
       ToastAndroid.show('18+ content enabled', ToastAndroid.SHORT);
     } else {
-      ToastAndroid.show('18+ চালু হয়নি — আবার চেষ্টা করুন', ToastAndroid.LONG);
+      ToastAndroid.show('18+ চালু হয়নি — পিন/ফিঙ্গারপ্রিন্ট দিয়ে আনলক করুন', ToastAndroid.LONG);
     }
   }, [isFocused]);
   const {user, isPremium, isLoggedIn, logout} = useAuthStore();
@@ -700,19 +705,19 @@ const Settings = ({navigation}: Props) => {
                           variant: 'destructive',
                           onPress: () => {
                             // PIN/biometric lock: first time = set up a PIN,
-                            // afterwards = unlock this session. 18+ is only
-                            // enabled AFTER the lock succeeds (checked when
-                            // Settings regains focus) — enabling before the
-                            // PIN flow caused the "on but nothing shows" mismatch.
-                            const {isAdultPinSet, isAdultLockOpen} = require('../../lib/adultLock');
+                            // afterwards ALWAYS require a fresh unlock when
+                            // turning 18+ ON — even if the 15-min session
+                            // window is still open. Parental lock must prompt
+                            // every time the gate is opened, and a cancelled
+                            // prompt must never auto-enable via the old
+                            // session. 18+ is only enabled AFTER the lock
+                            // succeeds (checked when Settings regains focus).
+                            const {isAdultPinSet, isAdultLockOpen, getUnlockedAt} = require('../../lib/adultLock');
                             if (!isAdultPinSet()) {
                               pendingAdultEnable.current = true;
                               require('../../App').openAdultLock({mode: 'setup'});
-                            } else if (isAdultLockOpen()) {
-                              settingsStorage.setAdultEnabled(true);
-                              setAdultEnabled(true);
-                              ToastAndroid.show('18+ content enabled', ToastAndroid.SHORT);
                             } else {
+                              unlockedAtBeforePrompt.current = getUnlockedAt();
                               pendingAdultEnable.current = true;
                               require('../../App').openAdultLock({mode: 'unlock'});
                             }

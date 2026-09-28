@@ -134,6 +134,19 @@ export const markUnlocked = (): void => {
 };
 
 /**
+ * Timestamp of the last successful unlock (0 = never). Callers that open the
+ * lock screen compare this against the time they opened it, so a cancel
+ * cannot ride on an older session's fresh-unlock window.
+ */
+export const getUnlockedAt = (): number => {
+  try {
+    return mainStorage.getNumber(UNLOCK_TS_KEY) || 0;
+  } catch {
+    return 0;
+  }
+};
+
+/**
  * Whether 18+ can currently be accessed without prompting (fresh unlock).
  * If no PIN is set at all the lock is inert (legacy behaviour).
  */

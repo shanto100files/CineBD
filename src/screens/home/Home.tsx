@@ -366,23 +366,30 @@ const Home = ({navigation}: Props) => {
   // enable only after a successful unlock. Otherwise a kid could bypass the
   // entire PIN protection with one tap from Home.
   const pendingAdultEnableRef = useRef(false);
+  // Unlock timestamp captured before the lock screen opened — a cancelled
+  // prompt must never ride on an older session's fresh-unlock window.
+  const unlockedAtBeforePromptRef = useRef(0);
   useEffect(() => {
     if (!isScreenFocused || !pendingAdultEnableRef.current) return;
     pendingAdultEnableRef.current = false;
-    const {isAdultLockOpen, markUnlocked} = require('../../lib/adultLock');
-    if (isAdultLockOpen()) {
+    const {isAdultLockOpen, markUnlocked, getUnlockedAt} = require('../../lib/adultLock');
+    const unlockedNow = isAdultLockOpen() && getUnlockedAt() > unlockedAtBeforePromptRef.current;
+    if (unlockedNow) {
       markUnlocked();
       settingsStorage.setAdultEnabled(true);
       useContentStore.setState({installedProviders: getGatedInstalledProviders()});
       useEntitlementStore.getState().refresh();
       ToastAndroid.show('১৮+ চালু হয়েছে', ToastAndroid.SHORT);
     } else {
-      ToastAndroid.show('১৮+ চালু হয়নি — আবার চেষ্টা করুন', ToastAndroid.LONG);
+      ToastAndroid.show('১৮+ চালু হয়নি — পিন/ফিঙ্গারপ্রিন্ট দিয়ে আনলক করুন', ToastAndroid.LONG);
     }
   }, [isScreenFocused]);
   const enableAdult = () => {
-    const {isAdultPinSet, isAdultLockOpen} = require('../../lib/adultLock');
-    if (isAdultPinSet() && !isAdultLockOpen()) {
+    const {isAdultPinSet, getUnlockedAt} = require('../../lib/adultLock');
+    if (isAdultPinSet()) {
+      // Always prompt when enabling 18+ — a fresh unlock is required every
+      // time the gate opens, regardless of the 15-min session window.
+      unlockedAtBeforePromptRef.current = getUnlockedAt();
       pendingAdultEnableRef.current = true;
       require('../../App').openAdultLock({mode: 'unlock'});
       return;

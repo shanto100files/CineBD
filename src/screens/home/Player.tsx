@@ -26,6 +26,7 @@ import { cacheStorage, settingsStorage } from '../../lib/storage';
 import Orientation, {
   OrientationLocker,
   LANDSCAPE,
+  PORTRAIT,
 } from 'react-native-orientation-locker';
 import { SystemBars } from 'react-native-edge-to-edge';
 import VideoPlayer from '../../components/media-console';
@@ -1431,14 +1432,26 @@ const Player = ({ route }: Props): React.JSX.Element => {
     watchedDuration,
   ]);
 
-  // Enter landscape and fullscreen on mount & focus, and restore on unmount
+  // Portrait videos (9:16, e.g. TikTok-style clips) play in portrait with a
+  // centered pillarboxed video instead of a huge landscape screen with tiny
+  // side bars. Orientation is chosen once we know the video's natural size.
+  const [isPortraitVideo, setIsPortraitVideo] = useState(false);
+
+  // Enter landscape and fullscreen on mount & focus, and restore on unmount.
+  // If the loaded video turned out to be portrait, stay in portrait instead.
   useFocusEffect(
     useCallback(() => {
-      Orientation.lockToLandscape();
+      if (!isPortraitVideoRef.current) {
+        Orientation.lockToLandscape();
+      }
       goFullScreen();
       reapplyFullscreenMode(isFullScreenRef.current);
 
       return () => {
+        if (portraitReassertTimerRef.current) {
+          clearTimeout(portraitReassertTimerRef.current);
+          portraitReassertTimerRef.current = null;
+        }
         Orientation.unlockAllOrientations();
         exitFullScreen();
       };
@@ -1741,6 +1754,39 @@ const Player = ({ route }: Props): React.JSX.Element => {
   const handleVideoLoadCallback = useCallback(
     (e: any) => {
       handleVideoLoad(e?.naturalSize);
+      // Pick orientation from the natural video size: taller than wide →
+      // portrait playback (rotates the phone up on first load). Landscape
+      // videos keep the classic landscape lock.
+      try {
+        const w = Number(e?.naturalSize?.width) || 0;
+        const h = Number(e?.naturalSize?.height) || 0;
+        // Only re-evaluate orientation with real dimensions. Some streams
+        // fire extra onLoad events with a bogus 0x0 size (re-buffer / track
+        // change); treating those as landscape flipped portrait videos right
+        // back to landscape immediately after locking.
+        if (w > 0 && h > 0) {
+          const portrait = h > w;
+          if (isPortraitVideoRef.current !== portrait) {
+            isPortraitVideoRef.current = portrait;
+            setIsPortraitVideo(portrait);
+            if (portrait) {
+              Orientation.lockToPortrait();
+              // Belt & braces: re-assert the portrait lock shortly after load
+              // so a transient native re-request can't steal it back.
+              if (portraitReassertTimerRef.current) {
+                clearTimeout(portraitReassertTimerRef.current);
+              }
+              portraitReassertTimerRef.current = setTimeout(() => {
+                if (isPortraitVideoRef.current) {
+                  Orientation.lockToPortrait();
+                }
+              }, 700);
+            } else {
+              Orientation.lockToLandscape();
+            }
+          }
+        }
+      } catch {}
       if (e?.videoTracks && e.videoTracks.length > 0) {
         processVideoTracks(e.videoTracks);
       }
@@ -1765,6 +1811,12 @@ const Player = ({ route }: Props): React.JSX.Element => {
       setTextTracks,
     ],
   );
+
+  // Memoized video player props
+  // Mirror of isPortraitVideo for use inside useFocusEffect without adding
+  // it to the deps (which would re-lock orientation on every change).
+  const isPortraitVideoRef = useRef(false);
+  const portraitReassertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Memoized video player props
   const videoPlayerProps = useMemo(
@@ -1830,7 +1882,9 @@ const Player = ({ route }: Props): React.JSX.Element => {
       seekColor: primary,
       showDuration: true,
       toggleResizeModeOnFullscreen: false,
-      fullscreenOrientation: 'landscape' as const,
+      fullscreenOrientation: isPortraitVideo
+        ? ('portrait' as const)
+        : ('landscape' as const),
       fullscreenAutorotate: true,
       onShowControls: handleShowControls,
       onHideControls: handleHideControls,
@@ -1859,6 +1913,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
     }),
     [
       isPlayerLocked,
+      isPortraitVideo,
       externalSubs,
       selectedStream.link,
       selectedStream.type,
@@ -1896,7 +1951,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
         className="bg-black flex-1 justify-center items-center">
         <SystemBars hidden={true} />
         <StatusBar translucent={true} hidden={true} />
-        <OrientationLocker orientation={LANDSCAPE} />
+        <OrientationLocker orientation={isPortraitVideo ? PORTRAIT : LANDSCAPE} />
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           hitSlop={{top: 12, bottom: 12, left: 12, right: 12}}
@@ -1931,7 +1986,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
       <SafeAreaView className="bg-black flex-1 justify-center items-center">
         <SystemBars hidden={true} />
         <StatusBar translucent={true} hidden={true} />
-        <OrientationLocker orientation={LANDSCAPE} />
+        <OrientationLocker orientation={isPortraitVideo ? PORTRAIT : LANDSCAPE} />
         <Text className="text-red-500 text-lg text-center mb-4">
           Failed to load stream. Please try again.
         </Text>
@@ -1960,7 +2015,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
       className="bg-black flex-1 relative">
       <SystemBars hidden={isFullScreen} />
       <StatusBar translucent={true} hidden={true} />
-      <OrientationLocker orientation={LANDSCAPE} />
+      <OrientationLocker orientation={isPortraitVideo ? PORTRAIT : LANDSCAPE} />
 
       {/* Local or Cast player */}
       {remoteMediaClient ? (
