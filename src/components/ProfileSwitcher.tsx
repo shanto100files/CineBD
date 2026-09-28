@@ -196,14 +196,14 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                   </AppText>
                   <View style={st.grid}>
                     {presets.map(p => {
-                      const added = profiles.some(lp => lp.name === p.name);
+                      const existingLocal = profiles.find(lp => lp.presetId === p.id || lp.name === p.name);
                       return (
                       <Pressable
                         key={p.id}
-                        style={[st.avatarWrap, added && {opacity: 0.55}]}
+                        style={[st.avatarWrap, existingLocal && {opacity: 0.55}]}
                         onPress={() => {
-                          const existingLocal = profiles.find(lp => lp.name === p.name);
                           if (existingLocal) {
+                            // Preset already added: switch to it, don't duplicate.
                             ToastAndroid.show(
                               'প্রোফাইল আগে থেকেই আছে — সুইচ করা হয়েছে',
                               ToastAndroid.SHORT,
@@ -221,16 +221,27 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                             ToastAndroid.SHORT,
                           );
                           onSelect(created.id);
-                        }}>
+                        }}
+                        onLongPress={
+                          existingLocal
+                            ? () => {
+                                onClose();
+                                require('../App').openProfileEdit({profileId: existingLocal.id});
+                              }
+                            : undefined
+                        }>
                         <View style={[st.avatar, {backgroundColor: p.color, opacity: 0.85}]}>
                           <MaterialCommunityIcons name={(p.avatar as any) || 'shape' } size={38} color="#FFF" />
-                          {added && (
+                          {existingLocal && (
                             <View style={st.addedBadge}>
                               <MaterialCommunityIcons name="check" size={12} color="#FFF" />
                             </View>
                           )}
                         </View>
                         <AppText style={st.avatarName} numberOfLines={1}>{p.name}</AppText>
+                        {existingLocal && (
+                          <AppText style={{fontSize: 10, color: colors.onSurfaceVariant}}>চাপুন = সুইচ</AppText>
+                        )}
                       </Pressable>
                       );
                     })}

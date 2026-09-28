@@ -14,6 +14,8 @@ import { HARDCODED_KILL_KEY } from './initService';
 export class ExtensionManager {
   private static instance: ExtensionManager;
   private readonly legacyCustomProviderBaseUrlKey = 'customProviderBaseUrl';
+  // Throttle for refreshAfterEntitlementChange (one refetch per 5 min).
+  private entRefetchLastAt = 0;
 
   private testMode = false;
   private baseUrlTestMode = '';
@@ -133,6 +135,7 @@ export class ExtensionManager {
         is_adult: Boolean(item.is_adult),
         access_mode: item.access_mode === 'selected' ? 'selected' : 'all',
         streamOnly: Boolean(item.streamOnly),
+        show_on_home: item.show_on_home !== false,
         installed: false,
       }));
 
@@ -433,19 +436,66 @@ export class ExtensionManager {
         return;
       }
 
-      if (extensionStorage.isManifestCacheExpired(source.author)) {
+      // MANIFEST-AUTH-REFRESH: the manifest is PERSONALIZED now (selected
+      // providers differ per account), so the 24h cache must not outlive an
+      // auth change — otherwise a newly granted user keeps the guest list
+      // and auto-install never sees the granted plugins ("Loading content…").
+      let authChanged = false;
+      try {
+        const token = require('../zustand/authStore').useAuthStore.getState().token;
+        const markerKey = 'manifest_auth_marker';
+        const lastMarker = mainStorage.getString(markerKey) || '';
+        const marker = token ? `u${require('../zustand/authStore').useAuthStore.getState().user?.id ?? 'tok'}` : 'anon';
+        if (lastMarker !== marker) {
+          mainStorage.setString(markerKey, marker);
+          authChanged = true;
+        }
+      } catch {}
+
+      if (authChanged || extensionStorage.isManifestCacheExpired(source.author)) {
         try {
-          await this.fetchManifest(source, false);
+          // force=true bypasses the cache read entirely.
+          await this.fetchManifest(source, true);
         } catch (error) {
           console.warn('Failed to refresh manifest on startup:', error);
         }
       }
 
-      this.autoInstallNewProviders();
+      // AWAIT the auto-install: regate below must see the final installed
+      // list, otherwise freshly granted providers miss this session.
+      await this.autoInstallNewProviders();
       this.syncAccessModes();
+      // Re-gate the visible provider list NOW: auto-install may have just
+      // added newly-granted providers, and the entitlement filter may have
+      // run earlier with the OLD installed list (race) — without this the
+      // new grants only appear on the next app launch.
+      try {
+        require('../zustand/entitlementStore').regateVisibleProviders();
+      } catch {}
     } catch (error) {
       console.error('Failed to initialize extension system:', error);
     }
+  }
+
+  /**
+   * Called (throttled) after entitlement refresh: refetch the personalized
+   * manifest + auto-install so newly granted/couponed selected providers
+   * reach the device without waiting for the next app launch.
+   */
+  async refreshAfterEntitlementChange(): Promise<void> {
+    try {
+      const now = Date.now();
+      if (now - this.entRefetchLastAt < 5 * 60 * 1000) return;
+      this.entRefetchLastAt = now;
+      const source = this.getActiveSource();
+      if (!source) return;
+      await this.fetchManifest(source, true);
+      await this.autoInstallNewProviders();
+      this.syncAccessModes();
+      try {
+        require('../zustand/entitlementStore').regateVisibleProviders();
+      } catch {}
+    } catch {}
   }
 
   /**
@@ -459,13 +509,16 @@ export class ExtensionManager {
       const manifest = extensionStorage.getManifestCache(source.author);
       if (manifest.length === 0) return;
       const modeByValue = new Map(manifest.map(p => [p.value, (p as any).access_mode || 'all']));
+      const adultByValue = new Map(manifest.map(p => [p.value, Boolean((p as any).is_adult)]));
       const installed = extensionStorage.getInstalledProviders();
       let changed = false;
       const next = installed.map(p => {
         const mode = modeByValue.get(p.value);
-        if (mode && p.access_mode !== mode) {
+        const adult = adultByValue.get(p.value);
+        const needsAdult = adult !== undefined && p.is_adult !== adult;
+        if ((mode && p.access_mode !== mode) || needsAdult) {
           changed = true;
-          return {...p, access_mode: mode};
+          return {...p, access_mode: mode ?? p.access_mode, is_adult: adult ?? p.is_adult};
         }
         return p;
       });

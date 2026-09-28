@@ -56,19 +56,34 @@ const readCache = (): string[] | null => {
 /** Re-filter the visible installed-provider list after entitlements change. */
 const reGateInstalledProviders = () => {
   try {
+    // When the account just gained an 18+ entitlement (admin grant / coupon /
+    // premium), auto-create a dedicated 18+ profile once so the user can
+    // switch adult content into its own bucket instead of the default one.
+    try {
+      const {ensureAdultProfile} = require('./profileStore');
+      ensureAdultProfile();
+    } catch {}
     // Profile first: an explicit per-profile provider set (or family mode)
     // filters below the entitlement gate. Circular import is safe here
     // because both stores are only used inside function bodies.
     const {providersForActiveProfile} = require('./profileStore');
     const filtered = providersForActiveProfile(
       useEntitlementStore.getState().gatedInstalled(),
-    );
-    useContentStore.setState({installedProviders: filtered});
-  } catch {
-    useContentStore.setState({
-      installedProviders: useEntitlementStore.getState().gatedInstalled(),
-    });
-  }
+    );      useContentStore.setState({installedProviders: filtered});
+    } catch {
+      useContentStore.setState({
+        installedProviders: useEntitlementStore.getState().gatedInstalled(),
+      });
+    }
+};
+
+/**
+ * Public re-gate hook: called by ExtensionManager.initialize() after
+ * auto-install finishes, so freshly installed (newly granted) providers
+ * enter the visible list in the SAME app session instead of next launch.
+ */
+export const regateVisibleProviders = () => {
+  reGateInstalledProviders();
 };
 
 export const useEntitlementStore = create<EntitlementState>((set, get) => ({
@@ -99,6 +114,17 @@ export const useEntitlementStore = create<EntitlementState>((set, get) => ({
       // see those providers. Restricted accounts get an explicit list.
       set({allowed: all ? null : providers, isAdmin: false, loaded: true});
       reGateInstalledProviders();
+      // If the allow-list changed, pull the personalized manifest + install
+      // the newly granted selected providers right away (throttled 5 min).
+      try {
+        const prev = readCache();
+        const changed = JSON.stringify(prev ? prev.slice().sort() : null) !== JSON.stringify(providers.slice().sort());
+        if (changed) {
+          require('../services/ExtensionManager').extensionManager
+            .refreshAfterEntitlementChange()
+            .catch(() => {});
+        }
+      } catch {}
       try {
         MMKV.setString(CACHE_KEY, JSON.stringify(all ? {all: true} : {list: providers}));
         MMKV.setString(CACHE_TS_KEY, String(Date.now()));
@@ -151,6 +177,9 @@ export const useEntitlementStore = create<EntitlementState>((set, get) => ({
         // Anonymous or open-catalog account: only self-selectable providers.
         return p.access_mode !== 'selected';
       }
+      // Explicit entitlement list = EXACTLY what admin granted (grants
+      // REPLACE the open catalog, mirroring the server). 18+ gating above
+      // handles the on/off toggle: off -> adult grants hidden.
       return allowed.includes(p.value);
     });
   },

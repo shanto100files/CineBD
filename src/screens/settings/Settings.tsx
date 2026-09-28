@@ -7,7 +7,7 @@ import {
   Linking,
   Share,
 } from 'react-native';
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   settingsStorage,
   clearAllMMKVStorage,
@@ -70,6 +70,20 @@ const Settings = ({navigation}: Props) => {
   );
   const [tvAdultEnabled, setTvAdultEnabled] = useState<boolean | null>(null);
   const [tvAdultSaving, setTvAdultSaving] = useState(false);
+  // Set while the 18+ PIN setup/unlock screen is open; resolved on focus-return.
+  const pendingAdultEnable = useRef(false);
+  useEffect(() => {
+    if (!isFocused || !pendingAdultEnable.current) return;
+    pendingAdultEnable.current = false;
+    const {isAdultLockOpen} = require('../../lib/adultLock');
+    if (isAdultLockOpen()) {
+      settingsStorage.setAdultEnabled(true);
+      setAdultEnabled(true);
+      ToastAndroid.show('18+ content enabled', ToastAndroid.SHORT);
+    } else {
+      ToastAndroid.show('18+ চালু হয়নি — আবার চেষ্টা করুন', ToastAndroid.LONG);
+    }
+  }, [isFocused]);
   const {user, isPremium, isLoggedIn, logout} = useAuthStore();
   const authUserId = user?.id;
   const [friendsUnread, setFriendsUnread] = useState(0);
@@ -516,9 +530,8 @@ const Settings = ({navigation}: Props) => {
           </SettingsSection>
         </AnimatedSection>
 
-        {/* Content provider section - Admin only (the flags row and the
-            locked Home Provider entry would just confuse regular users;
-            they never need to touch provider internals). */}
+        {/* Active Provider carousel - Admin only. The Provider tools
+            section below (Home Provider, Provider Manager) is for everyone. */}
         {user?.is_admin && (
         <AnimatedSection delay={100}>
           <View style={{marginBottom: 24}}>
@@ -580,6 +593,9 @@ const Settings = ({navigation}: Props) => {
               </ScrollView>
             </View>
           </View>
+        </AnimatedSection>
+        )}
+        <AnimatedSection delay={100}>
           <SettingsSection title="Provider tools">
             <SettingsRow
               title="Home Provider"
@@ -608,7 +624,6 @@ const Settings = ({navigation}: Props) => {
             )}
           </SettingsSection>
         </AnimatedSection>
-        )}
         <AnimatedSection delay={150}>
           <SettingsSection title="Network">
             <DnsPreference />
@@ -666,27 +681,63 @@ const Settings = ({navigation}: Props) => {
                   settingsStorage.setAdultEnabled(false);
                   setAdultEnabled(false);
                   ToastAndroid.show('18+ content hidden', ToastAndroid.SHORT);
+                } else if (familyMode) {
+                  ToastAndroid.show('ফ্যামিলি প্রোফাইল থেকে বের হয়ে 18+ চালু করুন', ToastAndroid.LONG);
                 } else {
-                  showAppDialog({
-                    title: 'আপনি কি ১৮ বছরের বেশি?',
-                    message:
-                      '18+ কন্টেন্ট দেখতে নিশ্চিত করুন যে আপনি ১৮ বছর বা তার বেশি বয়সী। এই কন্টেন্ট শিশুদের জন্য উপযুক্ত নয়।',
-                    variant: 'warning',
-                    actions: [
-                      {label: 'না'},
-                      {
-                        label: 'হ্যাঁ, ১৮+',
-                        variant: 'destructive',
-                        onPress: () => {
-                          settingsStorage.setAdultEnabled(true);
-                          setAdultEnabled(true);
-                          ToastAndroid.show('18+ content enabled', ToastAndroid.SHORT);
+                  const proceedAgeGate = () => {
+                    showAppDialog({
+                      title: 'আপনি কি ১৮ বছরের বেশি?',
+                      message:
+                        '18+ কন্টেন্ট দেখতে নিশ্চিত করুন যে আপনি ১৮ বছর বা তার বেশি বয়সী। এই কন্টেন্ট শিশুদের জন্য উপযুক্ত নয়।',
+                      variant: 'warning',
+                      actions: [
+                        {label: 'না'},
+                        {
+                          label: 'হ্যাঁ, ১৮+',
+                          variant: 'destructive',
+                          onPress: () => {
+                            // PIN/biometric lock: first time = set up a PIN,
+                            // afterwards = unlock this session. 18+ is only
+                            // enabled AFTER the lock succeeds (checked when
+                            // Settings regains focus) — enabling before the
+                            // PIN flow caused the "on but nothing shows" mismatch.
+                            const {isAdultPinSet, isAdultLockOpen} = require('../../lib/adultLock');
+                            if (!isAdultPinSet()) {
+                              pendingAdultEnable.current = true;
+                              require('../../App').openAdultLock({mode: 'setup'});
+                            } else if (isAdultLockOpen()) {
+                              settingsStorage.setAdultEnabled(true);
+                              setAdultEnabled(true);
+                              ToastAndroid.show('18+ content enabled', ToastAndroid.SHORT);
+                            } else {
+                              pendingAdultEnable.current = true;
+                              require('../../App').openAdultLock({mode: 'unlock'});
+                            }
+                          },
                         },
-                      },
-                    ],
-                  });
+                      ],
+                    });
+                  };
+                  proceedAgeGate();
                 }
               }}
+            />
+            <SettingsRow
+              title="18+ লক (পিন / ফিঙ্গারপ্রিন্ট)"
+              description={
+                require('../../lib/adultLock').isAdultPinSet()
+                  ? 'পিন সেট আছে — 18+ চালু/বন্ধ করতে পিন লাগবে'
+                  : 'সেট করলে 18+ চালু করতে পিন বা ফিঙ্গারপ্রিন্ট লাগবে'
+              }
+              icon="lock-question"
+              iconBg={'#2A1A3A'}
+              iconColor={'#CE93D8'}
+              divider={false}
+              onPress={() =>
+                require('../../lib/adultLock').isAdultPinSet()
+                  ? require('../../App').openAdultLock({mode: 'settings'})
+                  : require('../../App').openAdultLock({mode: 'setup'})
+              }
             />
             {isLoggedIn && (
               <SettingsRow
@@ -696,7 +747,7 @@ const Settings = ({navigation}: Props) => {
                     ? 'তোমার অ্যাকাউন্টের TV-তে 18+ provider বন্ধ থাকবে'
                     : 'মোবাইল থেকে নিজের অ্যাকাউন্টের TV-র 18+ নিয়ন্ত্রণ করো'
                 }
-                icon={tvAdultEnabled === false ? 'tv-off' : 'tv'}
+                icon={(tvAdultEnabled === false ? 'tv-off' : 'television-classic') as any}
                 iconBg={'#1A2A3A'}
                 iconColor={'#90CAF9'}
                 divider={false}

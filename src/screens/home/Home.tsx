@@ -257,9 +257,14 @@ const Home = ({navigation}: Props) => {
   const [autoInstalling, setAutoInstalling] = useState(false);
 
   // Auto-select provider if none selected but providers are installed.
-  // Never auto-pick an 18+ provider while the age gate is off.
+  // Never auto-pick an 18+ provider while the age gate is off. Also re-pick
+  // when the stored provider no longer exists in the (gated) visible list —
+  // otherwise the home screen stalls on "Loading content..." forever.
   useEffect(() => {
-    if (provider?.value) return;
+    const currentValid =
+      provider?.value &&
+      installedProviders.some(p => p.value === provider.value);
+    if (currentValid) return;
     const pickable = adultEnabled
       ? installedProviders
       : installedProviders.filter(p => !p.is_adult);
@@ -357,7 +362,14 @@ const Home = ({navigation}: Props) => {
     installedProviders.length === 0 ||
     !provider?.value
   ) {
-    const noVisibleProviders = !installedProviders || installedProviders.length === 0;
+    const noVisibleProviders =
+      !installedProviders ||
+      installedProviders.length === 0 ||
+      // Providers exist but NONE of them is usable right now (all 18+ and
+      // the age gate is off): auto-pick has nothing to choose, so this must
+      // render the "১৮+ চালু করুন" screen instead of an endless
+      // "Loading content...".
+      installedProviders.filter(p => adultEnabled || !p.is_adult).length === 0;
     const ctaStyle = {
       marginTop: 16,
       backgroundColor: '#161616',

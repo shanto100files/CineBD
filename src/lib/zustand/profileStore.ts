@@ -85,6 +85,8 @@ export interface UserProfile {
   createdAt: number;
   /** preset templates are read-only for non-admins */
   isPreset?: boolean;
+  /** Set on profiles created from a preset — prevents duplicate adds. */
+  presetId?: string;
 }
 
 interface ProfileState {
@@ -99,6 +101,7 @@ interface ProfileState {
     providers?: string[] | null;
     avatar?: string;
     color?: string;
+    presetId?: string;
   }) => UserProfile | null;
   updateProfile: (id: string, patch: Partial<UserProfile>) => void;
   deleteProfile: (id: string) => void;
@@ -142,6 +145,7 @@ const toServerShape = (p: UserProfile) => ({
   avatar: p.avatar,
   color: p.color,
   createdAt: p.createdAt,
+  presetId: p.presetId ?? null,
 });
 
 const fromServerShape = (p: any): UserProfile => ({
@@ -149,6 +153,7 @@ const fromServerShape = (p: any): UserProfile => ({
   name: String(p.name || 'প্রোফাইল').slice(0, 24),
   kind: p.kind === 'family' ? 'family' : 'me',
   providers: Array.isArray(p.providers) ? p.providers.map(String) : null,
+  presetId: p.presetId ? String(p.presetId) : undefined,
   avatar: String(p.avatar || 'account'),
   color: String(p.color || '#5C6BC0'),
   createdAt: Number(p.createdAt) || 0,
@@ -209,7 +214,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     } catch {}
   },
 
-  createProfile: ({name, kind, providers, avatar, color}) => {
+  createProfile: ({name, kind, providers, avatar, color, presetId: presetKey}) => {
     const state = get();
     if (!useAuthStore.getState().isLoggedIn) {
       return null; // login required to create profiles
@@ -225,6 +230,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       avatar: avatar || PROFILE_AVATARS[Math.floor(Math.random() * PROFILE_AVATARS.length)],
       color: color || AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
       createdAt: Date.now(),
+      presetId: presetKey,
     };
     const next = [...state.profiles, profile];
     persist(next, state.activeId, currentBucket());
@@ -286,6 +292,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       providers: preset.providers,
       avatar: preset.avatar,
       color: preset.color,
+      presetId: preset.id,
     });
   },
 
@@ -380,6 +387,47 @@ export const applyActiveProfile = () => {
           lastUpdated: 0,
         },
       });
+    }
+  } catch {}
+};
+
+/**
+ * Auto-create a dedicated '18+' profile when the user first gains an adult
+ * entitlement (admin grant / coupon / premium). Runs at most once per
+ * account — tracked via a MMKV flag keyed by the auth user id.
+ */
+export const ensureAdultProfile = (): void => {
+  try {
+    if (!useAuthStore.getState().isLoggedIn) return;
+    const uid = useAuthStore.getState().user?.id;
+    const flagKey = `adultProfileCreated:${uid ?? 'x'}`;
+    if (mainStorage.getBool(flagKey, false)) return;
+
+    // Entitled to at least one adult provider?
+    const ent = require('./entitlementStore').useEntitlementStore.getState();
+    const admin = !!useAuthStore.getState().user?.is_admin;
+    const entitled = ent.gatedInstalled().some((p: any) => p.is_adult);
+    if (!entitled && !admin) return;
+
+    const state = useProfileStore.getState();
+    if (state.profiles.some((p: UserProfile) => p.name === '18+')) return;
+    if (state.profiles.length >= 8) return;
+
+    // Adult providers the account can see — preselect them explicitly so the
+    // profile aggregates only 18+ content.
+    const adultValues: string[] = ent
+      .gatedInstalled()
+      .filter((p: any) => p.is_adult)
+      .map((p: any) => p.value);
+    const profile = state.createProfile({
+      name: '18+',
+      kind: 'me',
+      providers: adultValues.length ? adultValues : null,
+      avatar: 'fire',
+      color: '#E91E63',
+    });
+    if (profile) {
+      mainStorage.setBool(flagKey, true);
     }
   } catch {}
 };

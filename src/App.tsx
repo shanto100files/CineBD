@@ -40,6 +40,7 @@ import SubtitlePreference from './screens/settings/SubtitleSettings';
 import Extensions from './screens/settings/Extensions';
 import ProviderSelect from './screens/settings/ProviderSelect';
 import ProfileEditScreen from './screens/settings/ProfileEdit';
+import AdultLockScreen from './screens/settings/AdultLock';
 import TermsOfService from './screens/settings/TermsOfService';
 import ReportScreen from './screens/settings/ReportScreen';
 import Constants from 'expo-constants';
@@ -52,6 +53,9 @@ import useProfileStore from './lib/zustand/profileStore';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {initNetStatus} from './lib/netStatus';
 import * as ExpoUpdates from 'expo-updates';
+import {runOtaCheck, resetOtaThrottle} from './lib/services/otaManager';
+import {useUpdates} from 'expo-updates';
+import {reportAppError, setErrorReporterUser} from './lib/services/errorReporter';
 import * as Application from 'expo-application';
 import {getDeviceId} from './lib/services/heartbeatService';
 import OfflineBanner from './components/OfflineBanner';
@@ -195,6 +199,7 @@ export type SettingsStackParamList = {
   DownloadsStack: undefined;
   ProviderSelect: undefined;
   ProfileEdit: {profileId?: string; manage?: boolean} | undefined;
+  AdultLock: {mode?: 'setup' | 'unlock' | 'settings'} | undefined;
   Friends: undefined;
   FriendProfile: {userId: number; username: string};
   FriendChat: {userId: number; username: string};
@@ -281,6 +286,26 @@ export const openProfileEdit = (params: {profileId?: string; manage?: boolean} =
   }
 };
 
+/** Open the 18+ lock screen (setup / unlock / settings) from anywhere. */
+export const openAdultLock = (params: {mode?: 'setup' | 'unlock' | 'settings'} = {}): void => {
+  try {
+    if (!navigationRef.isReady()) {
+      return;
+    }
+    navigationRef.dispatch(
+      require('@react-navigation/native').CommonActions.navigate('TabStack', {
+        screen: 'SettingsStack',
+        params: {
+          screen: 'AdultLock',
+          params,
+        },
+      }),
+    );
+  } catch (error) {
+    console.warn('[AdultLock] failed to open lock screen:', error);
+  }
+};
+
 export const openLoginScreen = (): void => {
   try {
     if (!navigationRef.isReady()) {
@@ -360,6 +385,7 @@ const SettingsStackScreen = React.memo(() => {
       <SettingsStackNav.Screen name="SubTitlesPreferences" component={SubtitlePreference} options={subpageOptions} />
       <SettingsStackNav.Screen name="ProviderSelect" component={ProviderSelect} options={subpageOptions} />
       <SettingsStackNav.Screen name="ProfileEdit" component={ProfileEditScreen} options={subpageOptions} />
+      <SettingsStackNav.Screen name="AdultLock" component={AdultLockScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="Friends" component={FriendsScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="FriendProfile" component={FriendProfileScreen} options={subpageOptions} />
       <SettingsStackNav.Screen name="FriendChat" component={FriendChatScreen} options={subpageOptions} />
@@ -485,6 +511,44 @@ const App = () => {
     'You have passed a style to FlashList',
     'new NativeEventEmitter()',
   ]);
+
+  // Global error reporting: JS exceptions + unhandled promise rejections
+  // are sent to the site (best-effort) so problems surface in the admin
+  // panel without needing adb logcat.
+  useEffect(() => {
+    const defaultHandler = (ErrorUtils as any).getNativeHandler?.();
+    ErrorUtils.setGlobalHandler((error: any, isFatal?: boolean) => {
+      reportAppError({
+        tag: 'fatal-js',
+        message: error?.message || String(error),
+        stack: error?.stack,
+        fatal: isFatal === true,
+      });
+      defaultHandler?.(error, isFatal);
+    });
+    const rejectionTracker = (require('promise/setimmediate/rejection-tracking') as any) || null;
+    try {
+      rejectionTracker?.enable({
+        onUnhandled: (_id: number, error: any) => {
+          reportAppError({
+            tag: 'unhandled-rejection',
+            message: error?.message || String(error),
+            stack: error?.stack,
+            fatal: false,
+          });
+        },
+      });
+    } catch {}
+  }, []);
+
+  // Bind the reporter to the signed-in user (or clear it on logout).
+  useEffect(() => {
+    const unsub = useAuthStore.subscribe((s: any) => {
+      setErrorReporterUser(s?.user?.id ?? null);
+    });
+    setErrorReporterUser(useAuthStore.getState().user?.id ?? null);
+    return unsub;
+  }, []);
 
   // Function to perform update check only
   const runUpdateCheck = useCallback(async () => {
@@ -923,66 +987,40 @@ const App = () => {
   //  2. Regular updates apply SILENTLY on the next cold start (no dialog)
   //  3. Only server-flagged critical updates show a restart dialog now
   //  4. Respects user's auto-check/auto-download preferences
+  // Self-hosted OTA — v2 flow (otaManager):
+  //  1. Check on cold start AND every foreground return (10-min throttle) —
+  //     this is what un-sticks devices that miss the cold-start check.
+  //  2. Download progress (MB) surfaces via useUpdates() in OtaProgressToast.
+  //  3. Regular updates apply silently on next cold start; critical shows a
+  //     restart dialog. All OTA failures report to the site (errorReporter).
   useEffect(() => {
     if (!ExpoUpdates.isEnabled || !appReady || splashOverlayVisible) {
       return;
     }
+    resetOtaThrottle();
     let cancelled = false;
     const timer = setTimeout(async () => {
-      try {
-        if (!settingsStorage.isAutoCheckUpdateEnabled()) {
-          return;
-        }
-        const check = await withTimeout(ExpoUpdates.checkForUpdateAsync(), 10000);
-        if (cancelled || !check.isAvailable) {
-          return;
-        }
-        if (useAppDialogStore.getState().dialog) {
-          return;
-        }
-        const manifest: any = (check as any).manifest || {};
-        const extra: any = manifest.extra || {};
-        const updateMeta: any = extra.ota || {};
-        const isCritical = updateMeta.critical === true;
-
-        if (!settingsStorage.isAutoDownloadEnabled() && !isCritical) {
-          return;
-        }
-
-        await withTimeout(ExpoUpdates.fetchUpdateAsync(), 45000);
-        if (cancelled) {
-          return;
-        }
-
-        if (isCritical) {
-          // Server says users must get this now — show restart dialog.
-          if (useAppDialogStore.getState().dialog) {
-            return;
-          }
-          showAppDialog({
-            title: 'গুরুত্বপূর্ণ আপডেট',
-            message:
-              'সিনেপিক্সের একটি গুরুত্বপূর্ণ ফিক্স এসেছে। এখনই রিস্টার্ট করে প্রয়োগ করুন।',
-            variant: 'warning',
-            actions: [
-              {label: 'পরে'},
-              {
-                label: 'রিস্টার্ট',
-                variant: 'primary',
-                onPress: () => {
-                  ExpoUpdates.reloadAsync().catch(() => {});
-                },
+      const result = await runOtaCheck();
+      if (cancelled || !result.available) {
+        return;
+      }
+      if (result.critical && !useAppDialogStore.getState().dialog) {
+        showAppDialog({
+          title: 'গুরুত্বপূর্ণ আপডেট',
+          message:
+            'সিনেপিক্সের একটি গুরুত্বপূর্ণ ফিক্স এসেছে। এখনই রিস্টার্ট করে প্রয়োগ করুন।',
+          variant: 'warning',
+          actions: [
+            {label: 'পরে'},
+            {
+              label: 'রিস্টার্ট',
+              variant: 'primary',
+              onPress: () => {
+                ExpoUpdates.reloadAsync().catch(() => {});
               },
-            ],
-          });
-        } else {
-          // Regular update: already downloaded — it applies automatically on
-          // the next cold start (Expo reloads the newest bundle). The user
-          // never sees a dialog for routine fixes.
-          console.log('[OTA] update downloaded, applies on next cold start');
-        }
-      } catch {
-        // OTA is best-effort; never disturb the user.
+            },
+          ],
+        });
       }
     }, 8000);
     return () => {
@@ -990,6 +1028,23 @@ const App = () => {
       clearTimeout(timer);
     };
   }, [appReady, splashOverlayVisible]);
+
+  // Foreground re-check: every time the app returns to active, run a
+  // throttled OTA check so updates are never missed.
+  useEffect(() => {
+    if (!ExpoUpdates.isEnabled) return;
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active' && appReady) {
+        runOtaCheck().catch(() => {});
+      }
+    });
+    return () => sub.remove();
+  }, [appReady]);
+
+  // Download progress comes from the useUpdates() state machine.
+  const updatesState = useUpdates();
+  const otaDownloading = updatesState.isDownloading;
+  const otaProgress = updatesState.downloadProgress ?? 0;
 
   // OTA adoption reporting: after launch, tell the server which bundle is
   // actually running (fire-and-forget; powers the admin adoption view).
@@ -1178,6 +1233,7 @@ const App = () => {
               <ProviderSandboxHost />
               <PremiumActivatedAlert />
               <LoginSuccessAlert />
+              <OtaProgressToast downloading={otaDownloading} progress={otaProgress} />
               {splashOverlay}
             </View>
           </QueryClientProvider>
@@ -1190,6 +1246,55 @@ const App = () => {
 initNetStatus();
 
 export default App;
+
+/**
+ * Floating OTA download progress pill (MB + %). Rendered inside the app root
+ * whenever expo-updates is actively downloading a bundle.
+ */
+function OtaProgressToast({downloading, progress}: {downloading: boolean; progress: number}) {
+  if (!downloading) return null;
+  // The launch asset (~20-25 MB) dominates; assets add a variable tail, so
+  // show what we know: percent from expo + a ~24MB estimate for MB display.
+  const estTotalMb = 24;
+  const mb = Math.max(0.1, estTotalMb * progress);
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        bottom: 110,
+        alignSelf: 'center',
+        backgroundColor: 'rgba(10,10,10,0.92)',
+        borderColor: '#333',
+        borderWidth: 1,
+        borderRadius: 999,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        zIndex: 100,
+      }}>
+      <Text style={{color: '#fff', fontSize: 12, fontWeight: '600'}}>
+        {`আপডেট ডাউনলোড হচ্ছে… ${mb.toFixed(1)} MB (${Math.round(progress * 100)}%)`}
+      </Text>
+      <View
+        style={{
+          marginTop: 6,
+          height: 4,
+          borderRadius: 2,
+          backgroundColor: '#2a2a2a',
+          overflow: 'hidden',
+        }}>
+        <View
+          style={{
+            height: 4,
+            width: `${Math.max(4, Math.round(progress * 100))}%`,
+            backgroundColor: '#4f8cff',
+            borderRadius: 2,
+          }}
+        />
+      </View>
+    </View>
+  );
+}
 
 function PremiumActivatedAlert() {
   const premiumJustActivated = useAuthStore(s => s.premiumJustActivated);

@@ -14,6 +14,7 @@ import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
 import {showAppDialog} from '../lib/zustand/appDialogStore';
 import {getCrashlytics, isFirebaseNativeReady} from '../lib/utils/firebaseSafe';
+import {reportAppError} from '../lib/services/errorReporter';
 
 interface GlobalErrorBoundaryProps {
   children: React.ReactNode;
@@ -52,6 +53,13 @@ export default class GlobalErrorBoundary extends React.Component<
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error(' Global Error Boundary caught an error:', error);
     console.error('Error Info:', errorInfo);
+    // Ship the crash to the site so it shows up in the admin Errors tab.
+    reportAppError({
+      tag: 'react-boundary',
+      message: error?.message || String(error),
+      stack: [error?.stack, errorInfo?.componentStack].filter(Boolean).join('\n--- component stack ---\n'),
+      fatal: true,
+    });
 
     this.setState({
       errorInfo,

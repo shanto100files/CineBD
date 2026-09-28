@@ -28,6 +28,8 @@ export interface ProviderExtension {
   hasSettings?: boolean;
   /** Server-flagged: hide local download UI (e.g. m3u8-only providers). */
   streamOnly?: boolean;
+  /** Server-flagged: show on home aggregate (false = tools/profiles only). */
+  show_on_home?: boolean;
   installedAt?: number;
   lastUpdated?: number;
 }
@@ -256,9 +258,15 @@ export class ExtensionStorage {
     );
 
     if (existing) {
-      // Update existing provider
+      // Update existing provider — propagate ALL manifest-driven fields so
+      // admin-side changes (18+ mark, rename, icon, mode) reach devices.
       existing.version = provider.version;
       existing.source = provider.source;
+      existing.display_name = provider.display_name;
+      existing.icon = provider.icon;
+      existing.is_adult = provider.is_adult;
+      existing.access_mode = provider.access_mode;
+      existing.streamOnly = provider.streamOnly;
       existing.hasSettings = provider.hasSettings ?? existing.hasSettings;
       existing.lastUpdated = Date.now();
     } else {
