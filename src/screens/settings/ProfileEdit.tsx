@@ -124,6 +124,7 @@ export default function ProfileEditScreen() {
   };
 
   const manageMode = !!route.params?.manage && !editId;
+  const activeId = useProfileStore(s => s.activeId);
 
   if (manageMode) {
     return (
@@ -156,10 +157,16 @@ export default function ProfileEditScreen() {
               </View>
               <View style={{flex: 1, marginLeft: 12}}>
                 <AppText style={{color: colors.onSurface}}>{p.name}</AppText>
-                {p.kind === 'family' && (
-                  <AppText style={{color: colors.onSurfaceVariant, fontSize: 11}}>ফ্যামিলি মোড</AppText>
-                )}
+                <AppText style={{color: colors.onSurfaceVariant, fontSize: 11}}>
+                  {p.kind === 'family' ? 'ফ্যামিলি মোড' : 'ব্যক্তিগত'}
+                  {p.providers !== null ? ` • ${p.providers.length} টি প্রোভাইডার` : ' • সব প্রোভাইডার'}
+                </AppText>
               </View>
+              {p.id === activeId && (
+                <View style={{backgroundColor: colors.primary, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginRight: 8}}>
+                  <AppText style={{color: '#FFF', fontSize: 10, fontWeight: '700'}}>সক্রিয়</AppText>
+                </View>
+              )}
               <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceVariant} />
             </Pressable>
           ))}
@@ -262,7 +269,7 @@ export default function ProfileEditScreen() {
         <View style={[st.lockBox, {backgroundColor: colors.surfaceContainerHigh}]}>
           <MaterialCommunityIcons name="lock-outline" size={20} color={colors.onSurfaceVariant} />
           <AppText style={{color: colors.onSurfaceVariant, flex: 1, marginLeft: 10, fontSize: 13}}>
-            প্রোভাইডার কাস্টমাইজ করতে প্রিমিয়াম অ্যাকাউন্ট লাগবে
+            নাম, অ্যাভাটার ও রং সেভ করা যাবে — শুধু প্রোভাইডার তালিকা কাস্টমাইজ করতে প্রিমিয়াম লাগবে
           </AppText>
         </View>
       ) : (

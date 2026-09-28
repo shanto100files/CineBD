@@ -22,6 +22,7 @@ import {HARDCODED_KILL_KEY} from '../../lib/services/initService';
 import {settingsStorage} from '../../lib/storage';
 import {showAppDialog} from '../../lib/zustand/appDialogStore';
 import {useEntitlementStore} from '../../lib/zustand/entitlementStore';
+import {extensionManager} from '../../lib/services/ExtensionManager';
 
 const API = 'https://cinepix.top/api/app';
 
@@ -34,7 +35,10 @@ interface ProviderItem {
 interface RedeemResult {
   ok: boolean;
   msg?: string;
+  /** display names (for the toast) */
   providers?: string[];
+  /** provider VALUES (for ticking the right rows) */
+  provider_values?: string[];
   days?: number;
   expires_at?: string | null;
 }
@@ -66,6 +70,8 @@ export default function ProviderSelectScreen() {
   const [coupon, setCoupon] = useState('');
   const [redeeming, setRedeeming] = useState(false);
   const [unlocks, setUnlocks] = useState<Record<string, {until: number; days: number}>>({});
+
+  const canEdit = isPremium || !!user?.is_admin;
 
   useEffect(() => {
     // Non-entitled users always see the default: everything ticked
@@ -116,8 +122,6 @@ export default function ProviderSelectScreen() {
     loadUnlocks();
   }, [loadUnlocks]);
 
-  const canEdit = isPremium || !!user?.is_admin;
-
   const showLockedDialog = useCallback(() => {
     if (!token) {
       showAppDialog({
@@ -147,7 +151,14 @@ export default function ProviderSelectScreen() {
         showLockedDialog();
         return;
       }
-      setUseAggregated(false);
+      // Tapping a specific provider while "All" is on starts a custom
+      // selection containing just that provider — the standard multi-select
+      // mental model (tap = add to my list).
+      if (useAggregated) {
+        setUseAggregated(false);
+        setSelected(new Set([value]));
+        return;
+      }
       setSelected(prev => {
         const next = new Set(prev);
         if (next.has(value)) {
@@ -162,7 +173,7 @@ export default function ProviderSelectScreen() {
         return next;
       });
     },
-    [installedProviders, canEdit, showLockedDialog],
+    [installedProviders, useAggregated, canEdit, showLockedDialog],
   );
 
   const selectAll = () => {
@@ -200,11 +211,21 @@ export default function ProviderSelectScreen() {
         // Refresh entitlements so the newly unlocked provider immediately
         // appears in home/search lists (and gets past the gate).
         useEntitlementStore.getState().refresh();
-        // Pre-select newly unlocked providers for convenience.
-        if (data.providers?.length) {
+        // Newly unlocked providers may not be installed on this device yet —
+        // pull the fresh manifest and install them now, otherwise they never
+        // appear in the list below (the list only renders installed rows).
+        try {
+          await extensionManager.refreshAfterEntitlementChange();
+        } catch {}
+        // Pre-select newly unlocked providers (server returns provider values
+        // in provider_values; the names array is display-only).
+        const vals: string[] = Array.isArray(data.provider_values)
+          ? data.provider_values.map(String)
+          : [];
+        if (vals.length) {
           setSelected(prev => {
             const next = new Set(prev);
-            for (const pv of data.providers || []) next.add(pv);
+            for (const v of vals) next.add(v);
             return next;
           });
           setUseAggregated(false);
@@ -213,8 +234,7 @@ export default function ProviderSelectScreen() {
         ToastAndroid.show(data?.msg || 'কুপনটি সঠিক নয়', ToastAndroid.LONG);
       }
     } catch (e: any) {
-      const msg = e?.response?.data?.msg || 'কুপন যাচাই ব্যর্থ হয়েছে, পরে চেষ্টা করুন';
-      ToastAndroid.show(msg, ToastAndroid.LONG);
+      const msg = e?.response?.data?.msg || 'কুপন যাচাই ব্যর্থ হয়েছে, পরে চেষ্টা করুন';        ToastAndroid.show(msg, ToastAndroid.LONG);
     }
     setRedeeming(false);
   }, [coupon, token, loadUnlocks]);
@@ -242,7 +262,7 @@ export default function ProviderSelectScreen() {
       }
 
       ToastAndroid.show(
-        useAggregated ? 'All providers selected' : `${sel.length} provider(s) selected`,
+        useAggregated ? 'সব প্রোভাইডার সিলেক্টেড' : `${sel.length} টি প্রোভাইডার সিলেক্টেড`,
         ToastAndroid.SHORT,
       );
       navigation.goBack();
@@ -278,12 +298,12 @@ export default function ProviderSelectScreen() {
     <View style={[styles.container, {backgroundColor: colors.background}]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <AppText role="titleMedium" style={{color: colors.primary}}>Cancel</AppText>
+          <AppText role="titleMedium" style={{color: colors.primary}}>বাতিল</AppText>
         </TouchableOpacity>
-        <AppText role="titleLarge" style={{color: colors.onBackground}}>Home Provider</AppText>
+        <AppText role="titleLarge" style={{color: colors.onBackground}}>হোম প্রোভাইডার</AppText>
         <TouchableOpacity onPress={handleSave} disabled={saving}>
           <AppText role="titleMedium" style={{color: colors.primary}}>
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'সেভ হচ্ছে...' : 'সেভ'}
           </AppText>
         </TouchableOpacity>
       </View>
@@ -292,7 +312,7 @@ export default function ProviderSelectScreen() {
         contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}
         keyboardShouldPersistTaps="handled">
         <AppText role="bodySmall" style={[styles.hint, {color: colors.onSurfaceVariant}]}>
-          Select multiple providers to show on your home page
+          হোম পেজে কোন কোন প্রোভাইডারের কনটেন্ট দেখাবে সেটা এখানে বাছাই করুন
         </AppText>
         {lockHint && (
           <AppText role="labelMedium" style={{color: '#f59e0b', paddingHorizontal: 16, marginBottom: 6}}>
@@ -357,10 +377,12 @@ export default function ProviderSelectScreen() {
             <MaterialIcons name="home" size={20} color={useAggregated ? colors.onPrimaryContainer : colors.onSurface} style={{marginRight: 12}} />
             <View style={{flex: 1}}>
               <AppText role="titleMedium" style={{color: useAggregated ? colors.onPrimaryContainer : colors.onSurface}}>
-                All providers (aggregated)
+                সব প্রোভাইডার (All)
               </AppText>
               <AppText role="bodySmall" style={{color: colors.onSurfaceVariant}}>
-                Show content from all installed providers
+                {useAggregated
+                  ? 'সব প্রোভাইডারের কনটেন্ট একসাথে দেখাবে'
+                  : 'চালু করলে সব প্রোভাইডার আবার একসাথে দেখাবে'}
               </AppText>
             </View>
             <View style={[styles.checkbox, {
@@ -375,10 +397,29 @@ export default function ProviderSelectScreen() {
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginTop: 16, marginBottom: 8}}>
           <View style={{flex: 1, height: 1, backgroundColor: colors.outlineVariant}} />
           <AppText role="labelSmall" style={{color: colors.onSurfaceVariant, marginHorizontal: 12}}>
-            SELECT PROVIDERS ({selected.size} selected)
+            {useAggregated
+              ? `নির্দিষ্ট প্রোভাইডার (সবগুলো সিলেক্টেড)`
+              : `নির্দিষ্ট প্রোভাইডার (${selected.size} টি সিলেক্টেড)`}
           </AppText>
           <View style={{flex: 1, height: 1, backgroundColor: colors.outlineVariant}} />
         </View>
+        {useAggregated && (
+          <View
+            style={{
+              marginHorizontal: 16,
+              marginBottom: 10,
+              padding: 10,
+              borderRadius: 10,
+              backgroundColor: colors.surfaceContainerLow,
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}>
+            <MaterialIcons name="info-outline" size={16} color={colors.onSurfaceVariant} />
+            <AppText style={{color: colors.onSurfaceVariant, fontSize: 12, flex: 1, marginLeft: 8}}>
+              এখন সবগুলো চালু আছে। নির্দিষ্ট প্রোভাইডারে ট্যাপ করলে সেটাই শুধু দেখাবে — পরে আরও যোগ করতে পারবে।
+            </AppText>
+          </View>
+        )}
 
         <FlatList
           style={{flexGrow: 0}}
@@ -386,18 +427,22 @@ export default function ProviderSelectScreen() {
           keyExtractor={item => item.value}
           scrollEnabled={false}
           renderItem={({item}) => {
-            const isChecked = !useAggregated && selected.has(item.value);
+            // While "All" is on every row IS selected — show the tick (faded,
+            // inactive look) so the empty checkboxes never confuse anyone.
+            const isChecked = useAggregated ? true : selected.has(item.value);
+            const dimmed = useAggregated;
             const unlock = unlocks[item.value];
             return (
               <TouchableOpacity
                 onPress={() => toggleProvider(item.value)}
                 style={[styles.row, {
-                  backgroundColor: isChecked ? colors.primaryContainer : colors.surfaceContainer,
-                  borderColor: isChecked ? colors.primary : colors.outlineVariant,
+                  backgroundColor: isChecked && !dimmed ? colors.primaryContainer : colors.surfaceContainer,
+                  borderColor: isChecked && !dimmed ? colors.primary : colors.outlineVariant,
+                  opacity: dimmed ? 0.55 : 1,
                 }]}>
                 <View style={styles.rowContent}>
                   <View style={{flex: 1}}>
-                    <AppText role="titleMedium" style={{color: isChecked ? colors.onPrimaryContainer : colors.onSurface}}>
+                    <AppText role="titleMedium" style={{color: isChecked && !dimmed ? colors.onPrimaryContainer : colors.onSurface}}>
                       {item.display_name}
                     </AppText>
                     {unlock && (
@@ -407,11 +452,13 @@ export default function ProviderSelectScreen() {
                     )}
                   </View>
                   <View style={[styles.checkbox, {
-                    borderColor: isChecked ? colors.primary : colors.outline,
-                    backgroundColor: isChecked ? colors.primary : 'transparent',
-                    opacity: canEdit ? 1 : 0.55,
+                    borderColor: isChecked && !dimmed ? colors.primary : colors.outline,
+                    backgroundColor: isChecked && !dimmed ? colors.primary : 'transparent',
+                    opacity: !canEdit ? 0.55 : 1,
                   }]}>
-                    {isChecked && <MaterialIcons name="check" size={16} color={colors.onPrimary} />}
+                    {isChecked && (
+                      <MaterialIcons name="check" size={16} color={colors.onPrimary} style={{opacity: dimmed ? 0.5 : 1}} />
+                    )}
                   </View>
                   {!canEdit && (
                     <MaterialIcons name="lock-outline" size={16} color="#f59e0b" style={{marginLeft: 8}} />

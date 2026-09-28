@@ -13,8 +13,18 @@ if [ "$2" = "--critical" ]; then
 fi
 VERSION=$(grep -oE "version: '[^']+'" app.config.js | head -1 | sed "s/version: '//;s/'//")
 UPDATE_ID=$(node -e "console.log(require('crypto').randomUUID())")
-HOST="root@160.25.226.103"
-PW='6zcqDn8RUXtydGE6X7Uv'
+HOST="${OTA_SSH_HOST:-root@160.25.226.103}"
+# Credentials live ONLY in the untracked local file .ota-secret (or env var
+# OTA_SSH_PW). Never hardcode them here: this file is committed to a public
+# repo, and a leaked VPS password once had to be rotated because of it.
+if [ -z "$OTA_SSH_PW" ] && [ -f "$(dirname "$0")/.ota-secret" ]; then
+  OTA_SSH_PW="$(cat "$(dirname "$0")/.ota-secret")"
+fi
+if [ -z "$OTA_SSH_PW" ]; then
+  echo "!! SSH password missing: set OTA_SSH_PW env var or create .ota-secret (untracked)"
+  exit 1
+fi
+PW="$OTA_SSH_PW"
 PLINK="/c/Program Files/PuTTY/plink.exe"
 PSCP="/c/Program Files/PuTTY/pscp.exe"
 

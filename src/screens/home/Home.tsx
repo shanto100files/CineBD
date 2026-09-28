@@ -1,6 +1,6 @@
-import {SafeAreaView, RefreshControl, View, Pressable, InteractionManager, Animated} from 'react-native';
+import {SafeAreaView, RefreshControl, View, Pressable, InteractionManager, Animated, ActivityIndicator, ToastAndroid} from 'react-native';
 import Slider from '../../components/Slider';
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useFocusEffect, useIsFocused} from '@react-navigation/native';
 import HeroOptimized from '../../components/Hero';
 import HeroStrip, {HeroStripItem} from '../../components/HeroStrip';
@@ -342,14 +342,55 @@ const Home = ({navigation}: Props) => {
   })();
   const showSwitchProfile = activeProfileInfo.family || activeProfileInfo.explicitSet;
   const showEnableAdult = deviceAdultOff && rawHasAdult;
-  const showGenericReason =
-    !activeProfileInfo.family && !activeProfileInfo.explicitSet && !showEnableAdult;
 
-  const switchToDefaultProfile = () => useProfileStore.getState().setActive(null);
+  // Switching back to the default profile is synchronous, so keep a short
+  // loader visible anyway — otherwise the user gets zero feedback that the
+  // tap did anything (the content tree only mounts right after).
+  const [switchingProfile, setSwitchingProfile] = useState(false);
+  const switchToDefaultProfile = () => {
+    if (switchingProfile) {
+      return;
+    }
+    setSwitchingProfile(true);
+    setTimeout(() => {
+      try {
+        useProfileStore.getState().setActive(null);
+        useEntitlementStore.getState().refresh();
+      } finally {
+        setSwitchingProfile(false);
+      }
+    }, 800);
+  };
+  // The Home age-gate button must respect the 18+ lock the same way the
+  // Settings toggle does: PIN set but session locked → open the lock screen,
+  // enable only after a successful unlock. Otherwise a kid could bypass the
+  // entire PIN protection with one tap from Home.
+  const pendingAdultEnableRef = useRef(false);
+  useEffect(() => {
+    if (!isScreenFocused || !pendingAdultEnableRef.current) return;
+    pendingAdultEnableRef.current = false;
+    const {isAdultLockOpen, markUnlocked} = require('../../lib/adultLock');
+    if (isAdultLockOpen()) {
+      markUnlocked();
+      settingsStorage.setAdultEnabled(true);
+      useContentStore.setState({installedProviders: getGatedInstalledProviders()});
+      useEntitlementStore.getState().refresh();
+      ToastAndroid.show('১৮+ চালু হয়েছে', ToastAndroid.SHORT);
+    } else {
+      ToastAndroid.show('১৮+ চালু হয়নি — আবার চেষ্টা করুন', ToastAndroid.LONG);
+    }
+  }, [isScreenFocused]);
   const enableAdult = () => {
+    const {isAdultPinSet, isAdultLockOpen} = require('../../lib/adultLock');
+    if (isAdultPinSet() && !isAdultLockOpen()) {
+      pendingAdultEnableRef.current = true;
+      require('../../App').openAdultLock({mode: 'unlock'});
+      return;
+    }
     settingsStorage.setAdultEnabled(true);
     useContentStore.setState({installedProviders: getGatedInstalledProviders()});
     useEntitlementStore.getState().refresh();
+    ToastAndroid.show('১৮+ চালু হয়েছে', ToastAndroid.SHORT);
   };
   const retryProviderLoad = () => {
     runAutoInstall();
@@ -370,70 +411,102 @@ const Home = ({navigation}: Props) => {
       // render the "১৮+ চালু করুন" screen instead of an endless
       // "Loading content...".
       installedProviders.filter(p => adultEnabled || !p.is_adult).length === 0;
-    const ctaStyle = {
-      marginTop: 16,
-      backgroundColor: '#161616',
-      borderColor: '#333',
-      borderWidth: 1,
-      paddingHorizontal: 26,
-      paddingVertical: 11,
+    // One reason line at a time (priority: profile reason > age-gate > generic).
+    const reasonText = activeProfileInfo.family
+      ? 'ফ্যামিলি প্রোফাইলে ১৮+ প্রোভাইডার লুকানো থাকে।'
+      : activeProfileInfo.explicitSet
+      ? 'সক্রিয় প্রোফাইলের প্রোভাইডার তালিকায় কিছু পাওয়া যায়নি।'
+      : showEnableAdult
+      ? showSwitchProfile
+        ? 'ডিভাইস সেটিংসেও ১৮+ কনটেন্ট বন্ধ আছে।'
+        : '১৮+ কনটেন্ট বন্ধ থাকায় প্রোভাইডারগুলো লুকানো আছে।'
+      : 'প্রোভাইডার ইনস্টল করা যায়নি — সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।';
+    const emptyIcon = activeProfileInfo.family
+      ? 'shield-account'
+      : activeProfileInfo.explicitSet
+      ? 'link-off'
+      : showEnableAdult
+      ? 'eye-off'
+      : 'television-off';
+    const btnBase = {
+      minHeight: 48,
       borderRadius: 999,
+      paddingHorizontal: 26,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
     };
     return (
-      <SafeAreaView style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 24}}>
-        {autoInstalling ? (
-          <>
-            <AppText style={{color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center'}}>Installing providers...</AppText>
-            <View style={{height: 16}} />
-            <AppText style={{color: '#888', fontSize: 13}}>Please wait</AppText>
-          </>
-        ) : !noVisibleProviders ? (
-          <>
-            <AppText style={{color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center'}}>Loading content...</AppText>
-            <View style={{height: 16}} />
-            <AppText style={{color: '#666', fontSize: 12, textAlign: 'center'}}>Please wait</AppText>
-          </>
-        ) : (
-          <>
-            <AppText style={{color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center'}}>কোনো প্রোভাইডার দেখা যাচ্ছে না</AppText>
-            <View style={{height: 10}} />
-            {activeProfileInfo.family && (
-              <AppText style={{color: '#999', fontSize: 13, textAlign: 'center'}}>
-                ফ্যামিলি প্রোফাইলে ১৮+ প্রোভাইডার লুকানো থাকে।
+      <SafeAreaView style={{flex: 1, backgroundColor: '#000'}}>
+        <View style={{flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28}}>
+          {autoInstalling ? (
+            <>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <View style={{height: 18}} />
+              <AppText style={{color: colors.onSurface, fontSize: 16, fontWeight: '700', textAlign: 'center'}}>
+                প্রোভাইডার ইনস্টল হচ্ছে...
               </AppText>
-            )}
-            {activeProfileInfo.explicitSet && (
-              <AppText style={{color: '#999', fontSize: 13, textAlign: 'center'}}>
-                সক্রিয় প্রোফাইলের প্রোভাইডার তালিকায় কিছু পাওয়া যায়নি।
+              <View style={{height: 6}} />
+              <AppText style={{color: colors.onSurfaceVariant, fontSize: 13}}>অনুগ্রহ করে অপেক্ষা করুন</AppText>
+            </>
+          ) : !noVisibleProviders ? (
+            <>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <View style={{height: 18}} />
+              <AppText style={{color: colors.onSurface, fontSize: 16, fontWeight: '700', textAlign: 'center'}}>Loading content...</AppText>
+              <View style={{height: 6}} />
+              <AppText style={{color: colors.onSurfaceVariant, fontSize: 12, textAlign: 'center'}}>অনুগ্রহ করে অপেক্ষা করুন</AppText>
+            </>
+          ) : (
+            <>
+              <View
+                style={{
+                  width: 92,
+                  height: 92,
+                  borderRadius: 46,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 22,
+                  backgroundColor: colors.surfaceContainerHigh,
+                  borderWidth: 1,
+                  borderColor: colors.outlineVariant,
+                }}>
+                <MaterialCommunityIcons name={emptyIcon as any} size={44} color={colors.onSurfaceVariant} />
+              </View>
+              <AppText style={{color: colors.onSurface, fontSize: 19, fontWeight: '800', textAlign: 'center', letterSpacing: 0.2}}>
+                কোনো প্রোভাইডার দেখা যাচ্ছে না
               </AppText>
-            )}
-            {showEnableAdult && (
-              <AppText style={{color: '#999', fontSize: 13, textAlign: 'center'}}>
-                {showSwitchProfile
-                  ? 'ডিভাইস সেটিংসেও ১৮+ কনটেন্ট বন্ধ আছে।'
-                  : '১৮+ কনটেন্ট বন্ধ থাকায় প্রোভাইডারগুলো লুকানো আছে।'}
+              <AppText style={{color: colors.onSurfaceVariant, fontSize: 13, lineHeight: 21, textAlign: 'center', marginTop: 8, maxWidth: 320}}>
+                {reasonText}
               </AppText>
-            )}
-            {showGenericReason && (
-              <AppText style={{color: '#999', fontSize: 13, textAlign: 'center'}}>
-                প্রোভাইডার ইনস্টল করা যায়নি — সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।
-              </AppText>
-            )}
-            {showSwitchProfile && (
-              <Pressable onPress={switchToDefaultProfile} style={ctaStyle}>
-                <AppText style={{color: '#fff', fontSize: 14, fontWeight: '700'}}>ডিফল্ট প্রোফাইলে ফিরুন</AppText>
-              </Pressable>
-            )}
-            {showEnableAdult && (
-              <Pressable onPress={enableAdult} style={ctaStyle}>
-                <AppText style={{color: '#fff', fontSize: 14, fontWeight: '700'}}>১৮+ চালু করুন</AppText>
-              </Pressable>
-            )}
-            <Pressable onPress={retryProviderLoad} style={ctaStyle}>
-              <AppText style={{color: '#fff', fontSize: 14, fontWeight: '700'}}>আবার চেষ্টা করুন</AppText>
-            </Pressable>
-          </>
-        )}
+              <View style={{marginTop: 26, width: 260}}>
+                {showSwitchProfile && (
+                  <Pressable
+                    onPress={switchToDefaultProfile}
+                    disabled={switchingProfile}
+                    style={[btnBase, {backgroundColor: colors.primary, opacity: switchingProfile ? 0.7 : 1}]}>
+                    {switchingProfile ? (
+                      <ActivityIndicator size="small" color={colors.onPrimary} />
+                    ) : (
+                      <AppText style={{color: colors.onPrimary, fontSize: 14.5, fontWeight: '700'}}>ডিফল্ট প্রোফাইলে ফিরুন</AppText>
+                    )}
+                  </Pressable>
+                )}
+                {showEnableAdult && (
+                  <Pressable
+                    onPress={enableAdult}
+                    style={[btnBase, {backgroundColor: colors.secondaryContainer, marginTop: showSwitchProfile ? 12 : 0}]}>
+                    <AppText style={{color: colors.onSecondaryContainer, fontSize: 14.5, fontWeight: '700'}}>১৮+ চালু করুন</AppText>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={retryProviderLoad}
+                  style={[btnBase, {backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.outlineVariant, marginTop: 12}]}>
+                  <AppText style={{color: colors.onSurface, fontSize: 14.5, fontWeight: '700'}}>আবার চেষ্টা করুন</AppText>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </View>
       </SafeAreaView>
     );
   }

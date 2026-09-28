@@ -106,7 +106,10 @@ export const promptBiometric = async (): Promise<boolean> => {
     const res = await LocalAuthentication.authenticateAsync({
       promptMessage: '18+ আনলক করতে ফিঙ্গারপ্রিন্ট দিন',
       cancelLabel: 'বাতিল',
-      disableDeviceFallback: true,
+      // Allow the system PIN/pattern as a fallback so a rejected finger or
+      // a flaky sensor never dead-ends the user — they can still get in.
+      disableDeviceFallback: false,
+      fallbackLabel: 'পিন ব্যবহার করুন',
     });
     return res.success === true;
   } catch {

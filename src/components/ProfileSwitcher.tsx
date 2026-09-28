@@ -51,7 +51,7 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
   const AvatarCircle = ({p, active, onPress, onLongPress}: {p: UserProfile; active: boolean; onPress: () => void; onLongPress?: () => void}) => (
     <Pressable
       onPress={onPress}
-      onLongPress={canCustomize ? onLongPress : undefined}
+      onLongPress={isLoggedIn ? onLongPress : undefined}
       style={st.avatarWrap}>
       <View
         style={[
@@ -64,16 +64,28 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
           color="#FFFFFF"
         />
       </View>
+      {active && (
+        <View
+          style={{
+            marginTop: 4,
+            backgroundColor: colors.primary,
+            borderRadius: 999,
+            paddingHorizontal: 9,
+            paddingVertical: 2,
+          }}>
+          <AppText style={{color: '#FFF', fontSize: 10, fontWeight: '700'}}>সক্রিয়</AppText>
+        </View>
+      )}
       {canCustomize && (
         <Pressable
           style={st.editBadge}
           hitSlop={8}
           onPress={() => goEdit({profileId: p.id})}
-          accessibilityLabel="প্রোফাইল সম্পাদনা">
+          accessibilityLabel="প্রোফাইল সম্পাদনा">
           <MaterialCommunityIcons name="pencil" size={11} color="#FFFFFF" />
         </Pressable>
       )}
-      <AppText style={[st.avatarName, active && {color: colors.primary}]} numberOfLines={1}>
+      <AppText style={[st.avatarName, active && {color: colors.primary, fontWeight: '700'}]} numberOfLines={1}>
         {p.name}
       </AppText>
       {p.kind === 'family' && (
@@ -165,9 +177,21 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                         color={colors.onSurfaceVariant}
                       />
                     </View>
-                    <AppText style={[st.avatarName, activeId === null && {color: colors.primary}]}>
+                    <AppText style={[st.avatarName, activeId === null && {color: colors.primary, fontWeight: '700'}]}>
                       ডিফল্ট
                     </AppText>
+                    {activeId === null && (
+                      <View
+                        style={{
+                          marginTop: 4,
+                          backgroundColor: colors.primary,
+                          borderRadius: 999,
+                          paddingHorizontal: 9,
+                          paddingVertical: 2,
+                        }}>
+                        <AppText style={{color: '#FFF', fontSize: 10, fontWeight: '700'}}>সক্রিয়</AppText>
+                      </View>
+                    )}
                   </Pressable>
                 )}
                 {profiles.map(p => (
@@ -240,7 +264,7 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                         </View>
                         <AppText style={st.avatarName} numberOfLines={1}>{p.name}</AppText>
                         {existingLocal && (
-                          <AppText style={{fontSize: 10, color: colors.onSurfaceVariant}}>চাপুন = সুইচ</AppText>
+                          <AppText style={{fontSize: 10, color: colors.onSurfaceVariant}}>ট্যাপ = সুইচ</AppText>
                         )}
                       </Pressable>
                       );
@@ -259,9 +283,20 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                     <AppText style={{color: colors.primary}}>প্রোফাইল ম্যানেজ করুন</AppText>
                   </Pressable>
                 ) : (
-                  <AppText style={{color: colors.onSurfaceVariant, fontSize: 12}}>
-                    প্রোফাইল কাস্টমাইজ করতে প্রিমিয়াম লাগবে
-                  </AppText>
+                  <>
+                    <Pressable
+                      style={st.footerBtn}
+                      onPress={() => {
+                        const target = profiles.find(p => p.id === activeId) || profiles[0];
+                        goEdit(target ? {profileId: target.id} : {});
+                      }}>
+                      <MaterialCommunityIcons name="pencil-off" size={20} color={colors.primary} />
+                      <AppText style={{color: colors.primary}}>প্রোফাইল এডিট করুন</AppText>
+                    </Pressable>
+                    <AppText style={{color: colors.onSurfaceVariant, fontSize: 12, marginTop: 6}}>
+                      নাম/অ্যাভাটার বদলানো যাবে; প্রোভাইডার কাস্টমাইজে প্রিমিয়াম লাগবে
+                    </AppText>
+                  </>
                 )}
               </View>
             </>
@@ -309,7 +344,7 @@ const st = StyleSheet.create({
   sheet: {width: '100%', maxWidth: 420, maxHeight: '86%', borderRadius: 24, padding: 22, paddingBottom: 16},
   title: {textAlign: 'center', marginBottom: 16, color: '#FFF'},
   grid: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14},
-  avatarWrap: {alignItems: 'center', width: 74},
+  avatarWrap: {alignItems: 'center', width: 74, minHeight: 96},
   avatar: {width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
   avatarName: {marginTop: 6, fontSize: 12, color: '#DDD', maxWidth: 72},
   familyBadge: {position: 'absolute', top: 46, right: 8, backgroundColor: '#2E7D32', borderRadius: 8, padding: 2},

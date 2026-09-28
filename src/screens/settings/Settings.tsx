@@ -75,8 +75,11 @@ const Settings = ({navigation}: Props) => {
   useEffect(() => {
     if (!isFocused || !pendingAdultEnable.current) return;
     pendingAdultEnable.current = false;
-    const {isAdultLockOpen} = require('../../lib/adultLock');
+    const {isAdultLockOpen, markUnlocked} = require('../../lib/adultLock');
     if (isAdultLockOpen()) {
+      // The lock screen already called markUnlocked() on success; re-stamp
+      // here too so the 15-min session window starts from the focus return.
+      markUnlocked();
       settingsStorage.setAdultEnabled(true);
       setAdultEnabled(true);
       ToastAndroid.show('18+ content enabled', ToastAndroid.SHORT);

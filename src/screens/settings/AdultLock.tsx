@@ -50,18 +50,33 @@ export default function AdultLockScreen() {
   const [bioOn, setBioOn] = useState(isBiometricEnabled());
 
   const startMode = mode;
+  // Biometric attempts are best-effort and can fail silently (sensor busy,
+  // user cancelled, lockout). Track the last failure so the UI can show a
+  // retry hint instead of looking dead.
+  const [bioFailed, setBioFailed] = useState(false);
+  const tryBiometric = useCallback(async (): Promise<boolean> => {
+    setBusy(true);
+    const ok = await promptBiometric();
+    setBusy(false);
+    if (ok) {
+      markUnlocked();
+      navigation.goBack();
+      return true;
+    }
+    setBioFailed(true);
+    ToastAndroid.show(
+      'ফিঙ্গারপ্রিন্ট কাজ করেনি — আবার চেষ্টা করুন বা পিন দিন',
+      ToastAndroid.LONG,
+    );
+    return false;
+  }, [navigation]);
+
   useEffect(() => {
     hasBiometricHardware().then(setBioAvailable);
     // On unlock mode with biometrics enabled, fire the prompt immediately.
     if (startMode === 'unlock' && pinSet && isBiometricEnabled()) {
       (async () => {
-        setBusy(true);
-        const ok = await promptBiometric();
-        setBusy(false);
-        if (ok) {
-          markUnlocked();
-          navigation.goBack();
-        }
+        await tryBiometric();
       })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -121,7 +136,9 @@ export default function AdultLockScreen() {
     if (busy) return;
     const next = (pin + d).slice(0, ADULT_PIN_MAX);
     setPin(next);
-    if (next.length >= ADULT_PIN_MIN && next.length === ADULT_PIN_MAX) {
+    // Auto-submit only at max length; shorter pins submit via the button
+    // below (previously 4-7 digit pins could never unlock at all).
+    if (next.length === ADULT_PIN_MAX) {
       submitPin(next);
     }
   };
@@ -235,19 +252,11 @@ export default function AdultLockScreen() {
       </View>
 
       {startMode === 'unlock' && pinSet && bioOn && bioAvailable && (
-        <Pressable
-          style={{alignItems: 'center', marginBottom: 8}}
-          onPress={async () => {
-            setBusy(true);
-            const ok = await promptBiometric();
-            setBusy(false);
-            if (ok) {
-              markUnlocked();
-              navigation.goBack();
-            }
-          }}>
-          <MaterialCommunityIcons name="fingerprint" size={40} color={colors.primary} />
-          <AppText style={{color: colors.primary, fontSize: 12}}>ফিঙ্গারপ্রিন্ট</AppText>
+        <Pressable style={{alignItems: 'center', marginBottom: 8}} disabled={busy} onPress={() => tryBiometric()}>
+          <MaterialCommunityIcons name="fingerprint" size={40} color={bioFailed ? colors.error : colors.primary} />
+          <AppText style={{color: bioFailed ? colors.error : colors.primary, fontSize: 12}}>
+            {bioFailed ? 'আবার ফিঙ্গারপ্রিন্ট দিন' : 'ফিঙ্গারপ্রিন্ট'}
+          </AppText>
         </Pressable>
       )}
 
@@ -269,6 +278,14 @@ export default function AdultLockScreen() {
       {startMode === 'setup' && pin.length >= ADULT_PIN_MIN && (
         <Pressable style={st.doneBtn} onPress={() => submitPin(pin)}>
           <AppText style={{color: colors.primary, fontWeight: '700'}}>পরবর্তী</AppText>
+        </Pressable>
+      )}
+      {startMode !== 'setup' && pin.length >= ADULT_PIN_MIN && (
+        <Pressable
+          style={[st.doneBtn, {backgroundColor: colors.primaryContainer, borderRadius: 14, paddingHorizontal: 28, alignSelf: 'center'}]}
+          disabled={busy}
+          onPress={() => submitPin(pin)}>
+          <AppText style={{color: colors.onPrimaryContainer, fontWeight: '700'}}>আনলক করুন</AppText>
         </Pressable>
       )}
     </View>

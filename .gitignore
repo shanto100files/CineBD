@@ -96,3 +96,7 @@ google-services.json
 
 build_test/
 .ota-export/
+
+# Local-only secrets (VPS SSH password for ota_publish.sh) — never commit.
+.ota-secret
+_ota_log*.txt
