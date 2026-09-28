@@ -155,5 +155,40 @@ export const isAdultLockOpen = (): boolean => {
   return isUnlockedFresh();
 };
 
+/**
+ * Can this profile surface 18+ content?
+ *  - family profiles: never
+ *  - explicit provider set: assumed capable when non-empty (we don't know
+ *    which entries are adult here; failing "safe" is fine for child-proofing)
+ *  - aggregate (null): depends on the device 18+ toggle
+ */
+const profileAdultCapable = (
+  profile: {kind?: string; providers?: string[] | null} | null,
+  adultToggleOn: boolean,
+): boolean => {
+  if (!profile) {
+    // Default (no profile) = aggregate.
+    return adultToggleOn;
+  }
+  if (profile.kind === 'family') return false;
+  if (profile.providers) return profile.providers.length > 0;
+  return adultToggleOn;
+};
+
+/**
+ * Does switching profiles require the 18+ lock? True when the PIN is set,
+ * the target profile can show adult content, and the currently active
+ * profile cannot — i.e. the switch would expose content that is currently
+ * hidden (e.g. family profile -> 18+ profile).
+ */
+export const profileSwitchNeedsLock = (
+  targetProfile: {kind?: string; providers?: string[] | null} | null,
+  currentProfile: {kind?: string; providers?: string[] | null} | null,
+  adultToggleOn: boolean,
+): boolean =>
+  isAdultPinSet() &&
+  profileAdultCapable(targetProfile, adultToggleOn) &&
+  !profileAdultCapable(currentProfile, adultToggleOn);
+
 export const ADULT_PIN_MIN = 4;
 export const ADULT_PIN_MAX = 8;

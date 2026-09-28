@@ -199,7 +199,7 @@ export type SettingsStackParamList = {
   DownloadsStack: undefined;
   ProviderSelect: undefined;
   ProfileEdit: {profileId?: string; manage?: boolean} | undefined;
-  AdultLock: {mode?: 'setup' | 'unlock' | 'settings'} | undefined;
+  AdultLock: {mode?: 'setup' | 'unlock' | 'settings'; switchProfile?: string | null} | undefined;
   Friends: undefined;
   FriendProfile: {userId: number; username: string};
   FriendChat: {userId: number; username: string};
@@ -287,7 +287,11 @@ export const openProfileEdit = (params: {profileId?: string; manage?: boolean} =
 };
 
 /** Open the 18+ lock screen (setup / unlock / settings) from anywhere. */
-export const openAdultLock = (params: {mode?: 'setup' | 'unlock' | 'settings'} = {}): void => {
+export const openAdultLock = (params: {
+  mode?: 'setup' | 'unlock' | 'settings';
+  /** Child-proofing: switch to this profile only after a successful unlock. */
+  switchProfile?: string | null;
+} = {}): void => {
   try {
     if (!navigationRef.isReady()) {
       return;

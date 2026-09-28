@@ -117,6 +117,31 @@ export default function ProfileEditScreen() {
         ToastAndroid.show('সর্বোচ্চ ৮টি প্রোফাইল করা যাবে', ToastAndroid.SHORT);
         return;
       }
+      // Same child-proofing as the switcher: auto-activating a profile that
+      // can show adult content requires the 18+ lock. The switch is deferred
+      // into the unlock success path; cancelling keeps the profile created
+      // but inactive.
+      let needsLock = false;
+      try {
+        const {profileSwitchNeedsLock} = require('../../lib/adultLock');
+        needsLock = profileSwitchNeedsLock(
+          created,
+          useProfileStore.getState().activeProfile(),
+          settingsStorage.isAdultEnabled(),
+        );
+      } catch {}
+      if (needsLock) {
+        ToastAndroid.show(
+          'প্রোফাইল তৈরি হয়েছে — আনলক করলে সক্রিয় হবে',
+          ToastAndroid.LONG,
+        );
+        navigation.goBack();
+        require('../../App').openAdultLock({
+          mode: 'unlock',
+          switchProfile: created.id,
+        });
+        return;
+      }
       useProfileStore.getState().setActive(created.id);
       ToastAndroid.show('প্রোফাইল তৈরি হয়েছে', ToastAndroid.SHORT);
     }

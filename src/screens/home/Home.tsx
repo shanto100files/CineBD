@@ -351,6 +351,26 @@ const Home = ({navigation}: Props) => {
     if (switchingProfile) {
       return;
     }
+    // Same child-proofing as the profile switcher: family -> default can
+    // expose adult content when the device toggle is on, so require the
+    // 18+ lock first (switch is deferred into the unlock success path).
+    try {
+      const {profileSwitchNeedsLock} = require('../../lib/adultLock');
+      const current = useProfileStore.getState().activeProfile();
+      if (
+        profileSwitchNeedsLock(
+          null,
+          current,
+          settingsStorage.isAdultEnabled(),
+        )
+      ) {
+        require('../../App').openAdultLock({
+          mode: 'unlock',
+          switchProfile: null,
+        });
+        return;
+      }
+    } catch {}
     setSwitchingProfile(true);
     setTimeout(() => {
       try {

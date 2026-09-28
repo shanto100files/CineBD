@@ -26,6 +26,7 @@ import {
   verifyAdultPin,
 } from '../../lib/adultLock';
 import {showAppDialog} from '../../lib/zustand/appDialogStore';
+import {useProfileStore} from '../../lib/zustand/profileStore';
 
 /**
  * 18+ Lock screen.
@@ -38,8 +39,11 @@ import {showAppDialog} from '../../lib/zustand/appDialogStore';
 export default function AdultLockScreen() {
   const colors = useM3Colors();
   const navigation = useNavigation<any>();
-  const mode: 'setup' | 'unlock' | 'settings' =
-    (useNavigation().getState()?.routes?.slice(-1)?.[0] as any)?.params?.mode || 'unlock';
+  const routeParams: {
+    mode?: 'setup' | 'unlock' | 'settings';
+    switchProfile?: string | null;
+  } = (useNavigation().getState()?.routes?.slice(-1)?.[0] as any)?.params || {};
+  const mode: 'setup' | 'unlock' | 'settings' = routeParams.mode || 'unlock';
 
   const pinSet = isAdultPinSet();
   const [stage, setStage] = useState<'enter' | 'confirm'>(pinSet || mode !== 'setup' ? 'enter' : 'enter');
@@ -54,13 +58,25 @@ export default function AdultLockScreen() {
   // user cancelled, lockout). Track the last failure so the UI can show a
   // retry hint instead of looking dead.
   const [bioFailed, setBioFailed] = useState(false);
+  const finishUnlock = useCallback(() => {
+    markUnlocked();
+    // Deferred profile switch (child-proofing): the switcher sent us here
+    // so the target profile only activates after a successful unlock.
+    const targetId = routeParams.switchProfile;
+    if (targetId !== undefined) {
+      try {
+        useProfileStore.getState().setActive(targetId);
+      } catch {}
+    }
+    navigation.goBack();
+  }, [navigation, routeParams.switchProfile]);
+
   const tryBiometric = useCallback(async (): Promise<boolean> => {
     setBusy(true);
     const ok = await promptBiometric();
     setBusy(false);
     if (ok) {
-      markUnlocked();
-      navigation.goBack();
+      finishUnlock();
       return true;
     }
     setBioFailed(true);
@@ -69,7 +85,7 @@ export default function AdultLockScreen() {
       ToastAndroid.LONG,
     );
     return false;
-  }, [navigation]);
+  }, [finishUnlock]);
 
   useEffect(() => {
     hasBiometricHardware().then(setBioAvailable);
@@ -113,7 +129,7 @@ export default function AdultLockScreen() {
         }
         markUnlocked();
         ToastAndroid.show('18+ লক সেট হয়েছে', ToastAndroid.SHORT);
-        navigation.goBack();
+        finishUnlock();
         return;
       }
 
@@ -127,9 +143,9 @@ export default function AdultLockScreen() {
         return;
       }
       markUnlocked();
-      navigation.goBack();
+      finishUnlock();
     },
-    [startMode, stage, firstPin, navigation],
+    [startMode, stage, firstPin, finishUnlock],
   );
 
   const pressDigit = (d: string) => {

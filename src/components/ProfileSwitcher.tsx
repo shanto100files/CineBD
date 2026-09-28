@@ -5,6 +5,8 @@ import AppText from './ui/Text';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import useProfileStore, {UserProfile} from '../lib/zustand/profileStore';
 import {useAuthStore} from '../lib/zustand/authStore';
+import {profileSwitchNeedsLock} from '../lib/adultLock';
+import {settingsStorage} from '../lib/storage';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 /** YouTube 'Who's watching?'-style profile grid inside a full-screen modal. */
@@ -40,6 +42,30 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
 
   const onSelect = useCallback(
     (id: string | null) => {
+      // Child-proofing: switching to a profile that can show adult content
+      // from one that cannot (e.g. family -> 18+) requires the 18+ lock.
+      // The switch is deferred into AdultLock's success handler through the
+      // switchProfile param, so a cancelled unlock never changes profiles.
+      try {
+        const state = useProfileStore.getState();
+        const target = id
+          ? state.profiles.find(p => p.id === id) || null
+          : null;
+        if (
+          profileSwitchNeedsLock(
+            target,
+            state.activeProfile(),
+            settingsStorage.isAdultEnabled(),
+          )
+        ) {
+          onClose();
+          require('../App').openAdultLock({
+            mode: 'unlock',
+            switchProfile: id,
+          });
+          return;
+        }
+      } catch {}
       // setActive also reloads the scoped watchlist/history and re-gates
       // the installed provider list for the new profile.
       setActive(id);
