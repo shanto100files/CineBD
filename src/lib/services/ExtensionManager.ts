@@ -22,6 +22,16 @@ export class ExtensionManager {
     return `${url}/manifest.json`;
   };
 
+  private authHeaders(): Record<string, string> {
+    try {
+      const token = require('../zustand/authStore').useAuthStore.getState()
+        .token;
+      return token ? {Authorization: `Bearer ${token}`} : {};
+    } catch {
+      return {};
+    }
+  }
+
   private getActiveSource(source?: ProviderSource): ProviderSource | undefined {
     if (source) {
       return source;
@@ -95,6 +105,7 @@ export class ExtensionManager {
         timeout: 10000,
         headers: {
           'X-App-Key': HARDCODED_KILL_KEY,
+          ...this.authHeaders(),
           ...(shouldForce
             ? {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -172,6 +183,7 @@ export class ExtensionManager {
             timeout: 15000,
             headers: {
               'X-App-Key': HARDCODED_KILL_KEY,
+              ...this.authHeaders(),
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               Pragma: 'no-cache',
               Expires: '0',

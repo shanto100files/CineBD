@@ -98,6 +98,19 @@ export const providerFetch = async (
 
   try {
     const headers = normalizeHeaders(request.headers ?? []);
+    const host = url.hostname.toLowerCase();
+    if (host === 'cinepix.top' || host.endsWith('.cinepix.top')) {
+      if (!hasHeader(headers, 'x-app-key')) {
+        headers['X-App-Key'] = '78a0e573dfd894d443685159b2e71e2f';
+      }
+      try {
+        const token = require('../zustand/authStore').useAuthStore.getState()
+          .token;
+        if (token && !hasHeader(headers, 'authorization')) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+      } catch {}
+    }
     const body = request.body ?? {kind: 'none'};
     if (
       body.kind === 'base64' &&

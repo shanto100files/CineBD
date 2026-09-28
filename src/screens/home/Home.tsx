@@ -150,7 +150,10 @@ const Home = ({navigation}: Props) => {
       clearHeroCache(provider?.value);
       await Promise.allSettled([
         refetch(),
-        useEntitlementStore.getState().refresh(),
+        extensionManager
+          .fetchManifest(undefined, true)
+          .then(() => extensionManager.initialize())
+          .then(() => useEntitlementStore.getState().refresh()),
         syncFromSharedFolder().catch(e =>
           console.warn('[CinepixSync] Home refresh sync failed:', e),
         ),
