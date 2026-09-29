@@ -1,5 +1,7 @@
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useCallback, useMemo} from 'react';
 import axios from 'axios';
+import {useProfileStore} from '../zustand/profileStore';
+import {settingsStorage} from '../storage';
 
 const API_BASE = 'https://cinepix.top/api/app';
 
@@ -8,6 +10,8 @@ export interface AppAds {
   web_url: string;
   top: string;
   bottom: string;
+  /** Direct-link creative shown ONLY while an adult-capable profile is active. */
+  adult_url: string;
 }
 
 let cachedAds: AppAds | null = null;
@@ -23,8 +27,39 @@ export const normalizeAppAds = (data: unknown): AppAds => {
     web_url: typeof source.web_url === 'string' ? source.web_url : '',
     top: typeof source.top === 'string' ? source.top : '',
     bottom: typeof source.bottom === 'string' ? source.bottom : '',
+    adult_url: typeof source.adult_url === 'string' ? source.adult_url : '',
   };
 };
+
+/**
+ * Adult-profile ad slot: returns the server-configured direct link while an
+ * adult-capable profile is active (default profile with the 18+ toggle on,
+ * or an explicit 18+ provider set). Family profiles get '' (no ad).
+ */
+export function useAdultAds() {
+  const ads = useAppAds();
+  const activeProfile = useProfileStore(state => state.activeProfile);
+  const activeProfileId = useProfileStore(state => state.activeId);
+  const adultEnabled = settingsStorage.isAdultEnabled();
+
+  return useMemo(() => {
+    let adultProfile = false;
+    try {
+      const profile = activeProfile();
+      if (profile?.kind === 'family') {
+        adultProfile = false;
+      } else if (profile?.providers) {
+        adultProfile = profile.providers.length > 0;
+      } else {
+        adultProfile = adultEnabled;
+      }
+    } catch {
+      adultProfile = adultEnabled;
+    }
+    if (!adultProfile || !ads.enabled) return '';
+    return ads.adult_url || '';
+  }, [ads.enabled, ads.adult_url, activeProfile, activeProfileId, adultEnabled]);
+}
 
 export function useAppAds() {
   const [ads, setAds] = useState<AppAds>(cachedAds || {
@@ -32,6 +67,7 @@ export function useAppAds() {
     web_url: '',
     top: '',
     bottom: '',
+    adult_url: '',
   });
 
   const fetchAds = useCallback(async () => {

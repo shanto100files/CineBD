@@ -12,6 +12,9 @@ import {syncFromSharedFolder} from '../../lib/sync/syncService';
 import {useAuthStore} from '../../lib/zustand/authStore';
 import {useEntitlementStore} from '../../lib/zustand/entitlementStore';
 import {useProfileStore} from '../../lib/zustand/profileStore';
+import {useAdultAds} from '../../lib/services/adService';
+import {CommonActions} from '@react-navigation/native';
+import {navigationRef} from '../../App';
 import {getGatedInstalledProviders} from '../../lib/utils/providerGate';
 import {extensionStorage} from '../../lib/storage/extensionStorage';
 import {
@@ -56,6 +59,9 @@ const Home = ({navigation}: Props) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [homeAds, setHomeAds] = useState<{enabled: boolean; top: string; bottom: string}>({enabled: false, top: '', bottom: ''});
+  // Adult-profile creative: the server's dedicated 18+ direct link, shown
+  // only while an adult-capable profile is active.
+  const adultAd = useAdultAds();
 
   // Memoize static values
   const disableDrawer = useMemo(
@@ -68,6 +74,10 @@ const Home = ({navigation}: Props) => {
   const provider = useContentStore(state => state.provider);
   const installedProviders = useContentStore(state => state.installedProviders);
   const adultEnabled = settingsStorage.isAdultEnabled();
+  // Profile-switch feedback: show which provider's content is loading
+  // right after a profile switch, so the UI never looks frozen.
+  const activeProfile = useProfileStore(state => state.activeProfile);
+  const activeProfileId = useProfileStore(state => state.activeId);
   const setHero = useHeroStore(state => state.setHero);
   const hero = useHeroStore(state => state.hero);
 
@@ -604,6 +614,33 @@ const Home = ({navigation}: Props) => {
 
               <FriendsActivityRow />
 
+              {isLoading && provider?.value ? (
+                <View
+                  style={{
+                    marginHorizontal: 14,
+                    marginTop: 8,
+                    paddingVertical: 10,
+                    paddingHorizontal: 14,
+                    borderRadius: 12,
+                    backgroundColor: colors.surfaceContainer,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <AppText
+                    style={{
+                      color: colors.onSurfaceVariant,
+                      fontSize: 12.5,
+                      marginLeft: 10,
+                      flex: 1,
+                    }}>
+                    {activeProfile()?.name
+                      ? `${activeProfile()?.name} প্রোফাইল • ${provider.display_name || provider.value} থেকে লোড হচ্ছে...`
+                      : `${provider.display_name || provider.value} থেকে লোড হচ্ছে...`}
+                  </AppText>
+                </View>
+              ) : null}
+
               {!isPremium && homeAds.enabled && homeAds.top && isScreenFocused ? (
                 <View style={{marginHorizontal: 14, marginTop: 8}}>
                   <AppText
@@ -634,6 +671,37 @@ const Home = ({navigation}: Props) => {
                   <View style={{borderRadius: 12, overflow: 'hidden', height: 150}}>
                     <AdBox content={homeAds.bottom} height={150} />
                   </View>
+                </View>
+              ) : null}
+
+              {adultAd && isScreenFocused ? (
+                <View style={{marginHorizontal: 14, marginBottom: 16}}>
+                  <AppText
+                    role="labelSmallEmphasized"
+                    style={{color: colors.onSurfaceVariant, marginBottom: 4, marginLeft: 4, opacity: 0.8}}>
+                    ১৮+ প্রোফাইল বিজ্ঞাপন
+                  </AppText>
+                  <View style={{borderRadius: 12, overflow: 'hidden', height: 170}}>
+                    <AdBox content={adultAd} height={170} />
+                  </View>
+                  {!isPremium && (
+                    <Pressable
+                      onPress={() => {
+                        try {
+                          navigationRef.dispatch(
+                            CommonActions.navigate('TabStack', {
+                              screen: 'SettingsStack',
+                              params: {screen: 'Premium'} as never,
+                            }),
+                          );
+                        } catch {}
+                      }}
+                      style={{marginTop: 8, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12}}>
+                      <AppText style={{color: colors.primary, fontSize: 12, fontWeight: '700'}}>
+                        ⭐ প্রিমিয়াম নিন — বিজ্ঞাপনমুক্ত দেখুন
+                      </AppText>
+                    </Pressable>
+                  )}
                 </View>
               ) : null}
             </ScrollView>

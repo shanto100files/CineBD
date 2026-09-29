@@ -176,19 +176,18 @@ const profileAdultCapable = (
 };
 
 /**
- * Does switching profiles require the 18+ lock? True when the PIN is set,
- * the target profile can show adult content, and the currently active
- * profile cannot — i.e. the switch would expose content that is currently
- * hidden (e.g. family profile -> 18+ profile).
+ * Does switching profiles require the 18+ lock? True when the PIN is set
+ * and the target profile can show adult content (18+ explicit set, or
+ * aggregate/default with the device 18+ toggle on). The CURRENT profile is
+ * irrelevant: child-proofing locks the door INTO adult content no matter
+ * where the user is coming from — a user on the default profile must be
+ * challenged when entering the 18+ profile too.
  */
 export const profileSwitchNeedsLock = (
   targetProfile: {kind?: string; providers?: string[] | null} | null,
-  currentProfile: {kind?: string; providers?: string[] | null} | null,
+  _currentProfile: {kind?: string; providers?: string[] | null} | null,
   adultToggleOn: boolean,
-): boolean =>
-  isAdultPinSet() &&
-  profileAdultCapable(targetProfile, adultToggleOn) &&
-  !profileAdultCapable(currentProfile, adultToggleOn);
+): boolean => isAdultPinSet() && profileAdultCapable(targetProfile, adultToggleOn);
 
 export const ADULT_PIN_MIN = 4;
 export const ADULT_PIN_MAX = 8;
