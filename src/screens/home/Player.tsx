@@ -1818,6 +1818,35 @@ const Player = ({ route }: Props): React.JSX.Element => {
   const isPortraitVideoRef = useRef(false);
   const portraitReassertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Orientation police: when a portrait video is playing, ANY native module
+  // or player callback that requests landscape gets reverted to portrait
+  // within milliseconds. Some native code paths (player fullscreen presenter,
+  // SystemBars edge-to-edge relayout) re-request landscape after our lock —
+  // the initial lock alone kept getting stolen, so we listen and fight back.
+  useEffect(() => {
+    if (!isPortraitVideo) {
+      return;
+    }
+    const onOrientation = (o: string) => {
+      if (isPortraitVideoRef.current && String(o).startsWith('LANDSCAPE')) {
+        Orientation.lockToPortrait();
+      }
+    };
+    Orientation.addOrientationListener(onOrientation);
+    // Staggered re-asserts to win any race started around video load.
+    const timers: ReturnType<typeof setTimeout>[] = [300, 900, 1800].map(ms =>
+      setTimeout(() => {
+        if (isPortraitVideoRef.current) {
+          Orientation.lockToPortrait();
+        }
+      }, ms),
+    );
+    return () => {
+      Orientation.removeOrientationListener(onOrientation);
+      timers.forEach(t => clearTimeout(t));
+    };
+  }, [isPortraitVideo]);
+
   // Memoized video player props
   const videoPlayerProps = useMemo(
     () => ({
