@@ -18,6 +18,8 @@ export interface OtaCheckResult {
   available: boolean;
   downloading: boolean;
   critical: boolean;
+  /** True when a NEW bundle finished downloading this cycle (isReadyToInstall). */
+  downloaded?: boolean;
   message?: string;
 }
 
@@ -66,7 +68,20 @@ export const runOtaCheck = async (): Promise<OtaCheckResult> => {
     await withTimeout(ExpoUpdates.fetchUpdateAsync(), 120000);
     downloading = false;
 
-    return {checked: true, available: true, downloading: false, critical: isCritical, message};
+    // expo-updates only swaps the bundle on the next cold start, so the
+    // freshly downloaded update would otherwise sit invisible until the
+    // user happens to force-close and reopen. Surface it immediately:
+    // the caller shows a restart dialog for ANY freshly downloaded update.
+    const downloaded = (ExpoUpdates as any).isReadyToInstall === true;
+
+    return {
+      checked: true,
+      available: true,
+      downloading: false,
+      critical: isCritical,
+      downloaded,
+      message,
+    };
   } catch (e: any) {
     downloading = false;
     // Surface OTA failures to the site (best-effort, never throws).

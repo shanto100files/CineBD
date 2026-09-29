@@ -1008,11 +1008,16 @@ const App = () => {
       if (cancelled || !result.available) {
         return;
       }
-      if (result.critical && !useAppDialogStore.getState().dialog) {
+      // Offer an immediate restart for ANY freshly downloaded update, not
+      // just critical ones — otherwise regular updates sit invisible until
+      // the user's next natural cold start. Critical keeps its wording.
+      const offerRestart = result.critical || result.downloaded === true;
+      if (offerRestart && !useAppDialogStore.getState().dialog) {
         showAppDialog({
-          title: 'গুরুত্বপূর্ণ আপডেট',
-          message:
-            'সিনেপিক্সের একটি গুরুত্বপূর্ণ ফিক্স এসেছে। এখনই রিস্টার্ট করে প্রয়োগ করুন।',
+          title: result.critical ? 'গুরুত্বপূর্ণ আপডেট' : 'আপডেট প্রস্তুত',
+          message: result.critical
+            ? 'সিনেপিক্সের একটি গুরুত্বপূর্ণ ফিক্স এসেছে। এখনই রিস্টার্ট করে প্রয়োগ করুন।'
+            : 'নতুন আপডেট ডাউনলোড হয়েছে। রিস্টার্ট করে এখনই প্রয়োগ করুন — নাকি পরে হবে?',
           variant: 'warning',
           actions: [
             {label: 'পরে'},
