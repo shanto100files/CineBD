@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {
   Pressable,
   ScrollView,
@@ -61,26 +61,6 @@ export default function AdultLockScreen() {
   // user cancelled, lockout). Track the last failure so the UI can show a
   // retry hint instead of looking dead.
   const [bioFailed, setBioFailed] = useState(false);
-  // Visual wrong-PIN feedback: flash the dots red briefly instead of
-  // relying on the toast alone.
-  const [pinError, setPinError] = useState(false);
-  const errTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const flashPinError = useCallback(() => {
-    setPinError(true);
-    if (errTimer.current) {
-      clearTimeout(errTimer.current);
-    }
-    errTimer.current = setTimeout(() => setPinError(false), 650);
-  }, []);
-  useEffect(
-    () => () => {
-      if (errTimer.current) {
-        clearTimeout(errTimer.current);
-      }
-    },
-    [],
-  );
-
   const finishUnlock = useCallback(() => {
     // Deferred profile switch (child-proofing): the switcher sent us here
     // so the target profile only activates after a successful unlock.
@@ -182,7 +162,6 @@ export default function AdultLockScreen() {
         // confirm stage
         if (entered !== firstPin) {
           ToastAndroid.show('পিন মিলছে না — আবার দিন', ToastAndroid.SHORT);
-          flashPinError();
           setStage('enter');
           setFirstPin('');
           setPin('');
@@ -207,23 +186,19 @@ export default function AdultLockScreen() {
       setBusy(false);
       if (!ok) {
         ToastAndroid.show('ভুল পিন', ToastAndroid.SHORT);
-        flashPinError();
         setPin('');
         return;
       }
       markUnlocked();
       finishUnlock();
     },
-    [startMode, stage, firstPin, finishUnlock, flashPinError],
+    [startMode, stage, firstPin, finishUnlock],
   );
 
   const pressDigit = (d: string) => {
     if (busy) return;
     const next = (pin + d).slice(0, ADULT_PIN_MAX);
     setPin(next);
-    if (pinError) {
-      setPinError(false);
-    }
     // Auto-submit only at max length; shorter pins submit via the button
     // below (previously 4-7 digit pins could never unlock at all).
     if (next.length === ADULT_PIN_MAX) {
@@ -266,14 +241,9 @@ export default function AdultLockScreen() {
   if (startMode === 'settings' && pinSet) {
     return (
       <ScrollView style={{flex: 1, backgroundColor: colors.background}} contentContainerStyle={{padding: 20}}>
-        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 16}}>
-          <View style={[st.badgeSmall, {backgroundColor: colors.primaryContainer}]}>
-            <MaterialCommunityIcons name="shield-lock-outline" size={24} color={colors.onPrimaryContainer} />
-          </View>
-          <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, marginLeft: 12, flex: 1}}>
-            18+ লক সেটিংস
-          </AppText>
-        </View>
+        <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, marginBottom: 14}}>
+          18+ লক সেটিংস
+        </AppText>
 
         <Pressable
           style={[st.row, {backgroundColor: colors.surfaceContainerHigh}]}
@@ -334,219 +304,92 @@ export default function AdultLockScreen() {
   }
 
   // ---------------- pin pad (setup / unlock) ----------------
-  const canSubmit = pin.length >= ADULT_PIN_MIN;
-  const subtitleText =
-    startMode === 'setup'
-      ? stage === 'enter'
-        ? '৪-৮ ডিজিটের পিন দিন — এটা ছাড়া 18+ চালু হবে না'
-        : 'আবার একই পিন দিন'
-      : 'পিন দিন বা ফিঙ্গারপ্রিন্ট ব্যবহার করুন';
-
   return (
     <View style={[st.full, {backgroundColor: colors.background}]}>
-      {/* Ambient brand glow — keeps the plain black screen from feeling flat */}
-      <View
-        pointerEvents="none"
-        style={[st.glow, {top: -110, right: -80, backgroundColor: colors.primary, opacity: 0.08}]}
-      />
-      <View
-        pointerEvents="none"
-        style={[st.glow, {bottom: 30, left: -110, backgroundColor: colors.primary, opacity: 0.05}]}
-      />
+      <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, textAlign: 'center', marginTop: 60}}>
+        {title}
+      </AppText>
+      <AppText style={{color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 8, paddingHorizontal: 30}}>
+        {startMode === 'setup'
+          ? stage === 'enter'
+            ? '৪-৮ ডিজিটের পিন দিন — এটা ছাড়া 18+ চালু হবে না'
+            : 'আবার একই পিন দিন'
+          : 'পিন দিন বা ফিঙ্গারপ্রিন্ট ব্যবহার করুন'}
+      </AppText>
 
-      <ScrollView
-        contentContainerStyle={st.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        {/* Icon badge */}
-        <View style={[st.badge, {backgroundColor: colors.primaryContainer}]}>
-          <MaterialCommunityIcons name="shield-lock-outline" size={38} color={colors.onPrimaryContainer} />
-        </View>
+      {/* dots */}
+      <View style={st.dotsRow}>
+        {Array.from({length: Math.max(ADULT_PIN_MIN, pin.length || ADULT_PIN_MIN)}).map((_, i) => (
+          <View
+            key={i}
+            style={[
+              st.dot,
+              {backgroundColor: i < pin.length ? colors.primary : colors.surfaceContainerHighest},
+            ]}
+          />
+        ))}
+      </View>
 
-        <AppText
-          role="headlineMediumEmphasized"
-          style={{color: colors.onSurface, textAlign: 'center', marginTop: 18}}>
-          {title}
-        </AppText>
+      {startMode === 'unlock' && pinSet && bioOn && bioAvailable && (
+        <Pressable style={{alignItems: 'center', marginBottom: 8}} disabled={busy} onPress={() => tryBiometric()}>
+          <MaterialCommunityIcons name="fingerprint" size={40} color={bioFailed ? colors.error : colors.primary} />
+          <AppText style={{color: bioFailed ? colors.error : colors.primary, fontSize: 12}}>
+            {bioFailed ? 'আবার ফিঙ্গারপ্রিন্ট দিন' : 'ফিঙ্গারপ্রিন্ট'}
+          </AppText>
+        </Pressable>
+      )}
+      {startMode === 'unlock' && pinSet && bioOn && !bioAvailable && (
         <AppText
           style={{
             color: colors.onSurfaceVariant,
+            fontSize: 12,
             textAlign: 'center',
-            marginTop: 8,
-            paddingHorizontal: 44,
-            fontSize: 13.5,
-            lineHeight: 20,
+            marginBottom: 8,
+            paddingHorizontal: 30,
           }}>
-          {subtitleText}
+          ফিঙ্গারপ্রিন্ট এই ডিভাইসে পাওয়া যায়নি — পিন দিয়ে আনলক করুন
         </AppText>
+      )}
 
-        {/* dots */}
-        <View style={st.dotsRow}>
-          {Array.from({length: Math.max(ADULT_PIN_MIN, pin.length || ADULT_PIN_MIN)}).map((_, i) => {
-            const filled = i < pin.length;
-            const accent = pinError ? colors.error : colors.primary;
-            return (
-              <View
-                key={i}
-                style={[
-                  st.dot,
-                  {
-                    backgroundColor: filled ? accent : 'transparent',
-                    borderColor: pinError ? colors.error : filled ? accent : colors.outlineVariant,
-                    transform: [{scale: filled ? 1 : 0.85}],
-                  },
-                ]}
-              />
-            );
-          })}
-        </View>
-
-        {startMode === 'unlock' && pinSet && bioOn && bioAvailable ? (
-          <Pressable
-            disabled={busy}
-            onPress={() => tryBiometric()}
-            style={({pressed}) => [
-              st.bioBtn,
-              {
-                backgroundColor: colors.surfaceContainerHigh,
-                borderColor: bioFailed ? colors.error : colors.primary,
-                opacity: busy ? 0.6 : pressed ? 0.7 : 1,
-              },
-            ]}>
-            <MaterialCommunityIcons
-              name="fingerprint"
-              size={28}
-              color={bioFailed ? colors.error : colors.primary}
-            />
-            <AppText
-              style={{
-                marginLeft: 10,
-                color: bioFailed ? colors.error : colors.onSurface,
-                fontSize: 13.5,
-                fontWeight: '600',
-              }}>
-              {bioFailed ? 'আবার ফিঙ্গারপ্রিন্ট দিন' : 'ফিঙ্গারপ্রিন্ট দিয়ে আনলক'}
-            </AppText>
+      <View style={st.pad}>
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
+          <Pressable key={d} style={[st.key, {backgroundColor: colors.surfaceContainerHigh}]} onPress={() => pressDigit(d)}>
+            <AppText style={st.keyTxt}>{d}</AppText>
           </Pressable>
-        ) : startMode === 'unlock' && pinSet && bioOn && !bioAvailable ? (
-          <AppText style={[st.bioHint, {color: colors.onSurfaceVariant}]}>
-            ফিঙ্গারপ্রিন্ট এই ডিভাইসে পাওয়া যায়নি — পিন দিয়ে আনলক করুন
-          </AppText>
-        ) : null}
-
-        {/* keypad */}
-        <View style={st.pad}>
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
-            <Pressable
-              key={d}
-              disabled={busy}
-              onPress={() => pressDigit(d)}
-              style={({pressed}) => [
-                st.key,
-                {
-                  backgroundColor: colors.surfaceContainerHigh,
-                  opacity: pressed ? 0.55 : 1,
-                  transform: [{scale: pressed ? 0.94 : 1}],
-                },
-              ]}>
-              <AppText style={[st.keyTxt, {color: colors.onSurface}]}>{d}</AppText>
-            </Pressable>
-          ))}
-          <View style={[st.key, {backgroundColor: 'transparent'}]} />
-          <Pressable
-            disabled={busy}
-            onPress={() => pressDigit('0')}
-            style={({pressed}) => [
-              st.key,
-              {
-                backgroundColor: colors.surfaceContainerHigh,
-                opacity: pressed ? 0.55 : 1,
-                transform: [{scale: pressed ? 0.94 : 1}],
-              },
-            ]}>
-            <AppText style={[st.keyTxt, {color: colors.onSurface}]}>0</AppText>
-          </Pressable>
-          <Pressable
-            disabled={busy || pin.length === 0}
-            onPress={pressBackspace}
-            onLongPress={() => setPin('')}
-            style={({pressed}) => [
-              st.key,
-              {opacity: pin.length === 0 ? 0.25 : pressed ? 0.55 : 1},
-            ]}>
-            <MaterialCommunityIcons name="backspace-outline" size={26} color={colors.onSurface} />
-          </Pressable>
-        </View>
-
-        {/* Primary action — always visible, disabled until the PIN is long enough */}
-        <Pressable
-          disabled={!canSubmit || busy}
-          onPress={() => submitPin(pin)}
-          style={({pressed}) => [
-            st.cta,
-            {
-              backgroundColor: colors.primary,
-              opacity: !canSubmit || busy ? 0.35 : pressed ? 0.85 : 1,
-            },
-          ]}>
-          <MaterialCommunityIcons
-            name={startMode === 'setup' ? 'arrow-right-bold' : 'lock-open-variant'}
-            size={20}
-            color={colors.onPrimary}
-          />
-          <AppText style={[st.ctaTxt, {color: colors.onPrimary}]}>
-            {startMode === 'setup' ? 'পরবর্তী' : 'আনলক করুন'}
-          </AppText>
+        ))}
+        <View style={st.key} />
+        <Pressable style={[st.key, {backgroundColor: colors.surfaceContainerHigh}]} onPress={() => pressDigit('0')}>
+          <AppText style={st.keyTxt}>0</AppText>
         </Pressable>
-      </ScrollView>
+        <Pressable style={st.key} onPress={pressBackspace}>
+          <MaterialCommunityIcons name="backspace-outline" size={26} color={colors.onSurface} />
+        </Pressable>
+      </View>
+
+      {startMode === 'setup' && pin.length >= ADULT_PIN_MIN && (
+        <Pressable style={st.doneBtn} onPress={() => submitPin(pin)}>
+          <AppText style={{color: colors.primary, fontWeight: '700'}}>পরবর্তী</AppText>
+        </Pressable>
+      )}
+      {startMode !== 'setup' && pin.length >= ADULT_PIN_MIN && (
+        <Pressable
+          style={[st.doneBtn, {backgroundColor: colors.primaryContainer, borderRadius: 14, paddingHorizontal: 28, alignSelf: 'center'}]}
+          disabled={busy}
+          onPress={() => submitPin(pin)}>
+          <AppText style={{color: colors.onPrimaryContainer, fontWeight: '700'}}>আনলক করুন</AppText>
+        </Pressable>
+      )}
     </View>
   );
 }
 
 const st = StyleSheet.create({
   full: {flex: 1},
-  glow: {position: 'absolute', width: 280, height: 280, borderRadius: 140},
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 26,
-    paddingHorizontal: 6,
-  },
-  badge: {width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center'},
-  badgeSmall: {width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center'},
-  dotsRow: {flexDirection: 'row', justifyContent: 'center', gap: 14, marginTop: 30, marginBottom: 24},
-  dot: {width: 15, height: 15, borderRadius: 8, borderWidth: 1.5},
-  bioBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 13,
-    paddingHorizontal: 24,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    marginBottom: 24,
-  },
-  bioHint: {textAlign: 'center', fontSize: 12, marginBottom: 22, paddingHorizontal: 44, lineHeight: 18},
-  pad: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 13,
-    paddingHorizontal: 34,
-    marginBottom: 28,
-  },
-  key: {width: 70, height: 70, borderRadius: 35, alignItems: 'center', justifyContent: 'center'},
-  keyTxt: {fontSize: 25, fontWeight: '500'},
-  cta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 54,
-    width: 272,
-    borderRadius: 999,
-  },
-  ctaTxt: {fontSize: 15.5, fontWeight: '800'},
+  dotsRow: {flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 30, marginBottom: 20},
+  dot: {width: 14, height: 14, borderRadius: 7},
+  pad: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, paddingHorizontal: 40},
+  key: {width: 72, height: 62, borderRadius: 16, alignItems: 'center', justifyContent: 'center'},
+  keyTxt: {fontSize: 24, color: '#FFF'},
+  doneBtn: {alignItems: 'center', padding: 14, marginTop: 8},
   row: {flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 14},
 });
