@@ -97,11 +97,15 @@ export const hasBiometricHardware = async (): Promise<boolean> => {
 };
 
 /**
- * Prompt device biometrics (fingerprint/face). Resolves true on success.
- * No-op false when biometrics are unavailable/disabled for the lock.
+ * Prompt device biometrics (fingerprint/face).
+ *  - 'ok'     → authenticated
+ *  - 'cancel' → user dismissed the prompt (caller stays quiet — a cancel
+ *               must NOT look like "fingerprint doesn't work")
+ *  - 'fail'   → sensor/unavailable error (caller shows the retry hint)
+ * Returns 'fail' when biometrics are unavailable/disabled for the lock.
  */
-export const promptBiometric = async (): Promise<boolean> => {
-  if (!isBiometricEnabled()) return false;
+export const promptBiometric = async (): Promise<'ok' | 'cancel' | 'fail'> => {
+  if (!isBiometricEnabled()) return 'fail';
   try {
     const res = await LocalAuthentication.authenticateAsync({
       promptMessage: '18+ আনলক করতে ফিঙ্গারপ্রিন্ট দিন',
@@ -111,10 +115,30 @@ export const promptBiometric = async (): Promise<boolean> => {
       disableDeviceFallback: false,
       fallbackLabel: 'পিন ব্যবহার করুন',
     });
-    return res.success === true;
+    if (res.success === true) return 'ok';
+    if (
+      res.error === 'user_cancel' ||
+      res.error === 'app_cancel' ||
+      res.error === 'system_cancel'
+    ) {
+      return 'cancel';
+    }
+    return 'fail';
   } catch {
-    return false;
+    return 'fail';
   }
+};
+
+/**
+ * Dismiss an in-flight biometric prompt. The system dialog belongs to the
+ * Activity, not the RN screen — without this, tabbing away from the lock
+ * screen leaves it up, and a later touch could complete an abandoned
+ * unlock/switch.
+ */
+export const cancelBiometricPrompt = (): void => {
+  try {
+    LocalAuthentication.cancelAuthenticate();
+  } catch {}
 };
 
 /** Session-level unlock timestamp handling. */
@@ -130,6 +154,18 @@ const isUnlockedFresh = (): boolean => {
 export const markUnlocked = (): void => {
   try {
     mainStorage.setNumber(UNLOCK_TS_KEY, Date.now());
+  } catch {}
+};
+
+/**
+ * Reset the fresh-unlock session. Called whenever the active profile
+ * changes: switching to a family profile and back must re-challenge the
+ * 18+ lock instead of riding the previous unlock's 15-minute window.
+ * (A completed unlock+switch re-stamps right after this, in AdultLock.)
+ */
+export const clearUnlockSession = (): void => {
+  try {
+    mainStorage.delete(UNLOCK_TS_KEY);
   } catch {}
 };
 

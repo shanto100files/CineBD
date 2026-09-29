@@ -375,23 +375,34 @@ const Home = ({navigation}: Props) => {
     // Same child-proofing as the profile switcher: family -> default can
     // expose adult content when the device toggle is on, so require the
     // 18+ lock first (switch is deferred into the unlock success path).
+    // FAIL CLOSED: an error in the check opens the lock screen instead of
+    // falling through into an unguarded switch.
+    let needsLock = false;
     try {
       const {profileSwitchNeedsLock} = require('../../lib/adultLock');
       const current = useProfileStore.getState().activeProfile();
-      if (
-        profileSwitchNeedsLock(
-          null,
-          current,
-          settingsStorage.isAdultEnabled(),
-        )
-      ) {
+      needsLock = profileSwitchNeedsLock(
+        null,
+        current,
+        settingsStorage.isAdultEnabled(),
+      );
+    } catch {
+      try {
+        const {isAdultPinSet} = require('../../lib/adultLock');
+        needsLock = isAdultPinSet() && settingsStorage.isAdultEnabled();
+      } catch {
+        needsLock = false;
+      }
+    }
+    if (needsLock) {
+      try {
         require('../../App').openAdultLock({
           mode: 'unlock',
           switchProfile: null,
         });
-        return;
-      }
-    } catch {}
+      } catch {}
+      return;
+    }
     setSwitchingProfile(true);
     setTimeout(() => {
       try {

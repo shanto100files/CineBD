@@ -46,26 +46,38 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
       // from one that cannot (e.g. family -> 18+) requires the 18+ lock.
       // The switch is deferred into AdultLock's success handler through the
       // switchProfile param, so a cancelled unlock never changes profiles.
+      //
+      // FAIL CLOSED: the decision and the lock-screen open are outside the
+      // fall-through — if the check itself errors, challenge (when a PIN
+      // exists) instead of silently switching into a possibly-adult target.
+      let needsLock = false;
       try {
         const state = useProfileStore.getState();
         const target = id
           ? state.profiles.find(p => p.id === id) || null
           : null;
-        if (
-          profileSwitchNeedsLock(
-            target,
-            state.activeProfile(),
-            settingsStorage.isAdultEnabled(),
-          )
-        ) {
-          onClose();
+        needsLock = profileSwitchNeedsLock(
+          target,
+          state.activeProfile(),
+          settingsStorage.isAdultEnabled(),
+        );
+      } catch {
+        try {
+          needsLock = require('../lib/adultLock').isAdultPinSet();
+        } catch {
+          needsLock = false;
+        }
+      }
+      if (needsLock) {
+        onClose();
+        try {
           require('../App').openAdultLock({
             mode: 'unlock',
             switchProfile: id,
           });
-          return;
-        }
-      } catch {}
+        } catch {}
+        return; // never fall through into an unguarded switch
+      }
       // setActive also reloads the scoped watchlist/history and re-gates
       // the installed provider list for the new profile.
       setActive(id);

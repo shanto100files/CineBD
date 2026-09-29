@@ -129,7 +129,14 @@ export default function ProfileEditScreen() {
           useProfileStore.getState().activeProfile(),
           settingsStorage.isAdultEnabled(),
         );
-      } catch {}
+      } catch {
+        // Fail closed: challenge instead of auto-activating unchecked.
+        try {
+          needsLock = require('../../lib/adultLock').isAdultPinSet();
+        } catch {
+          needsLock = false;
+        }
+      }
       if (needsLock) {
         ToastAndroid.show(
           'প্রোফাইল তৈরি হয়েছে — আনলক করলে সক্রিয় হবে',

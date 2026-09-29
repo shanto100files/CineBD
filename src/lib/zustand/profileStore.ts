@@ -261,6 +261,14 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   },
 
   setActive: id => {
+    // A profile switch re-engages the 18+ lock: drop the fresh-unlock
+    // session so leaving an adult profile and returning always
+    // re-challenges instead of riding the 15-minute window. AdultLock
+    // re-stamps right after a successful unlock+switch, so a completed
+    // unlock is never lost to this.
+    try {
+      require('../adultLock').clearUnlockSession();
+    } catch {}
     persist(get().profiles, id, currentBucket());
     set({activeId: id});
     applyActiveProfile();

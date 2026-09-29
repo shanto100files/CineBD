@@ -7,7 +7,7 @@ import {
   ToastAndroid,
   View,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AppText from '../../components/ui/Text';
 import {useM3Colors} from '../../theme/M3PaletteContext';
@@ -15,6 +15,7 @@ import {settingsStorage} from '../../lib/storage';
 import {
   ADULT_PIN_MAX,
   ADULT_PIN_MIN,
+  cancelBiometricPrompt,
   clearAdultLock,
   hasBiometricHardware,
   isAdultPinSet,
@@ -39,10 +40,12 @@ import {useProfileStore} from '../../lib/zustand/profileStore';
 export default function AdultLockScreen() {
   const colors = useM3Colors();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const routeParams: {
     mode?: 'setup' | 'unlock' | 'settings';
     switchProfile?: string | null;
-  } = (useNavigation().getState()?.routes?.slice(-1)?.[0] as any)?.params || {};
+    nonce?: string;
+  } = route.params || {};
   const mode: 'setup' | 'unlock' | 'settings' = routeParams.mode || 'unlock';
 
   const pinSet = isAdultPinSet();
@@ -59,7 +62,6 @@ export default function AdultLockScreen() {
   // retry hint instead of looking dead.
   const [bioFailed, setBioFailed] = useState(false);
   const finishUnlock = useCallback(() => {
-    markUnlocked();
     // Deferred profile switch (child-proofing): the switcher sent us here
     // so the target profile only activates after a successful unlock.
     const targetId = routeParams.switchProfile;
@@ -68,16 +70,25 @@ export default function AdultLockScreen() {
         useProfileStore.getState().setActive(targetId);
       } catch {}
     }
+    // Stamp AFTER setActive: switching profiles clears the unlock session
+    // by design, and this fresh unlock must survive its own deferred switch.
+    markUnlocked();
     navigation.goBack();
   }, [navigation, routeParams.switchProfile]);
 
   const tryBiometric = useCallback(async (): Promise<boolean> => {
     setBusy(true);
-    const ok = await promptBiometric();
+    const res = await promptBiometric();
     setBusy(false);
-    if (ok) {
+    if (res === 'ok') {
       finishUnlock();
       return true;
+    }
+    if (res === 'cancel') {
+      // The user dismissed the system prompt — stay quiet. Treating a
+      // cancel as a failure made every abandonment look like "fingerprint
+      // doesn't work".
+      return false;
     }
     setBioFailed(true);
     ToastAndroid.show(
@@ -87,16 +98,52 @@ export default function AdultLockScreen() {
     return false;
   }, [finishUnlock]);
 
+  // Runs on EVERY open. React Navigation keeps screens mounted, so a
+  // re-open can land on the same stacked instance (tabbed away earlier):
+  // reset any stale typed PIN and re-arm the biometric prompt. The nonce
+  // in the route params changes on each openAdultLock() call.
   useEffect(() => {
+    setPin('');
+    setBusy(false);
+    setBioFailed(false);
+    setStage('enter');
+    setFirstPin('');
     hasBiometricHardware().then(setBioAvailable);
-    // On unlock mode with biometrics enabled, fire the prompt immediately.
     if (startMode === 'unlock' && pinSet && isBiometricEnabled()) {
       (async () => {
         await tryBiometric();
       })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [routeParams.nonce]);
+
+  // Leaving the lock screen (tab switch, covered, popped): drop typed
+  // digits and dismiss any in-flight system prompt — it belongs to the
+  // Activity and could otherwise complete an abandoned unlock/switch later.
+  // Returning (focus): start clean and re-arm the biometric prompt, so a
+  // prompt cancelled by tabbing away comes back instead of staying dead.
+  useEffect(() => {
+    const rearm = () => {
+      setPin('');
+      setBioFailed(false);
+      if (startMode === 'unlock' && pinSet && isBiometricEnabled()) {
+        (async () => {
+          await tryBiometric();
+        })();
+      }
+    };
+    const unsubFocus = navigation.addListener('focus', rearm);
+    const unsubBlur = navigation.addListener('blur', () => {
+      setPin('');
+      setBusy(false);
+      cancelBiometricPrompt();
+    });
+    return () => {
+      unsubFocus();
+      unsubBlur();
+      cancelBiometricPrompt();
+    };
+  }, [navigation, startMode, tryBiometric]);
 
   const submitPin = useCallback(
     async (entered: string) => {
@@ -212,16 +259,32 @@ export default function AdultLockScreen() {
             <AppText style={{color: colors.onSurface}}>ফিঙ্গারপ্রিন্ট দিয়ে আনলক</AppText>
             {!bioAvailable && (
               <AppText style={{color: colors.onSurfaceVariant, fontSize: 11}}>
-                এই ডিভাইসে বায়োমেট্রিক নেই
+                বায়োমেট্রিক পাওয়া যায়নি — ফোনের সেটিংসে ফিঙ্গারপ্রিন্ট/ফেস এনরোল করুন
               </AppText>
             )}
           </View>
           <Switch
             value={bioOn}
             disabled={!bioAvailable}
-            onValueChange={v => {
+            onValueChange={async v => {
               setBiometricEnabled(v);
               setBioOn(v);
+              if (v) {
+                // Prove it works right at setup — a toggle that silently
+                // never fires is indistinguishable from a broken sensor.
+                const res = await promptBiometric();
+                if (res === 'ok') {
+                  ToastAndroid.show(
+                    'ফিঙ্গারপ্রিন্ট সচল — আনলকে ব্যবহার হবে',
+                    ToastAndroid.SHORT,
+                  );
+                } else if (res === 'fail') {
+                  ToastAndroid.show(
+                    'পরীক্ষা করা গেল না — সেন্সর/ফোন সেটিংস দেখে আবার চেষ্টা করুন',
+                    ToastAndroid.LONG,
+                  );
+                }
+              }
             }}
           />
         </View>
@@ -274,6 +337,18 @@ export default function AdultLockScreen() {
             {bioFailed ? 'আবার ফিঙ্গারপ্রিন্ট দিন' : 'ফিঙ্গারপ্রিন্ট'}
           </AppText>
         </Pressable>
+      )}
+      {startMode === 'unlock' && pinSet && bioOn && !bioAvailable && (
+        <AppText
+          style={{
+            color: colors.onSurfaceVariant,
+            fontSize: 12,
+            textAlign: 'center',
+            marginBottom: 8,
+            paddingHorizontal: 30,
+          }}>
+          ফিঙ্গারপ্রিন্ট এই ডিভাইসে পাওয়া যায়নি — পিন দিয়ে আনলক করুন
+        </AppText>
       )}
 
       <View style={st.pad}>

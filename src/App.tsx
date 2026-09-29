@@ -301,7 +301,14 @@ export const openAdultLock = (params: {
         screen: 'SettingsStack',
         params: {
           screen: 'AdultLock',
-          params,
+          params: {
+            ...params,
+            // React Navigation keeps screens mounted: a re-open can land on
+            // the SAME stacked instance (e.g. tabbed away earlier), leaving
+            // old PIN dots on screen and a dead biometric prompt. The nonce
+            // changes on every call so the screen can reset + re-arm.
+            nonce: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          },
         },
       }),
     );
