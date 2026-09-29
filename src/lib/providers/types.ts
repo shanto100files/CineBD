@@ -20,6 +20,7 @@ export interface Post {
   episodeCount?: number;
   totalSeasons?: number;
   quality?: string;
+  duration?: string;
 }
 
 export declare enum TextTrackType {

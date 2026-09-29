@@ -409,6 +409,7 @@ const ScrollList = ({route}: Props): React.ReactElement => {
 
             const badge = getPostBadge(item);
             const seasonBadge = getSeasonBadge(item);
+            const durationBadge = item.duration;
 
             return (
               <TouchableOpacity
@@ -436,6 +437,30 @@ const ScrollList = ({route}: Props): React.ReactElement => {
                         : {width: LIST_POSTER_WIDTH, height: LIST_POSTER_HEIGHT}
                     }
                   />
+                  {durationBadge ? (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        bottom: 4,
+                        right: 4,
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        borderRadius: 4,
+                        paddingHorizontal: 5,
+                        paddingVertical: 1,
+                        zIndex: 9,
+                      }}>
+                      <AppText
+                        style={{
+                          color: '#fff',
+                          fontWeight: '800',
+                          fontSize: 9,
+                          fontVariant: ['tabular-nums'],
+                          includeFontPadding: false,
+                        }}>
+                        {durationBadge}
+                      </AppText>
+                    </View>
+                  ) : null}
                   {badge ? (
                     <View
                       style={{

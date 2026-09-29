@@ -72,6 +72,7 @@ const Slider = ({
         badge={getPostBadge(item)}
         seasonBadge={getSeasonBadge(item)}
         providerBadge={getProviderBadge(item)}
+        durationBadge={item.duration}
         onPress={() => handleItemPress(item)}
       />
     ),
