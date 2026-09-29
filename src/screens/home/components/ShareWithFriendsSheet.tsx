@@ -257,12 +257,18 @@ const ShareWithFriendsSheet = ({
                     onPress={goAddFriends}
                     style={{
                       backgroundColor: colors.primary,
-                      borderRadius: 20,
+                      borderRadius: 22,
                       marginTop: 14,
-                      paddingHorizontal: 18,
-                      paddingVertical: 9,
+                      paddingHorizontal: 24,
+                      paddingVertical: 10,
+                      minWidth: 170,
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}>
-                    <AppText role="labelLargeEmphasized" style={{color: colors.onPrimary}}>
+                    <AppText
+                      role="labelLargeEmphasized"
+                      numberOfLines={1}
+                      style={{color: colors.onPrimary}}>
                       বন্ধু যোগ করুন
                     </AppText>
                   </Pressable>
@@ -341,7 +347,7 @@ const ShareWithFriendsSheet = ({
                   paddingVertical: 10,
                   backgroundColor: pressed ? colors.surfaceContainerHigh : 'transparent',
                 })}>
-                <AppText role="labelLargeEmphasized" style={{color: colors.onSurfaceVariant}}>বাতিল</AppText>
+                <AppText role="labelLargeEmphasized" numberOfLines={1} style={{color: colors.onSurfaceVariant}}>বাতিল</AppText>
               </Pressable>
               <Pressable
                 disabled={selected.length === 0 || sending}
@@ -380,6 +386,7 @@ const ShareWithFriendsSheet = ({
                     />
                     <AppText
                       role="labelLargeEmphasized"
+                      numberOfLines={1}
                       style={{
                         color:
                           selected.length === 0
