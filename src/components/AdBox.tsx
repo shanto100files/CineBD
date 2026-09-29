@@ -1,6 +1,8 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {ActivityIndicator, InteractionManager, StyleSheet, View} from 'react-native';
-import {WebView, type ShouldStartLoadRequest} from 'react-native-webview';
+import {WebView} from 'react-native-webview';
+// Type lives in the subpath module: the package root only re-exports WebView.
+type ShouldStartLoadRequest = import('react-native-webview/lib/WebViewTypes').ShouldStartLoadRequest;
 
 interface AdBoxProps {
   /** Ad content: an http(s) URL to load, or a raw creative HTML string. */
@@ -25,6 +27,48 @@ const MOUNT_DELAY_MS = 3500;
 
 // Belt-and-braces inside the creative page itself: no popups from JS.
 const BLOCK_POPUPS_SCRIPT = 'window.open=function(){return null;};true;';
+
+/**
+ * Kill text selection in the creative document (and any SAME-origin iframe
+ * it embeds). Selection on Android pops the native Copy/Select-all toolbar
+ * and vibrates on every tap near it - the top complaint about ad boxes.
+ * Runs via WebView.evaluateJavascript, so the page CSP does not apply.
+ * Cross-origin iframes are unreachable from here; those are covered by the
+ * #shield overlay served from ads-frame.php.
+ */
+const NO_SELECTION_SCRIPT = `
+(function(){
+  try {
+    var css = '*{-webkit-user-select:none !important;user-select:none !important;-webkit-touch-callout:none !important;}';
+    function harden(doc) {
+      var st = doc.createElement('style');
+      st.textContent = css;
+      (doc.head || doc.documentElement).appendChild(st);
+      doc.addEventListener('selectstart', function (e) { e.preventDefault(); });
+      doc.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+      doc.addEventListener('dblclick', function (e) { e.preventDefault(); });
+      doc.addEventListener('selectionchange', function () {
+        var s = doc.getSelection && doc.getSelection();
+        if (s && !s.isCollapsed) { try { s.removeAllRanges(); } catch (e) {} }
+      });
+    }
+    harden(document);
+    var frames = document.querySelectorAll('iframe');
+    for (var i = 0; i < frames.length; i++) {
+      try {
+        var fd = frames[i].contentDocument;
+        if (fd && fd.documentElement) { harden(fd); }
+      } catch (e) {}
+    }
+  } catch (e) {}
+  true;
+})();
+true;
+`;
+
+// Same rules baked into generated raw-HTML creatives (no JS needed there).
+const NO_SELECTION_CSS =
+  'html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}';
 
 const isHttpUrl = (value: string) => /^https?:\/\//i.test(value.trim());
 
@@ -80,6 +124,7 @@ const AdBox: React.FC<AdBoxProps> = ({content, height, minHeight = 100}) => {
     return {
       html:
         `<html><head><meta name="viewport" content="width=device-width,initial-scale=1">` +
+        `<style>${NO_SELECTION_CSS}</style>` +
         `</head><body style="margin:0;padding:0;background:#0a0a0a;display:flex;` +
         `align-items:center;justify-content:center;min-height:${minHeight}px;">` +
         `${content}</body></html>`,
@@ -136,6 +181,7 @@ const AdBox: React.FC<AdBoxProps> = ({content, height, minHeight = 100}) => {
         }}
         setSupportMultipleWindows={false}
         injectedJavaScriptBeforeContentLoaded={BLOCK_POPUPS_SCRIPT}
+        injectedJavaScript={NO_SELECTION_SCRIPT}
         javaScriptEnabled
         domStorageEnabled
         startInLoadingState={false}

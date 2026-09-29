@@ -46,6 +46,13 @@ import {markHomeReady} from '../../lib/bootSignal';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'Home'>;
 
+// 18+ profile mid-feed ad slots: one creative after every second content
+// slider, capped so low-RAM phones never carry too many ad WebViews at
+// once (top + these + bottom + adult box add up fast).
+const MID_AD_EVERY = 2;
+const MAX_MID_ADS = 3;
+const MID_AD_HEIGHT = 150;
+
 const Home = ({navigation}: Props) => {
   const colors = useM3Colors();
   const {isPremium} = useAuthStore();
@@ -62,6 +69,10 @@ const Home = ({navigation}: Props) => {
   // Adult-profile creative: the server's dedicated 18+ direct link, shown
   // only while an adult-capable profile is active.
   const adultAd = useAdultAds();
+  // Mid-feed slots between content rows: 18+ profile only, never for
+  // premium, and only while this screen holds focus (same unmount policy
+  // as the bottom boxes).
+  const showMidAds = Boolean(adultAd) && !isPremium && isScreenFocused;
 
   // Memoize static values
   const disableDrawer = useMemo(
@@ -655,7 +666,39 @@ const Home = ({navigation}: Props) => {
               ) : null}
 
               <View className="relative z-20 pb-8">
-                {isLoading ? loadingSliders : contentSliders}
+                {isLoading ? (
+                  loadingSliders
+                ) : (
+                  contentSliders.map((slider, index) => (
+                    <React.Fragment key={`section-${index}`}>
+                      {slider}
+                      {showMidAds &&
+                      (index + 1) % MID_AD_EVERY === 0 &&
+                      Math.floor(index / MID_AD_EVERY) < MAX_MID_ADS ? (
+                        <View style={{marginHorizontal: 14, marginBottom: 16}}>
+                          <AppText
+                            role="labelSmallEmphasized"
+                            style={{
+                              color: colors.onSurfaceVariant,
+                              marginBottom: 4,
+                              marginLeft: 4,
+                              opacity: 0.8,
+                            }}>
+                            ১৮+ প্রোফাইল বিজ্ঞাপন
+                          </AppText>
+                          <View
+                            style={{
+                              borderRadius: 12,
+                              overflow: 'hidden',
+                              height: MID_AD_HEIGHT,
+                            }}>
+                            <AdBox content={adultAd} height={MID_AD_HEIGHT} />
+                          </View>
+                        </View>
+                      ) : null}
+                    </React.Fragment>
+                  ))
+                )}
                 {errorComponent}
               </View>
 
