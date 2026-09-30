@@ -1,9 +1,10 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React, {useCallback, useEffect, useState} from 'react';
-import {Image, Platform, Pressable, Text as RNText, View} from 'react-native';
+import {Image, Text as RNText, View} from 'react-native';
 import {useFocusEffect, CommonActions} from '@react-navigation/native';
 import {navigationRef} from '../App';
 import AppText from './ui/Text';
+import TvFocusable from './ui/TvFocusable';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {
@@ -14,46 +15,6 @@ import {
 
 // "Friends are watching" strip + friend-based recommendation row for Home.
 // Hidden entirely when logged out, no friends, or nothing recent.
-
-const isTv = Platform.isTV;
-
-// Android TV: Pressable is not focusable by default — opt in explicitly and
-// paint a D-pad focus ring via onFocus/onBlur (pressed→ring fallback).
-type TvFocusableStyle =
-  | ((state: {pressed: boolean}) => Record<string, any>)
-  | Record<string, any>;
-
-const TvFocusable = ({
-  children,
-  onPress,
-  style,
-  ...rest
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-  style?: TvFocusableStyle;
-  [k: string]: any;
-}) => {
-  const colors = useM3Colors();
-  const [tvFocused, setTvFocused] = useState(false);
-  const ringOn = isTv && (tvFocused || false);
-  return (
-    <Pressable
-      focusable={isTv}
-      onPress={onPress}
-      onFocus={isTv ? () => setTvFocused(true) : undefined}
-      onBlur={isTv ? () => setTvFocused(false) : undefined}
-      style={({pressed}) => ({
-        ...(typeof style === 'function' ? style({pressed}) : style),
-        ...(ringOn || (isTv && pressed)
-          ? {borderWidth: 2, borderColor: colors.primary}
-          : {}),
-      })}
-      {...rest}>
-      {children}
-    </Pressable>
-  );
-};
 
 const timeAgo = (dateStr: string) => {
   const diff = Date.now() - new Date(dateStr.replace(' ', 'T') + 'Z').getTime();

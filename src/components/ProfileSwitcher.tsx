@@ -1,5 +1,6 @@
 import React, {useCallback} from 'react';
 import {Modal, Pressable, ScrollView, StyleSheet, ToastAndroid, View} from 'react-native';
+import TvFocusable from './ui/TvFocusable';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AppText from './ui/Text';
 import {useM3Colors} from '../theme/M3PaletteContext';
@@ -87,7 +88,7 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
   );
 
   const AvatarCircle = ({p, active, onPress, onLongPress}: {p: UserProfile; active: boolean; onPress: () => void; onLongPress?: () => void}) => (
-    <Pressable
+    <TvFocusable
       onPress={onPress}
       onLongPress={isLoggedIn ? onLongPress : undefined}
       style={st.avatarWrap}>
@@ -115,13 +116,13 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
         </View>
       )}
       {canCustomize && (
-        <Pressable
+        <TvFocusable
           style={st.editBadge}
           hitSlop={8}
           onPress={() => goEdit({profileId: p.id})}
           accessibilityLabel="প্রোফাইল সম্পাদনा">
           <MaterialCommunityIcons name="pencil" size={11} color="#FFFFFF" />
-        </Pressable>
+        </TvFocusable>
       )}
       <AppText style={[st.avatarName, active && {color: colors.primary, fontWeight: '700'}]} numberOfLines={1}>
         {p.name}
@@ -131,7 +132,7 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
           <MaterialCommunityIcons name="shield-home-outline" size={12} color="#FFFFFF" />
         </View>
       )}
-    </Pressable>
+    </TvFocusable>
   );
 
   return (
@@ -169,10 +170,10 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                     আপনার পুরনো প্রোফাইল লগইন করলে অ্যাকাউন্টে যুক্ত হবে।
                   </AppText>
                 )}
-                <Pressable style={st.loginBtn} onPress={goLogin}>
+                <TvFocusable style={st.loginBtn} onPress={goLogin} hasTVPreferredFocus>
                   <MaterialCommunityIcons name="login" size={20} color={colors.primary} />
                   <AppText style={{color: colors.primary, fontWeight: '700'}}>লগইন করুন</AppText>
-                </Pressable>
+                </TvFocusable>
               </View>
 
               {presets.length > 0 && (
@@ -182,14 +183,14 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                   </AppText>
                   <View style={st.grid}>
                     {presets.map(p => (
-                      <Pressable key={p.id} style={st.avatarWrap} onPress={goLogin}>
+                      <TvFocusable key={p.id} style={st.avatarWrap} onPress={goLogin}>
                         <View style={[st.avatar, {backgroundColor: p.color, opacity: 0.85}]}>
                           <MaterialCommunityIcons name={(p.avatar as any) || 'shape'} size={38} color="#FFF" />
                         </View>
                         <AppText style={st.avatarName} numberOfLines={1}>
                           {p.name}
                         </AppText>
-                      </Pressable>
+                      </TvFocusable>
                     ))}
                   </View>
                 </>
@@ -199,7 +200,7 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
             <>
               <View style={st.grid}>
                 {profiles.length > 0 && (
-                  <Pressable style={st.avatarWrap} onPress={() => onSelect(null)}>
+                  <TvFocusable style={st.avatarWrap} onPress={() => onSelect(null)}>
                     <View
                       style={[
                         st.avatar,
@@ -230,7 +231,7 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                         <AppText style={{color: '#FFF', fontSize: 10, fontWeight: '700'}}>সক্রিয়</AppText>
                       </View>
                     )}
-                  </Pressable>
+                  </TvFocusable>
                 )}
                 {profiles.map(p => (
                   <AvatarCircle
@@ -242,12 +243,12 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                   />
                 ))}
                 {canCustomize && (
-                  <Pressable style={st.avatarWrap} onPress={() => goEdit({})}>
+                  <TvFocusable style={st.avatarWrap} onPress={() => goEdit({})}>
                     <View style={[st.avatar, {backgroundColor: colors.surfaceContainerHighest}]}>
                       <MaterialCommunityIcons name="plus" size={40} color={colors.onSurfaceVariant} />
                     </View>
                     <AppText style={st.avatarName}>নতুন</AppText>
-                  </Pressable>
+                  </TvFocusable>
                 )}
               </View>
 
@@ -260,7 +261,7 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                     {presets.map(p => {
                       const existingLocal = profiles.find(lp => lp.presetId === p.id || lp.name === p.name);
                       return (
-                      <Pressable
+                      <TvFocusable
                         key={p.id}
                         style={[st.avatarWrap, existingLocal && {opacity: 0.55}]}
                         onPress={() => {
@@ -304,7 +305,7 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                         {existingLocal && (
                           <AppText style={{fontSize: 10, color: colors.onSurfaceVariant}}>ট্যাপ = সুইচ</AppText>
                         )}
-                      </Pressable>
+                      </TvFocusable>
                       );
                     })}
                   </View>
@@ -316,13 +317,13 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                   প্রোফাইল আপনার অ্যাকাউন্টে সংরক্ষিত হয় — নতুন ডিভাইসে লগইন করলেই পাবেন।
                 </AppText>
                 {canCustomize ? (
-                  <Pressable style={st.footerBtn} onPress={() => goEdit({manage: true})}>
+                  <TvFocusable style={st.footerBtn} onPress={() => goEdit({manage: true})}>
                     <MaterialCommunityIcons name="pencil" size={20} color={colors.primary} />
                     <AppText style={{color: colors.primary}}>প্রোফাইল ম্যানেজ করুন</AppText>
-                  </Pressable>
+                  </TvFocusable>
                 ) : (
                   <>
-                    <Pressable
+                    <TvFocusable
                       style={st.footerBtn}
                       onPress={() => {
                         const target = profiles.find(p => p.id === activeId) || profiles[0];
@@ -330,7 +331,7 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                       }}>
                       <MaterialCommunityIcons name="pencil-off" size={20} color={colors.primary} />
                       <AppText style={{color: colors.primary}}>প্রোফাইল এডিট করুন</AppText>
-                    </Pressable>
+                    </TvFocusable>
                     <AppText style={{color: colors.onSurfaceVariant, fontSize: 12, marginTop: 6}}>
                       নাম/অ্যাভাটার বদলানো যাবে; প্রোভাইডার কাস্টমাইজে প্রিমিয়াম লাগবে
                     </AppText>
@@ -353,7 +354,7 @@ const ProfileAvatarChip = ({onPress}: {onPress: () => void}) => {
   const activeId = useProfileStore(s => s.activeId);
   const active = profiles.find(p => p.id === activeId);
   return (
-    <Pressable onPress={onPress} hitSlop={10} style={{marginRight: 14}}>
+    <TvFocusable onPress={onPress} hitSlop={10} style={{marginRight: 14}}>
       <View
         style={{
           width: 42,
@@ -371,7 +372,7 @@ const ProfileAvatarChip = ({onPress}: {onPress: () => void}) => {
           color={active ? '#FFF' : colors.onSurfaceVariant}
         />
       </View>
-    </Pressable>
+    </TvFocusable>
   );
 };
 

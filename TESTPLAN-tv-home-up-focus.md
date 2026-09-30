@@ -12,7 +12,8 @@ top navigation bar-এ পৌঁছানো যায়, আর **BACK** দ�
 ```
 Top bar (TvTabBar)                 ← লক্ষ্য; UP/BACK দিয়ে পৌঁছানো যায়
   ↓ DOWN
-Hero overlay বাটন (menu/profile)   ← ইচ্ছাকৃতভাবে নন-ফোকাসেবল (পাথ থেকে বাদ)
+Hero overlay: profile chip, menu   ← TV-ফোকাসেবল (TvFocusable); chip → প্রোফাইল মডাল,
+                                      menu → ProviderDrawer (দুটোই নিচে দেখুন)
   ↓ DOWN
 HeroStrip (overlap strip)          ← active card: poster→play; mini: রিং
   ↓ DOWN
@@ -21,6 +22,10 @@ ContinueWatching row               ← MediaPosterCard (আগেই ফোক�
 FriendsActivityRow                 ← এই প্যাচে ফোকাসেবল করা হলো (activity + recs)
   ↓ DOWN
 Home sliders / mid-ads             ← MediaPosterCard / AdBox (নন-ইন্টারঅ্যাকটিভ ঠিক)
+
+সাব-সার্কিট (প্রবেশযোগ্য ওভারলে):
+ProviderDrawer (menu থেকে)   : [বন্ধ করুন ← initial focus] → প্রোভাইডার আইটেম...
+ProfileSwitcherModal (chip থেকে): [লগইন (গেস্ট) | অ্যাভাটারগ্রিড + ফুটার বাটন]
 ```
 
 **মূল নিয়ম:** UP পাথের প্রতিটা স্তরে অন্তত একটা ফোকাসেবল এলিমেন্ট থাকতে হবে —
@@ -36,8 +41,10 @@ Home sliders / mid-ads             ← MediaPosterCard / AdBox (নন-ইন্
 | 1 | HeroStrip-এর Pressable-এ `focusable` প্রপ নেই → TV-তে স্ট্রিপ সম্পূর্ণ নন-ইন্টারঅ্যাকটিভ, UP পাথ ভেঙে যায় | `src/components/HeroStrip.tsx` | `focusable={isTv}` + `onFocus/onBlur`-চালিত রিং |
 | 2 | HeroStrip-এ `tvFocusRing` স্টাইল শর্তহীন বসানো → ফোকাস না থাকলেও সব মিনিতে 3px রিং দেখাত | `src/components/HeroStrip.tsx` | রিং এখন ফোকাস-ড্রিভেন, blur-এ transparent (layout shift নেই) |
 | 3 | Hero active card-এ ৩টা Pressable (poster/title/play) → ফোকাস ভেতরে পিং-পং করত | `src/components/HeroStrip.tsx` | title নন-ফোকাসেবল; poster→play দুই-স্টপ |
-| 4 | FriendsActivityRow-এর ২টা Pressable-ও ফোকাসেবল নয় → স্কিপ/আটকানো | `src/components/FriendsActivityRow.tsx` | `TvFocusable` wrapper (focusable + রিং) |
-| 5 | Hero overlay (menu/profile) ফোকাসেবল করা **হয়নি** — ইচ্ছাকৃত: ProviderDrawer-এর আইটেমও ফোকাসেবল নয়, ফোকাস ঢুকলে ট্র্যাপ হতো | `src/components/Hero.tsx` | নন-ফোকাসেবল রাখা (দলিলকৃত সিদ্ধান্ত) |
+| 4 | FriendsActivityRow-এর ২টা Pressable-ও ফোকাসেবল নয় → স্কিপ/আটকানো | `src/components/FriendsActivityRow.tsx` | শেয়ার্ড `TvFocusable` (`ui/TvFocusable.tsx`) |
+| 5 | ProviderDrawer সম্পূর্ণ নন-ফোকাসেবল + ক্লোজ বাটনই নেই → TV-তে খুললে আটকে যাওয়া | `src/components/ProviderDrawer.tsx` | আইটেম + নতুন "বন্ধ করুন" বাটন TvFocusable; বাটনে `hasTVPreferredFocus` |
+| 6 | Hero menu বাটন ও ProfileAvatarChip নন-ফোকাসেবল → drawer/profile সার্কিট অগম্য | `src/components/Hero.tsx`, `src/components/ProfileSwitcher.tsx` | উভয়েই TvFocusable (menu-র রিং heroColor-এ) |
+| 7 | ProfileSwitcherModal-এর সব অ্যাকশন (login/avatar/edit-badge/footer) নন-ফোকাসেবল → chip ফোকাসেবল হলেও মডাল অচল | `src/components/ProfileSwitcher.tsx` | সব অ্যাকশন TvFocusable; গেস্ট-অবস্থায় লগইন বাটনে `hasTVPreferredFocus` |
 
 ---
 
@@ -55,6 +62,14 @@ Home sliders / mid-ads             ← MediaPosterCard / AdBox (নন-ইন্
 | A5 | FriendsActivityRow chip | UP | ContinueWatching-এ ফোকাস, তারপর A2-পাথ |
 | A6 | যেকোনো কনটেন্ট ফোকাস | BACK | Top bar-এর সক্রিয় ট্যাবে রিং (back-to-focus) |
 | A7 | Top bar ফোকাসড | DOWN | আগের কনটেন্টে ফোকাস ফেরে |
+| A8 | Hero এলাকায় ফোকাস | UP | profile chip বা menu বাটনে রিং (দুটোই এখন ফোকাসেবল) |
+| A9 | menu বাটনে OK | — | ProviderDrawer খোলে; **"বন্ধ করুন" বাটনে স্বয়ংক্রিয় ফোকাস** |
+| A10 | Drawer খোলা | DOWN | প্রোভাইডার আইটেমে রিং; সক্রিয় আইটেমে ✓ চিহ্ন |
+| A11 | ভিন্ন প্রোভাইডারে OK | — | প্রোভাইডার সেট + drawer বন্ধ; হোম রিফ্রেশ |
+| A12 | Drawer-এর "বন্ধ করুন"-এ OK | — | Drawer বন্ধ; ফোকাস কনটেন্টে ফেরে |
+| A13 | profile chip-এ OK | — | "কে দেখছে?" মডাল খোলে (গেস্ট হলে লগইন বাটনে ফোকাস) |
+| A14 | মডালে অ্যাভাটারে OK | — | প্রোফাইল সুইচ + মডাল বন্ধ; edit-badge আলাদা ফোকাস-স্টপ |
+| A15 | মডাল খোলা অবস্থায় BACK | — | মডাল বন্ধ (`onRequestClose`); ফোকাস chip-এ ফেরা উচিত |
 
 ### B. Top bar থেকে ট্যাব বদল
 | কেস | অ্যাকশন | প্রত্যাশিত |
@@ -104,6 +119,8 @@ grep -n "hardwareBackPress" src/components/navigation/StreamingTabBar.tsx
 
 ## ৫. পরিচিত সীমাবদ্ধতা / ফলো-আপ
 
-- Hero overlay-র menu/profile বাটন এবং ProviderDrawer আইটেম ইচ্ছাকৃতভাবে নন-ফোকাসেবল — TV-তে ড্রয়ার দরকার হলে Settings → Providers পাথ ব্যবহার করতে হবে। ভবিষ্যতে ড্রয়ার TV-ফোকাসেবল করলে এই প্ল্যানের A-সেকশন নতুন করে চালাতে হবে।
+- ~~Hero overlay ও ProviderDrawer নন-ফোকাসেবল~~ → ঠিক হয়েছে (A8–A15): drawer-এ ক্লোজ বাটন যোগ হয়েছে (initial focus), profile মডালের সব অ্যাকশন ফোকাসেবল। শেয়ার্ড র‍্যাপার: `src/components/ui/TvFocusable.tsx`।
 - B3-তে ট্যাব-সুইচের পরে ফোকাস যেখানে যায় (bar-এই থাকে) — এটা RN ট্রাভার্সালের স্বাভাবিক আচরণ; চাইলে পরে স্ক্রিনের প্রথম এলিমেন্টে `hasTVPreferredFocus` দিয়ে নামানো যাবে।
 - `FriendsActivityRow` শুধু লগইন+বন্ধু থাকলে রেন্ডার হয় — ফাঁকা স্টেটে A5 প্রযোজ্য নয়।
+- Drawer-এর "বন্ধ করুন" বাটন শুধু TV-তে রেন্ডার হয় — টাচ ডিভাইসে অপরিবর্তিত (swipe-বন্ধ)।
+- প্রোফাইল মডালের ব্যাকড্রপ-প্রেস (বাইরে চাপলে বন্ধ) নন-ফোকাসেবল রাখা হয়েছে ইচ্ছাকৃতভাবে — BACK (A15) সেই কাজই করে।
