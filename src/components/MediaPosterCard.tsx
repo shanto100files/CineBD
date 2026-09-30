@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React from 'react';
-import {Pressable, View} from 'react-native';
+import {Platform, Pressable, View} from 'react-native';
 import {Image} from 'expo-image';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import AppText from './ui/Text';
@@ -19,6 +19,8 @@ interface MediaPosterCardProps {
   selectionMode?: boolean;
   onPress: () => void;
   onLongPress?: () => void;
+  onTvFocus?: () => void;
+  hasTVPreferredFocus?: boolean;
 }
 
 const MediaPosterCard = ({
@@ -34,8 +36,16 @@ const MediaPosterCard = ({
   selectionMode = false,
   onPress,
   onLongPress,
+  /** TV: report D-pad focus so parents can auto-scroll/remember position. */
+  onTvFocus,
+  /** TV: this card should take the initial D-pad focus. */
+  hasTVPreferredFocus,
 }: MediaPosterCardProps) => {
   const colors = useM3Colors();
+  // TV: D-pad focus replaces touch-press visuals — grow + border so the
+  // focused card is unmistakable from a couch distance.
+  const isTv = Platform.isTV;
+  const [tvFocused, setTvFocused] = React.useState(false);
 
   return (
     <View style={{width}}>
@@ -43,9 +53,28 @@ const MediaPosterCard = ({
         onPress={onPress}
         onLongPress={onLongPress}
         delayLongPress={350}
+        onFocus={
+          isTv
+            ? () => {
+                setTvFocused(true);
+                onTvFocus?.();
+              }
+            : undefined
+        }
+        onBlur={isTv ? () => setTvFocused(false) : undefined}
+        hasTVPreferredFocus={isTv && hasTVPreferredFocus}
         style={({pressed}) => ({
           opacity: pressed ? 0.86 : 1,
-          transform: [{scale: pressed ? 0.96 : 1}],
+          transform: [
+            {
+              scale:
+                pressed
+                  ? 0.96
+                  : tvFocused
+                    ? 1.06
+                    : 1,
+            },
+          ],
           borderRadius: 22,
           backgroundColor: selected
             ? colors.primaryContainer
@@ -59,8 +88,9 @@ const MediaPosterCard = ({
             overflow: 'hidden',
             width: selected ? width - 8 : width,
             position: 'relative',
-            borderWidth: selected ? 2 : 0,
-            borderColor: selected ? colors.primary : 'transparent',
+            borderWidth: selected || tvFocused ? 3 : 0,
+            borderColor:
+              selected || tvFocused ? colors.primary : 'transparent',
             shadowColor: '#000',
             shadowOffset: {width: 0, height: 6},
             shadowOpacity: 0.35,

@@ -1,11 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import {Pressable, useWindowDimensions, View} from 'react-native';
+import {
+  Platform,
+  Pressable,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import {FlatList} from 'react-native-gesture-handler';
-import React, {memo, useCallback} from 'react';
+import React, {memo, useCallback, useRef} from 'react';
 import type {Post} from '../lib/providers/types';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useNavigation} from '@react-navigation/native';
 import {HomeStackParamList} from '../App';
+import {useFocusEffect} from '@react-navigation/native';
 import useContentStore from '../lib/zustand/contentStore';
 import SkeletonLoader from './Skeleton';
 import MediaPosterCard from './MediaPosterCard';
@@ -63,8 +69,49 @@ const Slider = ({
     [navigation, providerValue, provider?.value],
   );
 
+  // === TV D-pad support ===
+  const listRef = useRef<any>(null);
+  const lastFocusIndexRef = useRef(0);
+  const currentOffsetRef = useRef(0);
+  const itemStride = ITEM_WIDTH + ITEM_GAP;
+  const isTv = Platform.isTV;
+  const {width: viewportWidth} = useWindowDimensions();
+
+  // Row-to-row focus memory: remember which card the D-pad left off at so
+  // moving down a row and back up lands on the same poster.
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        lastFocusIndexRef.current = 0;
+      }; // reset when the whole Home screen loses focus
+    }, []),
+  );
+
+  const handleCardTvFocus = useCallback(
+    (index: number) => {
+      lastFocusIndexRef.current = index;
+      // Follow-focus: keep the focused poster comfortably on screen.
+      const currentOffset = currentOffsetRef.current;
+      const itemLeft = index * itemStride;
+      const itemRight = itemLeft + ITEM_WIDTH;
+      const margin = ITEM_WIDTH;
+      if (itemLeft < currentOffset + margin) {
+        listRef.current?.scrollToOffset({
+          offset: Math.max(0, itemLeft - margin),
+          animated: true,
+        });
+      } else if (itemRight > currentOffset + viewportWidth - margin) {
+        listRef.current?.scrollToOffset({
+          offset: Math.max(0, itemRight - viewportWidth + margin),
+          animated: true,
+        });
+      }
+    },
+    [itemStride, viewportWidth],
+  );
+
   const renderItem = useCallback(
-    ({item}: {item: Post}) => (
+    ({item, index}: {item: Post; index: number}) => (
       <MediaPosterCard
         title={item.title}
         poster={item.image}
@@ -74,9 +121,11 @@ const Slider = ({
         providerBadge={getProviderBadge(item)}
         durationBadge={item.duration}
         onPress={() => handleItemPress(item)}
+        onTvFocus={isTv ? () => handleCardTvFocus(index) : undefined}
+        hasTVPreferredFocus={isTv && index === lastFocusIndexRef.current}
       />
     ),
-    [handleItemPress],
+    [handleItemPress, isTv, handleCardTvFocus],
   );
 
   const keyExtractor = useCallback((item: Post) => item.link, []);
@@ -152,7 +201,7 @@ const Slider = ({
         </View>
       ) : (
         <FlatList
-          showsHorizontalScrollIndicator={false}
+          ref={listRef}
           data={posts}
           horizontal
           scrollEnabled={canScroll}
@@ -166,6 +215,15 @@ const Slider = ({
           ItemSeparatorComponent={() => <View style={{width: ITEM_GAP}} />}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
+          onScroll={
+            isTv
+              ? (e: any) => {
+                  currentOffsetRef.current =
+                    e?.nativeEvent?.contentOffset?.x ?? 0;
+                }
+              : undefined
+          }
+          scrollEventThrottle={isTv ? 100 : undefined}
           initialNumToRender={15}
           maxToRenderPerBatch={10}
           windowSize={8}

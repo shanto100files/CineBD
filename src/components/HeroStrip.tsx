@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef} from 'react';
-import {FlatList, Pressable, View} from 'react-native';
+import {FlatList, Platform, Pressable, View} from 'react-native';
 import {Image} from 'expo-image';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {useNavigation} from '@react-navigation/native';
@@ -79,6 +79,12 @@ const HeroStrip = ({posts, activeLink, onSelect}: HeroStripProps) => {
   const renderItem = useCallback(
     ({item}: {item: HeroStripItem}) => {
       const isActive = item.link === activeLink;
+      // TV: focused hero mini needs a visible ring (no hover on D-pad).
+      const tvFocusRing = {
+        borderWidth: Platform.isTV ? 3 : 0,
+        borderColor: Platform.isTV ? colors.primary : 'transparent',
+        borderRadius: 8,
+      };
       if (isActive) {
         return (
           <GlassSurface
@@ -91,7 +97,9 @@ const HeroStrip = ({posts, activeLink, onSelect}: HeroStripProps) => {
               gap: 10,
               width: ACTIVE_WIDTH,
             }}>
-            <Pressable onPress={() => openDetails(item)}>
+            <Pressable
+              onPress={() => openDetails(item)}
+              style={tvFocusRing}>
               <Image
                 source={{uri: item.image}}
                 style={{width: 44, height: 60, borderRadius: 8}}
@@ -138,7 +146,10 @@ const HeroStrip = ({posts, activeLink, onSelect}: HeroStripProps) => {
           accessibilityRole="button"
           accessibilityLabel={item.title}
           onPress={() => onSelect(item)}
-          style={({pressed}) => ({opacity: pressed ? 0.75 : 1})}>
+          style={({pressed}) => ({
+            opacity: pressed ? 0.75 : 1,
+            ...(Platform.isTV ? tvFocusRing : {}),
+          })}>
           <Image
             source={{uri: item.image}}
             style={{width: MINI_WIDTH, height: MINI_HEIGHT, borderRadius: 8}}
