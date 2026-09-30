@@ -208,6 +208,12 @@ export const SeekButton = ({
   }, [displaySkip, opacity, visible]);
 
   const handlePress = useCallback(() => {
+    // A release that just applied a hold-burst is followed by the touchable's
+    // own onPress; skip that trailing event so the burst is not seeked twice.
+    if (holdAppliedRef.current) {
+      holdAppliedRef.current = false;
+      return;
+    }
     // Each press seeks immediately; the label just reports the running total
     // for this burst of presses and clears once they stop.
     pressSkipRef.current += seekSeconds;
@@ -233,6 +239,8 @@ export const SeekButton = ({
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const holdActiveRef = useRef(false);
+  // Set when a release applied the hold-burst; the trailing onPress must skip.
+  const holdAppliedRef = useRef(false);
 
   const clearHoldTimers = useCallback(() => {
     if (holdTimerRef.current) {
@@ -249,11 +257,20 @@ export const SeekButton = ({
 
   const handlePressIn = useCallback(() => {
     holdActiveRef.current = true;
+    holdAppliedRef.current = false;
     clearHoldTimers();
     holdTimerRef.current = setTimeout(() => {
       if (!holdActiveRef.current) {
         return;
       }
+      // A real hold begins: previous quick taps already seeked, so cancel the
+      // pending label reset and start the burst accumulator fresh (otherwise
+      // the release would re-apply the taps' already-applied seek total).
+      if (pressResetRef.current) {
+        clearTimeout(pressResetRef.current);
+        pressResetRef.current = null;
+      }
+      pressSkipRef.current = 0;
       pressSkipRef.current += seekSeconds;
       setPressSkip(pressSkipRef.current);
       let step = seekSeconds * 2;
@@ -280,6 +297,11 @@ export const SeekButton = ({
     if (pressSkipRef.current > 0) {
       onPress();
       resetControlTimeout?.();
+      // Burst consumed: reset the label and flag the trailing onPress (which
+      // fires after onPressOut on release) to skip its own +seekSeconds.
+      pressSkipRef.current = 0;
+      setPressSkip(0);
+      holdAppliedRef.current = true;
     }
   }, [clearHoldTimers, onPress, resetControlTimeout]);
 
