@@ -1,5 +1,6 @@
 import {SafeAreaView, RefreshControl, View, Pressable, InteractionManager, Animated, ActivityIndicator, ToastAndroid} from 'react-native';
 import Slider from '../../components/Slider';
+import SponsoredBrowser from '../../components/SponsoredBrowser';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useFocusEffect, useIsFocused} from '@react-navigation/native';
 import HeroOptimized from '../../components/Hero';
@@ -66,6 +67,21 @@ const Home = ({navigation}: Props) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [homeAds, setHomeAds] = useState<{enabled: boolean; top: string; bottom: string}>({enabled: false, top: '', bottom: ''});
+  // In-app "Sponsored" browser for 18+ ad click-throughs (never the
+  // external browser — the user stays inside the app, back returns them).
+  const [adTarget, setAdTarget] = useState<string | null>(null);
+  const handleAdTarget = useCallback((url: string) => {
+    // Server log (best-effort) so the admin can see click volume per day.
+    try {
+      const axios = require('axios').default || require('axios');
+      void axios.post(
+        'https://cinepix.top/api/app/adClick',
+        {url},
+        {timeout: 4000},
+      ).catch(() => {});
+    } catch {}
+    setAdTarget(url);
+  }, []);
   // Adult-profile creative: the server's dedicated 18+ direct link, shown
   // only while an adult-capable profile is active.
   const adultAd = useAdultAds();
@@ -703,7 +719,12 @@ const Home = ({navigation}: Props) => {
                               overflow: 'hidden',
                               height: MID_AD_HEIGHT,
                             }}>
-                            <AdBox content={adultAd} height={MID_AD_HEIGHT} />
+                            <AdBox
+                              content={adultAd}
+                              height={MID_AD_HEIGHT}
+                              clickable
+                              onSelectTarget={handleAdTarget}
+                            />
                           </View>
                         </View>
                       ) : null}
@@ -736,7 +757,12 @@ const Home = ({navigation}: Props) => {
                     ১৮+ প্রোফাইল বিজ্ঞাপন
                   </AppText>
                   <View style={{borderRadius: 12, overflow: 'hidden', height: 170}}>
-                    <AdBox content={adultAd} height={170} />
+                    <AdBox
+                      content={adultAd}
+                      height={170}
+                      clickable
+                      onSelectTarget={handleAdTarget}
+                    />
                   </View>
                   {!isPremium && (
                     <Pressable
@@ -761,6 +787,7 @@ const Home = ({navigation}: Props) => {
             </ScrollView>
           </Drawer>
         </SafeAreaView>
+        <SponsoredBrowser url={adTarget} onClose={() => setAdTarget(null)} />
       </GestureHandlerRootView>
     </QueryErrorBoundary>
   );
