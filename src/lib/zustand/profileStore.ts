@@ -415,18 +415,28 @@ export const ensureAdultProfile = (): void => {
     const ent = require('./entitlementStore').useEntitlementStore.getState();
     const admin = !!useAuthStore.getState().user?.is_admin;
     const entitled = ent.gatedInstalled().some((p: any) => p.is_adult);
-    if (!entitled && !admin) return;
+    if (!entitled && !admin) {
+      // FIX-2026-09-30: freshly-installed providers can lag one session
+      // behind the entitlement (install happens after the refresh). Retry on
+      // the next launch instead of creating an aggregate '18+' profile that
+      // would show the DEFAULT plugins too.
+      return;
+    }
 
     const state = useProfileStore.getState();
     if (state.profiles.some((p: UserProfile) => p.name === '18+')) return;
     if (state.profiles.length >= 8) return;
 
     // Adult providers the account can see — preselect them explicitly so the
-    // profile aggregates only 18+ content.
+    // profile aggregates ONLY 18+ content. Creating the profile without the
+    // explicit snapshot (providers: null) would leak the default plugins in.
     const adultValues: string[] = ent
       .gatedInstalled()
       .filter((p: any) => p.is_adult)
       .map((p: any) => p.value);
+    if (!adultValues.length && !admin) {
+      return; // snapshot not ready yet — retry next session
+    }
     const profile = state.createProfile({
       name: '18+',
       kind: 'me',

@@ -194,9 +194,21 @@ export default function ProviderSelectScreen() {
     }
     setRedeeming(true);
     try {
+      // Stamp the redemption with the ACTIVE profile so the admin panel can
+      // show which profile the coupon unlocks belong to.
+      let profileId: string | undefined;
+      let profileName: string | undefined;
+      try {
+        const {useProfileStore} = require('../lib/zustand/profileStore');
+        const ap = useProfileStore.getState().activeProfile();
+        if (ap) {
+          profileId = ap.id;
+          profileName = ap.name;
+        }
+      } catch {}
       const res = await axios.post<RedeemResult>(
         `${API}/redeem-coupon`,
-        {code},
+        {code, profile_id: profileId, profile_name: profileName},
         {headers: {Authorization: `Bearer ${token}`, 'X-App-Key': HARDCODED_KILL_KEY}, timeout: 10000},
       );
       const data = res.data;
