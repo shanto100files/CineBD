@@ -87,15 +87,24 @@ export default function AdultLockScreen() {
   // Reset-to-Home after an unlock: Settings keeps AdultLock in its stack
   // (a react-native-screens screen stays mounted), so goBack() returned to
   // Settings instead of the content the user expects after unlocking.
+  //
+  // FIX-2 (2026-09-30): the previous reset attempt built a full nested
+  // CommonActions.reset state (TabStack -> HomeStack). From inside the
+  // SettingsStack that reset does not reliably replace the ROOT route — it
+  // could throw and fall into the goBack() catch, leaving the user on
+  // Settings again. CommonActions.navigate('TabStack', {screen:
+  // 'HomeStack'}) is the framework-sanctioned way to reach a nested tab
+  // screen: it pops the root stack to TabStack, selects the Home tab and
+  // resets that tab's own stack to its Home screen (reset-on-navigate).
   const resetToHome = useCallback(() => {
     try {
       const {CommonActions, StackActions} = require('@react-navigation/native');
       // Pop any AdultLock/ProfileEdit screens stacked on Settings first.
       navigation.dispatch(StackActions.popToTop());
       navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{name: 'TabStack', state: {index: 0, routes: [{name: 'HomeStack'}]}}],
+        CommonActions.navigate('TabStack', {
+          screen: 'HomeStack',
+          params: {screen: 'Home'},
         }),
       );
     } catch {
