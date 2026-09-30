@@ -1439,9 +1439,11 @@ const Player = ({ route }: Props): React.JSX.Element => {
 
   // Enter landscape and fullscreen on mount & focus, and restore on unmount.
   // If the loaded video turned out to be portrait, stay in portrait instead.
-  useFocusEffect(
+    useFocusEffect(
     useCallback(() => {
-      if (!isPortraitVideoRef.current) {
+      // TV has a fixed landscape panel; forcing orientation on a TV causes
+      // portrait videos to render as a narrow pillarboxed strip.
+      if (!Platform.isTV && !isPortraitVideoRef.current) {
         Orientation.lockToLandscape();
       }
       goFullScreen();
@@ -1769,20 +1771,23 @@ const Player = ({ route }: Props): React.JSX.Element => {
           if (isPortraitVideoRef.current !== portrait) {
             isPortraitVideoRef.current = portrait;
             setIsPortraitVideo(portrait);
-            if (portrait) {
-              Orientation.lockToPortrait();
-              // Belt & braces: re-assert the portrait lock shortly after load
-              // so a transient native re-request can't steal it back.
-              if (portraitReassertTimerRef.current) {
-                clearTimeout(portraitReassertTimerRef.current);
-              }
-              portraitReassertTimerRef.current = setTimeout(() => {
-                if (isPortraitVideoRef.current) {
-                  Orientation.lockToPortrait();
+            // TV panels are fixed landscape; skip device rotation entirely.
+            if (!Platform.isTV) {
+              if (portrait) {
+                Orientation.lockToPortrait();
+                // Belt & braces: re-assert the portrait lock shortly after load
+                // so a transient native re-request can't steal it back.
+                if (portraitReassertTimerRef.current) {
+                  clearTimeout(portraitReassertTimerRef.current);
                 }
-              }, 700);
-            } else {
-              Orientation.lockToLandscape();
+                portraitReassertTimerRef.current = setTimeout(() => {
+                  if (isPortraitVideoRef.current) {
+                    Orientation.lockToPortrait();
+                  }
+                }, 700);
+              } else {
+                Orientation.lockToLandscape();
+              }
             }
           }
         }
