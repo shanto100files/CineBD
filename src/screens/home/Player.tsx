@@ -1436,6 +1436,15 @@ const Player = ({ route }: Props): React.JSX.Element => {
   // centered pillarboxed video instead of a huge landscape screen with tiny
   // side bars. Orientation is chosen once we know the video's natural size.
   const [isPortraitVideo, setIsPortraitVideo] = useState(false);
+  // FIX (2026-09-30): set when the user flips orientation manually from the
+  // top bar. While set, the natural-size auto-picker and the landscape police
+  // listener must not fight the user's explicit choice. Cleared on unmount
+  // (component state) so the next video auto-detects afresh.
+  const [manualOrientationOverride, setManualOrientationOverride] = useState(false);
+  const manualOrientationOverrideRef = useRef(false);
+  useEffect(() => {
+    manualOrientationOverrideRef.current = manualOrientationOverride;
+  }, [manualOrientationOverride]);
 
   // Enter landscape and fullscreen on mount & focus, and restore on unmount.
   // If the loaded video turned out to be portrait, stay in portrait instead.
@@ -1766,7 +1775,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
         // fire extra onLoad events with a bogus 0x0 size (re-buffer / track
         // change); treating those as landscape flipped portrait videos right
         // back to landscape immediately after locking.
-        if (w > 0 && h > 0) {
+        if (w > 0 && h > 0 && !manualOrientationOverrideRef.current) {
           const portrait = h > w;
           if (isPortraitVideoRef.current !== portrait) {
             isPortraitVideoRef.current = portrait;
@@ -1833,7 +1842,11 @@ const Player = ({ route }: Props): React.JSX.Element => {
       return;
     }
     const onOrientation = (o: string) => {
-      if (isPortraitVideoRef.current && String(o).startsWith('LANDSCAPE')) {
+      if (
+        !manualOrientationOverrideRef.current &&
+        isPortraitVideoRef.current &&
+        String(o).startsWith('LANDSCAPE')
+      ) {
         Orientation.lockToPortrait();
       }
     };
@@ -2142,6 +2155,40 @@ const Player = ({ route }: Props): React.JSX.Element => {
               size={24}
             />
           </TouchableOpacity>
+          {/* FIX (2026-09-30): manual orientation toggle — when the video's
+              natural-size detection guesses wrong (e.g. mis-flagged stream),
+              the user can flip portrait/landscape by hand. Explicit taps set
+              a manual override so the size-based auto-picker and the police
+              listener do not immediately steal the orientation back. */}
+          {!Platform.isTV && (
+            <TouchableOpacity
+              onPress={() => {
+                const next = !isPortraitVideoRef.current;
+                isPortraitVideoRef.current = next;
+                setIsPortraitVideo(next);
+                setManualOrientationOverride(true);
+                if (next) {
+                  Orientation.lockToPortrait();
+                } else {
+                  Orientation.lockToLandscape();
+                }
+                setToast(
+                  next ? 'Portrait mode' : 'Landscape mode',
+                  1500,
+                );
+              }}
+              className="p-2 rounded-full">
+              <MaterialCommunityIcons
+                name={
+                  isPortraitVideoRef.current
+                    ? 'phone-rotate-landscape'
+                    : 'phone-rotate-portrait'
+                }
+                color={BOTTOM_CONTROL_ICON_COLOR}
+                size={24}
+              />
+            </TouchableOpacity>
+          )}
           {SHOW_FULLSCREEN_BUTTON && (
             <TouchableOpacity
               onPress={toggleFullScreen}

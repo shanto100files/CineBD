@@ -377,8 +377,21 @@ const AnimatedVideoPlayer = (
     doubleTapTime,
   ]);
 
+  // FIX (2026-09-30): ExoPlayer transiently reports playbackRate 0 while a
+  // seek is settling. The old handler treated that as a user pause and froze
+  // the video after every skip (rate never returns >0 once we force-pause).
+  // A short cooldown armed on every programmatic seek suppresses both the
+  // pause-forcing and play-forcing branches while the seek settles.
+  const seekRateGuardRef = useRef(0);
+  const armSeekRateGuard = useCallback(() => {
+    seekRateGuardRef.current = Date.now() + 1500;
+  }, []);
+
   const _onPlaybackRateChange = useCallback(
     (playBack: {playbackRate: number}) => {
+      if (Date.now() < seekRateGuardRef.current) {
+        return;
+      }
       if (playBack.playbackRate === 0 && !buffering) {
         setPaused(prev => (prev ? prev : true));
       } else if (playBack.playbackRate > 0) {
@@ -477,6 +490,7 @@ const AnimatedVideoPlayer = (
 
   const seekVideo = useCallback((time: number) => {
     try {
+      armSeekRateGuard();
       if (
         videoRef?.current?.seek &&
         typeof videoRef.current.seek === 'function'
@@ -486,7 +500,7 @@ const AnimatedVideoPlayer = (
         (videoRef.current as any).seek?.(time);
       }
     } catch (error) {}
-  }, []);
+  }, [armSeekRateGuard]);
 
   const {volumePanResponder, seekPanResponder} = usePanResponders({
     duration,
@@ -713,9 +727,10 @@ const AnimatedVideoPlayer = (
       const delta = typeof time === 'number' ? time : rewindTime;
       const newTime = Math.max(0, currentTime - delta);
       setCurrentTime(newTime);
+      armSeekRateGuard();
       videoRef?.current?.seek(newTime);
     },
-    [currentTime, rewindTime, videoRef],
+    [armSeekRateGuard, currentTime, rewindTime, videoRef],
   );
 
   const forward = useCallback(
@@ -726,9 +741,10 @@ const AnimatedVideoPlayer = (
           ? Math.min(duration, currentTime + delta)
           : currentTime + delta;
       setCurrentTime(newTime);
+      armSeekRateGuard();
       videoRef?.current?.seek(newTime);
     },
-    [currentTime, duration, rewindTime, videoRef],
+    [armSeekRateGuard, currentTime, duration, rewindTime, videoRef],
   );
 
   // === TV D-pad controls ===

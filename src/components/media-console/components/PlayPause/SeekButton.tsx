@@ -226,6 +226,63 @@ export const SeekButton = ({
     resetControlTimeout?.();
   }, [onPress, resetControlTimeout, seekSeconds]);
 
+  // ---- Hold-to-seek (FIX 2026-09-30) ----
+  // Holding the button ramps the accumulated seek (+10, +30, +60, +100 …)
+  // and applies the whole burst once on release, so one hold can jump minutes
+  // without the video re-buffering after every press.
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const holdActiveRef = useRef(false);
+
+  const clearHoldTimers = useCallback(() => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (holdIntervalRef.current) {
+      clearInterval(holdIntervalRef.current);
+      holdIntervalRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearHoldTimers, [clearHoldTimers]);
+
+  const handlePressIn = useCallback(() => {
+    holdActiveRef.current = true;
+    clearHoldTimers();
+    holdTimerRef.current = setTimeout(() => {
+      if (!holdActiveRef.current) {
+        return;
+      }
+      pressSkipRef.current += seekSeconds;
+      setPressSkip(pressSkipRef.current);
+      let step = seekSeconds * 2;
+      holdIntervalRef.current = setInterval(() => {
+        if (!holdActiveRef.current) {
+          return;
+        }
+        pressSkipRef.current += step;
+        setPressSkip(pressSkipRef.current);
+        step = Math.min(step + 10, 60);
+      }, 450);
+      resetControlTimeout?.();
+    }, 400);
+  }, [clearHoldTimers, resetControlTimeout, seekSeconds]);
+
+  const handlePressOut = useCallback(() => {
+    if (!holdActiveRef.current) {
+      return;
+    }
+    holdActiveRef.current = false;
+    clearHoldTimers();
+    // Only a real hold (timer fired at least once) applies its accumulated
+    // burst here; plain taps fall through to handlePress as before.
+    if (pressSkipRef.current > 0) {
+      onPress();
+      resetControlTimeout?.();
+    }
+  }, [clearHoldTimers, onPress, resetControlTimeout]);
+
   const height = (size * VIEWBOX_HEIGHT) / VIEWBOX_WIDTH;
   // The rewind icon is the same path mirrored, so its ring centre mirrors too.
   const centerX = isForward ? ARC_CENTER_X : VIEWBOX_WIDTH - ARC_CENTER_X;
@@ -300,6 +357,8 @@ export const SeekButton = ({
       <Control
         disabled={disabled}
         callback={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         style={styles.control}
         accessibilityRole="button"
         accessibilityLabel={`${

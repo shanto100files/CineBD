@@ -9,6 +9,9 @@ interface ControlProps extends ViewProps {
   disabled?: boolean;
   style?: any;
   resetControlTimeout?: () => void;
+  /** Hold-to-repeat support (seek buttons). */
+  onPressIn?: () => void;
+  onPressOut?: () => void;
 }
 
 export const Control = ({
@@ -18,6 +21,8 @@ export const Control = ({
   disabled,
   style = {},
   resetControlTimeout,
+  onPressIn,
+  onPressOut,
   ...props
 }: ControlProps) => {
   const [focused, setFocused] = useState(false);
@@ -35,6 +40,8 @@ export const Control = ({
       ref={controlRef}
       underlayColor="transparent"
       activeOpacity={1}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       onPress={() => {
         callback && callback();
         resetControlTimeout && resetControlTimeout();
