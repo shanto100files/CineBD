@@ -18,6 +18,7 @@ import {
   ADULT_PIN_MIN,
   cancelBiometricPrompt,
   clearAdultLock,
+  getUnlockedAt,
   hasBiometricHardware,
   isAdultPinSet,
   isBiometricEnabled,
@@ -27,6 +28,7 @@ import {
   setBiometricEnabled,
   verifyAdultPin,
 } from '../../lib/adultLock';
+// getUnlockedAt is imported for the session-capture blur/focus handlers.
 import {showAppDialog} from '../../lib/zustand/appDialogStore';
 import {useProfileStore} from '../../lib/zustand/profileStore';
 
@@ -37,6 +39,20 @@ import {useProfileStore} from '../../lib/zustand/profileStore';
  *  - 'setup'    → first-time PIN enrolment (from Settings when enabling 18+)
  *  - 'unlock'   → verify PIN/biometric to open this session
  *  - 'settings' → manage the lock: change PIN, toggle biometrics, remove lock
+ *
+ * Where does unlock land?
+ *  - unlock WITH switchProfile (child-proofing deferred switch from the
+ *    profile switcher / ProfileEdit) → the target profile is a CONTENT
+ *    surface, so after the unlock we reset the whole tab stack to Home
+ *    (Settings -x-). Landing back in Settings was a bug: the user unlocked
+ *    to switch profiles and expected Home, and every later Settings visit
+ *    re-prompted because the blurred stack kept re-locking.
+ *  - plain unlock (NO switchProfile) → goBack(): this is the "enable 18+"
+ *    flow started from Settings/Home with pendingAdultEnable armed — those
+ *    callers apply the toggle on focus-return, so they need their screen
+ *    back, not a reset to Home.
+ *  - setup/settings modes → goBack() as before (they truly came from
+ *    Settings; Settings regains focus and applies pendingEnable).
  */
 export default function AdultLockScreen() {
   const colors = useM3Colors();
@@ -62,6 +78,31 @@ export default function AdultLockScreen() {
   // user cancelled, lockout). Track the last failure so the UI can show a
   // retry hint instead of looking dead.
   const [bioFailed, setBioFailed] = useState(false);
+
+  // Set while a programmatic navigation from finishUnlock is in flight; the
+  // blur handler must not treat that navigation as "user walked away" (it
+  // used to clear the fresh unlock, which re-locked Settings instantly).
+  const navigatingOutRef = React.useRef(false);
+
+  // Reset-to-Home after an unlock: Settings keeps AdultLock in its stack
+  // (a react-native-screens screen stays mounted), so goBack() returned to
+  // Settings instead of the content the user expects after unlocking.
+  const resetToHome = useCallback(() => {
+    try {
+      const {CommonActions, StackActions} = require('@react-navigation/native');
+      // Pop any AdultLock/ProfileEdit screens stacked on Settings first.
+      navigation.dispatch(StackActions.popToTop());
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{name: 'TabStack', state: {index: 0, routes: [{name: 'HomeStack'}]}}],
+        }),
+      );
+    } catch {
+      navigation.goBack();
+    }
+  }, [navigation]);
+
   const finishUnlock = useCallback(() => {
     // Deferred profile switch (child-proofing): the switcher sent us here
     // so the target profile only activates after a successful unlock.
@@ -74,8 +115,17 @@ export default function AdultLockScreen() {
     // Stamp AFTER setActive: switching profiles clears the unlock session
     // by design, and this fresh unlock must survive its own deferred switch.
     markUnlocked();
+    // Only the profile-switch unlock resets to Home. The PLAIN unlock (no
+    // switchProfile) is the "enable 18+" flow started from Settings/Home:
+    // those callers wait for focus-return with pendingAdultEnable to flip
+    // the toggle, so they must get a plain goBack() instead.
+    if (startMode === 'unlock' && targetId !== undefined) {
+      navigatingOutRef.current = true;
+      resetToHome();
+      return;
+    }
     navigation.goBack();
-  }, [navigation, routeParams.switchProfile]);
+  }, [navigation, routeParams.switchProfile, startMode, resetToHome]);
 
   const tryBiometric = useCallback(async (): Promise<boolean> => {
     setBusy(true);
@@ -99,6 +149,42 @@ export default function AdultLockScreen() {
     return false;
   }, [finishUnlock]);
 
+  // Session-capture when the lock screen closes for real. Replaces the old
+  // blur handler that wiped the unlock timestamp on every blur: the blur
+  // also fires for the Programmatic reset-to-Home navigation (wiping the
+  // just-stamped unlock → Settings re-locked itself on every entry) and for
+  // fingerprint dialogs (wiping the session mid-attempt → Home's stale-typo
+  // guard then swallowed the successful unlock).
+  useEffect(() => {
+    const hadFreshSessionAtFocus = getUnlockedAt();
+    const unsubFocus = navigation.addListener('focus', () => {
+      navigatingOutRef.current = false;
+    });
+    const unsubBlur = navigation.addListener('blur', () => {
+      setPin('');
+      setBusy(false);
+      cancelBiometricPrompt();
+      if (navigatingOutRef.current) {
+        return; // our own navigation — the unlock survives
+      }
+      if (Date.now() - hadFreshSessionAtFocus < 15000) {
+        return; // unlock happened during this visit — keep the session
+      }
+      // True abandonment (no unlock this visit, user backed out): drop a
+      // fresh-looking timestamp so a cancel cannot ride an older window.
+      if (getUnlockedAt() > hadFreshSessionAtFocus) {
+        try {
+          require('../../lib/adultLock').clearUnlockSession();
+        } catch {}
+      }
+    });
+    return () => {
+      unsubFocus();
+      unsubBlur();
+      cancelBiometricPrompt();
+    };
+  }, [navigation]);
+
   // Runs on EVERY open. React Navigation keeps screens mounted, so a
   // re-open can land on the same stacked instance (tabbed away earlier):
   // reset any stale typed PIN and re-arm the biometric prompt. The nonce
@@ -110,41 +196,13 @@ export default function AdultLockScreen() {
     setStage('enter');
     setFirstPin('');
     hasBiometricHardware().then(setBioAvailable);
-    if (startMode === 'unlock' && pinSet && isBiometricEnabled()) {
+    if (startMode === 'unlock' && pinSet && isBiometricEnabled() && getUnlockedAt() === 0) {
       (async () => {
         await tryBiometric();
       })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeParams.nonce]);
-
-  // Leaving the lock screen (tab switch, covered, popped): drop typed
-  // digits and dismiss any in-flight system prompt — it belongs to the
-  // Activity and could otherwise complete an abandoned unlock/switch later.
-  // Returning (focus): start clean and re-arm the biometric prompt, so a
-  // prompt cancelled by tabbing away comes back instead of staying dead.
-  useEffect(() => {
-    const rearm = () => {
-      setPin('');
-      setBioFailed(false);
-      if (startMode === 'unlock' && pinSet && isBiometricEnabled()) {
-        (async () => {
-          await tryBiometric();
-        })();
-      }
-    };
-    const unsubFocus = navigation.addListener('focus', rearm);
-    const unsubBlur = navigation.addListener('blur', () => {
-      setPin('');
-      setBusy(false);
-      cancelBiometricPrompt();
-    });
-    return () => {
-      unsubFocus();
-      unsubBlur();
-      cancelBiometricPrompt();
-    };
-  }, [navigation, startMode, tryBiometric]);
 
   const submitPin = useCallback(
     async (entered: string) => {
