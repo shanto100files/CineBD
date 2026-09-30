@@ -423,7 +423,13 @@ const TabStack = React.memo(() => {
       screenOptions={{
         animation: 'shift',
         popToTopOnBlur: false,
-        tabBarPosition: isLargeScreen ? 'left' : 'bottom',
+        // Android TV: D-pad-first top navigation bar (see TvTabBar) instead
+        // of the touch-oriented bottom bar / left rail.
+        tabBarPosition: Platform.isTV
+          ? 'top'
+          : isLargeScreen
+            ? 'left'
+            : 'bottom',
         headerShown: false,
         // freezeOnBlur must stay OFF: with freeze enabled the inactive
         // Settings screen intercepts tab taps (known react-native-screens
