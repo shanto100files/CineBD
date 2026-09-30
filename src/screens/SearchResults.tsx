@@ -1,4 +1,4 @@
-import {SafeAreaView, View, ScrollView, Dimensions, Pressable} from 'react-native';
+import {SafeAreaView, View, ScrollView, Pressable, useWindowDimensions} from 'react-native';
 import MediaPosterCard from '../components/MediaPosterCard';
 import React, {useEffect, useState, useRef, useCallback, useMemo} from 'react';
 import {NativeStackScreenProps, NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -165,7 +165,12 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   const resultsRef = useRef<Post[]>([]);
   const seenRef = useRef<Set<string>>(new Set());
 
-  const screenWidth = Dimensions.get('window').width;
+  // FIX (2026-09-30): static Dimensions.get('window') captured a stale width
+  // when returning from the fullscreen player (Android reports a wrong window
+  // size during the back transition, e.g. landscape metrics on a portrait
+  // screen) — a card then rendered full-screen-width until the next re-render.
+  // useWindowDimensions re-renders with the corrected value.
+  const {width: screenWidth} = useWindowDimensions();
   const cardWidth = (screenWidth - 56) / 3;
   const query = route.params.filter;
 

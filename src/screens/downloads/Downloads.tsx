@@ -7,7 +7,6 @@ import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   FlatList,
   Image,
   Platform,
@@ -15,6 +14,7 @@ import {
   ScrollView,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import ReactNativeHapticFeedback, {
   HapticFeedbackTypes,
@@ -276,7 +276,10 @@ const Downloads = () => {
   );
 
   const isSelectionMode = selectedGroupIds.size > 0;
-  const availableWidth = Dimensions.get('window').width - GRID_PADDING * 2;
+  // FIX (2026-09-30): useWindowDimensions instead of static Dimensions —
+  // a stale width from the player's back transition inflated card widths.
+  const windowWidth = useWindowDimensions().width;
+  const availableWidth = windowWidth - GRID_PADDING * 2;
   const columns = Math.max(
     2,
     Math.floor((availableWidth + GRID_GAP) / (MIN_CARD_WIDTH + GRID_GAP)),

@@ -5,10 +5,10 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useState} from 'react';
 import {
-  Dimensions,
   Platform,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import {FlashList} from '@shopify/flash-list';
 import ReactNativeHapticFeedback, {
@@ -150,7 +150,9 @@ const WatchList = () => {
     watchList.length > 0 && selectedLinks.size === watchList.length;
 
   // Calculate how many items can fit per row
-  const screenWidth = Dimensions.get('window').width;
+  // FIX (2026-09-30): useWindowDimensions instead of static Dimensions —
+  // back from the player can leave a stale/wrong window width behind.
+  const {width: screenWidth} = useWindowDimensions();
   const containerPadding = 12;
   const itemSpacing = 10;
   const availableWidth = screenWidth - containerPadding * 2;
