@@ -8,6 +8,9 @@ import React, {
   useMemo,
 } from 'react';
 import {NativeModules, Platform, View} from 'react-native';
+// Global TV event hook (react-native TV fork types; harmless no-op on mobile).
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const {useTVEventHandler} = require('react-native') as any;
 import * as Brightness from 'expo-brightness';
 import Video, {
   OnLoadData,
@@ -727,6 +730,102 @@ const AnimatedVideoPlayer = (
     },
     [currentTime, duration, rewindTime, videoRef],
   );
+
+  // === TV D-pad controls ===
+  // left/right = ±10s seek, up/down = ±30s seek, select/OK = play/pause.
+  // Any key when controls are hidden first reveals them (couch UX); all keys
+  // reset the auto-hide timer so controls don't vanish mid-navigation.
+  const tvSeekAccumRef = useRef(0);
+  const tvSeekAccumSideRef = useRef<'left' | 'right' | null>(null);
+  const tvSeekDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyTvSeek = useCallback(
+    (delta: number) => {
+      const side = delta >= 0 ? 'right' : 'left';
+      if (
+        tvSeekAccumSideRef.current !== side ||
+        tvSeekAccumSideRef.current === null
+      ) {
+        tvSeekAccumRef.current = 0;
+        tvSeekAccumSideRef.current = side;
+      }
+      tvSeekAccumRef.current += delta;
+      const displayTotal = Math.abs(tvSeekAccumRef.current);
+      setSkipFeedbackLeft(side === 'left' ? displayTotal : 0);
+      setSkipFeedbackRight(side === 'right' ? displayTotal : 0);
+      if (tvSeekDebounceRef.current) {
+        clearTimeout(tvSeekDebounceRef.current);
+      }
+      // Small debounce coalesces rapid key repeats into one network seek.
+      tvSeekDebounceRef.current = setTimeout(() => {
+        const total = tvSeekAccumRef.current;
+        tvSeekAccumRef.current = 0;
+        tvSeekAccumSideRef.current = null;
+        tvSeekDebounceRef.current = null;
+        if (total !== 0) {
+          if (total >= 0) {
+            forward(total);
+          } else {
+            rewind(-total);
+          }
+        }
+        // Clear the skip feedback overlay now that the seek is applied.
+        setSkipFeedbackLeft(0);
+        setSkipFeedbackRight(0);
+      }, 450);
+    },
+    [forward, rewind],
+  );
+
+  const handleTvKeyEvent = useCallback(
+    (evt: any) => {
+      const {actionType, keyEvent} = evt;
+      if (actionType !== 'up' || !keyEvent) {
+        return;
+      }
+      const keyCode = keyEvent.keyCode;
+      // KEYCODE_DPAD_LEFT=21, RIGHT=22, UP=19, DOWN=20, DPAD_CENTER=23,
+      // MEDIA_PLAY_PAUSE=85, MEDIA_PLAY=126, MEDIA_PAUSE=127.
+      const isSeekKey = keyCode >= 19 && keyCode <= 22;
+      const isSelectKey =
+        keyCode === 23 || keyCode === 85 || keyCode === 126 || keyCode === 127;
+      if (!isSeekKey && !isSelectKey) {
+        return;
+      }
+      if (!showControls) {
+        // First key press just reveals the controls (and resets the timer).
+        setShowControls(true);
+        resetControlTimeout();
+        return;
+      }
+      resetControlTimeout();
+      switch (keyCode) {
+        case 21:
+          applyTvSeek(-10);
+          break;
+        case 22:
+          applyTvSeek(10);
+          break;
+        case 19:
+          applyTvSeek(30);
+          break;
+        case 20:
+          applyTvSeek(-30);
+          break;
+        case 23:
+        case 85:
+        case 126:
+        case 127:
+          togglePlayPause();
+          break;
+      }
+    },
+    [applyTvSeek, resetControlTimeout, showControls, togglePlayPause],
+  );
+
+  if (Platform.isTV && typeof useTVEventHandler === 'function') {
+    useTVEventHandler(handleTvKeyEvent);
+  }
 
   // Memoize onBuffer callback
   const onBuffer = useCallback((e: {isBuffering: boolean}) => {
