@@ -10,7 +10,7 @@ import {
 } from '@expo/ui/jetpack-compose';
 import {fillMaxWidth} from '@expo/ui/jetpack-compose/modifiers';
 import React, {forwardRef, useEffect, useImperativeHandle, useRef} from 'react';
-import {View} from 'react-native';
+import {Platform, Pressable, TextInput, View} from 'react-native';
 import {useM3Colors, useM3HostTheme} from '../../theme/M3PaletteContext';
 
 interface SearchFieldProps {
@@ -25,7 +25,80 @@ export interface SearchFieldRef {
   focus: () => void;
 }
 
-const SearchField = forwardRef<SearchFieldRef, SearchFieldProps>(
+/**
+ * Two implementations, chosen at module level (never conditional hooks):
+ *  - TV: plain RN TextInput. The Compose Host participates poorly (if at all)
+ *    in Android TV D-pad focus traversal, so TV gets a focusable RN field
+ *    with its own focus ring.
+ *  - Mobile: @expo/ui Jetpack Compose TextField (rich M3 styling).
+ */
+
+const TvSearchField = forwardRef<SearchFieldRef, SearchFieldProps>(
+  (
+    {value, onChangeText, onSubmit, onFocusChange, placeholder = 'Search'},
+    ref,
+  ) => {
+    const colors = useM3Colors();
+    const inputRef = useRef<TextInput>(null);
+    const [fieldFocused, setFieldFocused] = React.useState(false);
+    const [shellFocused, setShellFocused] = React.useState(false);
+
+    useImperativeHandle(ref, () => ({
+      focus: () => inputRef.current?.focus(),
+    }));
+
+    return (
+      <Pressable
+        focusable
+        onPress={() => inputRef.current?.focus()}
+        onFocus={() => setShellFocused(true)}
+        onBlur={() => setShellFocused(false)}
+        style={{
+          borderRadius: 24,
+          borderWidth: shellFocused ? 3 : 0,
+          borderColor: colors.primary,
+          backgroundColor: fieldFocused
+            ? colors.surfaceContainerHigh
+            : colors.surfaceContainerLow,
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+        }}>
+        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <MaterialCommunityIcons
+            name="magnify"
+            size={22}
+            color={shellFocused ? colors.primary : colors.onSurfaceVariant}
+          />
+          <TextInput
+            ref={inputRef}
+            value={value}
+            onChangeText={onChangeText}
+            onSubmitEditing={() => onSubmit(value)}
+            onFocus={() => {
+              setFieldFocused(true);
+              onFocusChange?.(true);
+            }}
+            onBlur={() => {
+              setFieldFocused(false);
+              onFocusChange?.(false);
+            }}
+            placeholder={placeholder}
+            placeholderTextColor={colors.onSurfaceVariant}
+            style={{
+              flex: 1,
+              marginLeft: 10,
+              color: colors.onSurface,
+              fontSize: 16,
+              padding: 0,
+            }}
+          />
+        </View>
+      </Pressable>
+    );
+  },
+);
+
+const ComposeSearchField = forwardRef<SearchFieldRef, SearchFieldProps>(
   (
     {value, onChangeText, onSubmit, onFocusChange, placeholder = 'Search'},
     ref,
@@ -36,9 +109,7 @@ const SearchField = forwardRef<SearchFieldRef, SearchFieldProps>(
     const fieldRef = useRef<TextFieldRef>(null);
 
     useImperativeHandle(ref, () => ({
-      focus: () => {
-        fieldRef.current?.focus();
-      },
+      focus: () => fieldRef.current?.focus(),
     }));
 
     useEffect(() => {
@@ -97,5 +168,7 @@ const SearchField = forwardRef<SearchFieldRef, SearchFieldProps>(
     );
   },
 );
+
+const SearchField = Platform.isTV ? TvSearchField : ComposeSearchField;
 
 export default SearchField;

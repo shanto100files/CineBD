@@ -1,4 +1,4 @@
-import {View, FlatList, Pressable, Text} from 'react-native';
+import {Platform, View, FlatList, Pressable, Text} from 'react-native';
 import React, {useState, useEffect, useCallback, memo, useRef} from 'react';
 import {useNavigation} from '@react-navigation/native';
 import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
@@ -32,6 +32,8 @@ const SearchResultItem = memo(
     onPress: (title: string) => void;
   }) => {
     const colors = useM3Colors();
+    const isTv = Platform.isTV;
+    const [tvFocused, setTvFocused] = useState(false);
     const handlePress = useCallback(() => {
       onPress(item.title);
     }, [item.title, onPress]);
@@ -39,13 +41,19 @@ const SearchResultItem = memo(
     return (
       <View style={{paddingHorizontal: 16, paddingVertical: 5}}>
         <Pressable
+          focusable={isTv}
+          onFocus={isTv ? () => setTvFocused(true) : undefined}
+          onBlur={isTv ? () => setTvFocused(false) : undefined}
           onPress={handlePress}
           style={({pressed}) => ({
-            backgroundColor: pressed
-              ? colors.surfaceContainerHighest
-              : colors.surfaceContainerLow,
+            backgroundColor:
+              pressed || tvFocused
+                ? colors.surfaceContainerHighest
+                : colors.surfaceContainerLow,
             borderRadius: 20,
             padding: 14,
+            borderWidth: isTv && tvFocused ? 2 : 0,
+            borderColor: isTv && tvFocused ? colors.primary : 'transparent',
           })}>
           <View style={{alignItems: 'center', flexDirection: 'row'}}>
             <View
@@ -100,6 +108,8 @@ const HistoryItem = memo(
     onRemove: (text: string) => void;
   }) => {
     const colors = useM3Colors();
+    const isTv = Platform.isTV;
+    const [tvFocused, setTvFocused] = useState(false);
     const handlePress = useCallback(() => {
       onPress(search);
     }, [search, onPress]);
@@ -110,11 +120,19 @@ const HistoryItem = memo(
 
     return (
       <Pressable
+        focusable={isTv}
+        onFocus={isTv ? () => setTvFocused(true) : undefined}
+        onBlur={isTv ? () => setTvFocused(false) : undefined}
         onPress={handlePress}
         className="flex-row items-center rounded-[20px] mb-2 px-4 py-3.5"
         style={({pressed}) => ({
-          backgroundColor: colors.surfaceContainerLow,
+          backgroundColor:
+            pressed || tvFocused
+              ? colors.surfaceContainerHighest
+              : colors.surfaceContainerLow,
           opacity: pressed ? 0.72 : 1,
+          borderWidth: isTv && tvFocused ? 2 : 0,
+          borderColor: isTv && tvFocused ? colors.primary : 'transparent',
         })}>
         <MaterialCommunityIcons
           name="history"
@@ -132,6 +150,7 @@ const HistoryItem = memo(
           {search}
         </Text>
         <Pressable
+          focusable={isTv}
           onPress={handleRemove}
           hitSlop={8}
           accessibilityLabel={`Remove ${search} from recent searches`}>

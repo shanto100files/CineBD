@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -353,18 +354,43 @@ export default function AdultLockScreen() {
 
       <View style={st.pad}>
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
-          <Pressable key={d} style={[st.key, {backgroundColor: colors.surfaceContainerHigh}]} onPress={() => pressDigit(d)}>
-            <AppText style={st.keyTxt}>{d}</AppText>
-          </Pressable>
+          <PadKey
+            key={d}
+            label={d}
+            onPress={() => pressDigit(d)}
+            hasTVPreferredFocus={d === '5'}
+          />
         ))}
-        <View style={st.key} />
-        <Pressable style={[st.key, {backgroundColor: colors.surfaceContainerHigh}]} onPress={() => pressDigit('0')}>
-          <AppText style={st.keyTxt}>0</AppText>
-        </Pressable>
-        <Pressable style={st.key} onPress={pressBackspace}>
-          <MaterialCommunityIcons name="backspace-outline" size={26} color={colors.onSurface} />
-        </Pressable>
+        <PadKey label="" onPress={() => {}} ghost />
+        <PadKey label="0" onPress={() => pressDigit('0')} />
+        <PadKey
+          icon="backspace-outline"
+          onPress={pressBackspace}
+        />
       </View>
+
+      {startMode !== 'setup' && pin.length > 0 && pin.length < ADULT_PIN_MIN && (
+        <View style={{alignItems: 'center', marginTop: 8}}>
+          <Pressable
+            focusable
+            style={[
+              st.doneBtn,
+              {
+                backgroundColor: colors.primaryContainer,
+                borderRadius: 14,
+                paddingHorizontal: 28,
+                alignSelf: 'center',
+              },
+            ]}
+            disabled={busy}
+            onPress={() => submitPin(pin)}>
+            <AppText
+              style={{color: colors.onPrimaryContainer, fontWeight: '700'}}>
+              আনলক করুন ({pin.length} ডিজিট)
+            </AppText>
+          </Pressable>
+        </View>
+      )}
 
       {startMode === 'setup' && pin.length >= ADULT_PIN_MIN && (
         <Pressable style={st.doneBtn} onPress={() => submitPin(pin)}>
@@ -373,6 +399,7 @@ export default function AdultLockScreen() {
       )}
       {startMode !== 'setup' && pin.length >= ADULT_PIN_MIN && (
         <Pressable
+          focusable
           style={[st.doneBtn, {backgroundColor: colors.primaryContainer, borderRadius: 14, paddingHorizontal: 28, alignSelf: 'center'}]}
           disabled={busy}
           onPress={() => submitPin(pin)}>
@@ -382,6 +409,56 @@ export default function AdultLockScreen() {
     </View>
   );
 }
+
+/**
+ * D-pad-friendly keypad key: Android TV Pressable needs explicit focusable,
+ * and a focused key gets a primary ring + grow so the remote user always
+ * knows which digit will fire. First key takes initial focus on TV.
+ */
+const PadKey = ({
+  label,
+  icon,
+  onPress,
+  ghost = false,
+  hasTVPreferredFocus = false,
+}: {
+  label?: string;
+  icon?: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  onPress: () => void;
+  ghost?: boolean;
+  hasTVPreferredFocus?: boolean;
+}) => {
+  const colors = useM3Colors();
+  const isTv = Platform.isTV;
+  const [focused, setFocused] = useState(false);
+  if (ghost) {
+    return <View style={st.key} />;
+  }
+  return (
+    <Pressable
+      focusable={isTv}
+      hasTVPreferredFocus={isTv && hasTVPreferredFocus}
+      onPress={onPress}
+      onFocus={isTv ? () => setFocused(true) : undefined}
+      onBlur={isTv ? () => setFocused(false) : undefined}
+      style={({pressed}) => [
+        st.key,
+        {
+          backgroundColor: colors.surfaceContainerHigh,
+          transform: [{scale: isTv && focused ? 1.12 : 1}],
+          borderWidth: isTv && focused ? 3 : 0,
+          borderColor: isTv && focused ? colors.primary : 'transparent',
+          opacity: pressed ? 0.8 : 1,
+        },
+      ]}>
+      {icon ? (
+        <MaterialCommunityIcons name={icon} size={26} color={colors.onSurface} />
+      ) : label ? (
+        <AppText style={st.keyTxt}>{label}</AppText>
+      ) : null}
+    </Pressable>
+  );
+};
 
 const st = StyleSheet.create({
   full: {flex: 1},

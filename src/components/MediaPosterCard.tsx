@@ -53,6 +53,7 @@ const MediaPosterCard = ({
         onPress={onPress}
         onLongPress={onLongPress}
         delayLongPress={350}
+        focusable={isTv}
         onFocus={
           isTv
             ? () => {

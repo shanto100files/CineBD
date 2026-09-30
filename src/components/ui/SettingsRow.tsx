@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import React, {ReactNode} from 'react';
-import {Pressable, View} from 'react-native';
+import React, {ReactNode, useState} from 'react';
+import {Platform, Pressable, View} from 'react-native';
 import {useM3Colors} from '../../theme/M3PaletteContext';
 import AppText from './Text';
 
@@ -26,15 +26,25 @@ const SettingsRow = ({
   divider = true,
 }: SettingsRowProps) => {
   const colors = useM3Colors();
+  // Android TV: Pressable is not focusable by default — opt in and paint a
+  // clear focus ring so D-pad navigation is visible.
+  const isTv = Platform.isTV;
+  const [tvFocused, setTvFocused] = useState(false);
 
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
       disabled={!onPress}
+      focusable={isTv && !!onPress}
       hitSlop={{top: 4, bottom: 4, left: 0, right: 0}}
       onPress={onPress}
+      onFocus={isTv ? () => setTvFocused(true) : undefined}
+      onBlur={isTv ? () => setTvFocused(false) : undefined}
       style={({pressed}) => ({
-        backgroundColor: pressed ? colors.surfaceContainerHigh : 'transparent',
+        backgroundColor:
+          pressed || tvFocused ? colors.surfaceContainerHigh : 'transparent',
+        borderLeftWidth: isTv && tvFocused ? 4 : 0,
+        borderLeftColor: isTv && tvFocused ? colors.primary : 'transparent',
       })}>
       <View
         style={{
