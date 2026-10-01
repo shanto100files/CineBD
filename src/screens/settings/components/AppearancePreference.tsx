@@ -9,6 +9,7 @@ import AppText from '../../../components/ui/Text';
 import Surface from '../../../components/ui/Surface';
 import SettingsSwitchRow from '../../../components/ui/SettingsSwitchRow';
 import {setLauncherIcon, type LauncherIcon} from '../../../lib/launcherIcon';
+import type {UiMode} from '../../../lib/uiMode';
 import {settingsStorage} from '../../../lib/storage';
 
 const LAUNCHER_ICONS: Array<{id: LauncherIcon; label: string; color: string}> =
@@ -20,6 +21,12 @@ const LAUNCHER_ICONS: Array<{id: LauncherIcon; label: string; color: string}> =
     {id: 'lavender', label: 'Lavender', color: '#B2A4D4'},
   ];
 
+const UI_MODES: Array<{id: UiMode; label: string; icon: string}> = [
+  {id: 'auto', label: 'Auto', icon: 'autorenew'},
+  {id: 'mobile', label: 'Mobile', icon: 'cellphone'},
+  {id: 'tv', label: 'TV', icon: 'television-classic'},
+];
+
 const AppearancePreference = () => {
   const source = useThemeStore(state => state.source);
   const setSource = useThemeStore(state => state.setSource);
@@ -28,6 +35,9 @@ const AppearancePreference = () => {
   const colors = useM3Colors();
   const [launcherIcon, setSelectedLauncherIcon] = useState<LauncherIcon>(() =>
     settingsStorage.getLauncherIcon(),
+  );
+  const [uiMode, setUiModeState] = useState<UiMode>(() =>
+    settingsStorage.getUiMode(),
   );
   const [dynamicInfoAccentEnabled, setDynamicInfoAccentEnabled] = useState(() =>
     settingsStorage.isDynamicInfoAccentEnabled(),
@@ -196,6 +206,73 @@ const AppearancePreference = () => {
             </View>
           </View>
         ) : null}
+
+        <View className="h-px bg-m3-outline-variant" />
+
+        <View className="p-4">
+          <AppText role="bodyLargeEmphasized" className="text-m3-on-surface">
+            UI layout
+          </AppText>
+          <AppText
+            role="bodySmall"
+            className="mt-1 text-m3-on-surface-variant">
+            Auto detects phones and TV boxes; force the mobile or TV layout
+            when a device is detected wrongly
+          </AppText>
+          <View className="mt-4 flex-row gap-3">
+            {UI_MODES.map(mode => {
+              const isSelected = uiMode === mode.id;
+              return (
+                <Pressable
+                  key={mode.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${mode.label} UI layout`}
+                  accessibilityState={{selected: isSelected}}
+                  onPress={() => {
+                    setUiModeState(mode.id);
+                    settingsStorage.setUiMode(mode.id);
+                  }}
+                  style={{
+                    alignItems: 'center',
+                    borderColor: isSelected
+                      ? colors.onSurface
+                      : colors.outlineVariant,
+                    borderRadius: 18,
+                    borderWidth: isSelected ? 3 : 1,
+                    flexDirection: 'row',
+                    gap: 6,
+                    height: 44,
+                    paddingHorizontal: 16,
+                  }}>
+                  <MaterialCommunityIcons
+                    name={mode.icon as any}
+                    size={18}
+                    color={isSelected ? colors.onSurface : colors.onSurfaceVariant}
+                  />
+                  <AppText
+                    role="bodyMediumEmphasized"
+                    className={
+                      isSelected
+                        ? 'text-m3-on-surface'
+                        : 'text-m3-on-surface-variant'
+                    }>
+                    {mode.label}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </View>
+          {uiMode !== 'auto' ? (
+            <AppText
+              role="bodySmall"
+              className="mt-3 text-m3-on-surface-variant">
+              Most screens switch immediately — restart the app to apply it
+              everywhere
+            </AppText>
+          ) : null}
+        </View>
+
+        <View className="h-px bg-m3-outline-variant" />
 
         <SettingsSwitchRow
           title="Dynamic info accent"

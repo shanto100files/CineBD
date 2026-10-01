@@ -3,6 +3,9 @@
  */
 
 import {AppRegistry} from 'react-native';
+// Must run before the app module tree evaluates: overrides Platform.isTV
+// from the Settings > Appearance "UI layout" choice (auto/mobile/tv).
+import './src/lib/uiMode';
 import App from './src/App';
 import notifee from '@notifee/react-native';
 

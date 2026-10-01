@@ -1,13 +1,13 @@
 /**
  * Android TV support:
- *  - LEANBACK_LAUNCHER intent-filter so the app appears on TV home screens.
+ *  - LEANBACK_LAUNCHER category on the existing launcher entry (the alias
+ *    from with-dynamic-launcher-splash) so the app appears on TV home
+ *    screens. Never creates its own launcher entry.
  *  - android.software.leanback feature (required=false: the same APK still
- *    installs on phones and keeps both launcher entries there).
+ *    installs on phones).
  *  - touchscreen feature marked not-required (TV boxes have no touchscreen;
  *    installers/stores reject apps that require one).
  *  - TV banner (320x180 drawable + android:banner attr) for the TV launcher.
- *  - landscape-only screenOrientation on the main activity (TV panels are
- *    fixed landscape; RN orientation calls are skipped on TV at runtime).
  */
 const fs = require('fs');
 const path = require('path');
@@ -63,38 +63,46 @@ const withAndroidTV = config => {
     upsertFeature('android.hardware.touchscreen', 'false');
     manifest.manifest['uses-feature'] = usesFeature;
 
-    const activity = app?.activity?.[0];
-    if (activity) {
-      const filters = activity['intent-filter'] || [];
-      let mainFilter = filters.find(
-        f =>
-          Array.isArray(f['action']) &&
-          f['action'].some(
-            a => a?.$?.['android:name'] === 'android.intent.action.MAIN',
-          ),
+    // Add LEANBACK_LAUNCHER to every existing MAIN launcher entry — activities
+    // AND activity-aliases (the single launcher component is the
+    // LauncherWhite alias created by with-dynamic-launcher-splash).
+    // This must NEVER create a MAIN filter or add the phone LAUNCHER
+    // category: Expo may run this mod AFTER the splash plugin stripped the
+    // launcher intents, and re-creating them produced a second launcher icon
+    // on phones (the v5.7.15/16 double-app bug).
+    const isLauncherFilter = filter =>
+      filter.action?.some(
+        a => a?.$?.['android:name'] === 'android.intent.action.MAIN',
+      )
+      && filter.category?.some(c =>
+        ['android.intent.category.LAUNCHER', 'android.intent.category.LEANBACK_LAUNCHER']
+          .includes(c?.$?.['android:name']),
       );
-      if (!mainFilter) {
-        mainFilter = {
-          action: [{$: {'android:name': 'android.intent.action.MAIN'}}],
-          category: [],
-        };
-        filters.push(mainFilter);
+    const ensureLeanback = component => {
+      for (const filter of component['intent-filter'] || []) {
+        if (!isLauncherFilter(filter)) {
+          continue;
+        }
+        filter.category = Array.isArray(filter.category)
+          ? filter.category
+          : [];
+        if (
+          !filter.category.some(
+            c => c?.$?.['android:name']
+              === 'android.intent.category.LEANBACK_LAUNCHER',
+          )
+        ) {
+          filter.category.push({
+            $: {'android:name': 'android.intent.category.LEANBACK_LAUNCHER'},
+          });
+        }
       }
-      const categories = (mainFilter.category =
-        mainFilter.category && Array.isArray(mainFilter.category)
-          ? mainFilter.category
-          : []);
-      const hasCategory = name =>
-        categories.some(c => c?.$?.['android:name'] === name);
-      if (!hasCategory('android.intent.category.LAUNCHER')) {
-        categories.push({$: {'android:name': 'android.intent.category.LAUNCHER'}});
-      }
-      if (!hasCategory('android.intent.category.LEANBACK_LAUNCHER')) {
-        categories.push({
-          $: {'android:name': 'android.intent.category.LEANBACK_LAUNCHER'},
-        });
-      }
-      activity['intent-filter'] = filters;
+    };
+    for (const activity of app?.activity || []) {
+      ensureLeanback(activity);
+    }
+    for (const alias of app?.['activity-alias'] || []) {
+      ensureLeanback(alias);
     }
 
     return modConfig;

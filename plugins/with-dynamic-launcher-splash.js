@@ -52,45 +52,37 @@ const createLauncherAlias = (packageName, variant) => ({
   'intent-filter': [
     {
       action: [{$: {'android:name': 'android.intent.action.MAIN'}}],
-      category: [{$: {'android:name': 'android.intent.category.LAUNCHER'}}],
+      category: [
+        {$: {'android:name': 'android.intent.category.LAUNCHER'}},
+        {$: {'android:name': 'android.intent.category.LEANBACK_LAUNCHER'}},
+      ],
     },
   ],
 });
 
-// The activity can be registered as `.MainActivity` (relative, older Expo
-// templates) or `com.<pkg>.MainActivity` (fully-qualified, current templates).
-// Only matching one form left the other intact and produced TWO launcher
-// entries in the installed app: the alias plus the untouched activity.
-const isMainActivity = (activity, packageName) => {
-  const name = activity?.$?.['android:name'];
-  return name === '.MainActivity' || name === `${packageName}.MainActivity`;
-};
-
+// Any activity carrying MAIN + (LAUNCHER or LEANBACK_LAUNCHER) is a launcher
+// entry. Drop ALL of them: the alias created below is the single launcher
+// component for both phones (LAUNCHER) and TV home screens (LEANBACK).
+// Mod execution order in Expo is not guaranteed relative to with-android-tv,
+// so this must be idempotent and order-agnostic — a previous attempt that
+// matched only ".MainActivity" (and ran before the TV plugin re-added the
+// filter) shipped TWO launcher entries in the installed APK.
 const removeLauncherIntent = activity => {
-  activity['intent-filter'] = (activity['intent-filter'] || []).flatMap(filter => {
-    const actions = (filter.action || []).map(
-      action => action?.$?.['android:name'],
+  activity['intent-filter'] = (activity['intent-filter'] || []).filter(filter => {
+    const isMain = filter.action?.some(
+      action => action?.$?.['android:name'] === 'android.intent.action.MAIN',
     );
-    if (!actions.includes('android.intent.action.MAIN')) {
-      return [filter];
+    if (!isMain) {
+      return true;
     }
     const categories = (filter.category || []).map(
       category => category?.$?.['android:name'],
     );
-    if (categories.includes('android.intent.category.LEANBACK_LAUNCHER')) {
-      // Keep MAIN + LEANBACK_LAUNCHER (added by with-android-tv) so the app
-      // still shows on TV home screens; drop only the phone LAUNCHER
-      // category so the alias stays the sole phone launcher entry.
-      filter.category = (filter.category || []).filter(
-        category =>
-          category?.$?.['android:name']
-            !== 'android.intent.category.LAUNCHER',
-      );
-      return [filter];
-    }
-    // No TV launcher on this filter: drop the whole MAIN filter — the
-    // activity-alias below provides the single phone launcher entry.
-    return [];
+    const isLauncherFilter = categories.includes(
+      'android.intent.category.LAUNCHER',
+    )
+      || categories.includes('android.intent.category.LEANBACK_LAUNCHER');
+    return !isLauncherFilter;
   });
 };
 
@@ -100,16 +92,8 @@ const withLauncherManifest = config =>
     if (!application) {
       return manifestConfig;
     }
-    const mainActivity = application.activity?.find(activity =>
-      isMainActivity(activity, manifestConfig.android?.package),
-    );
-    if (mainActivity) {
-      removeLauncherIntent(mainActivity);
-    } else {
-      console.warn(
-        'with-dynamic-launcher-splash: MainActivity not found in manifest; '
-          + 'leaving its launcher intent untouched',
-      );
+    for (const activity of application.activity || []) {
+      removeLauncherIntent(activity);
     }
     application['activity-alias'] = variants
       .filter(variant => variant.enabled)

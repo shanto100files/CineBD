@@ -18,6 +18,7 @@ export enum SettingsKeys {
   CUSTOM_COLOR = 'customColor',
   ACCENT_SOURCE = 'accentSource',
   LAUNCHER_ICON = 'launcherIcon',
+  UI_MODE = 'uiMode',
   DYNAMIC_INFO_ACCENT = 'dynamicInfoAccent',
   // Feedback settings
   HAPTIC_FEEDBACK = 'hapticFeedback',
@@ -140,6 +141,19 @@ export class SettingsStorage {
     icon: 'white' | 'tomato' | 'gray' | 'blue' | 'lavender',
   ): void {
     mainStorage.setString(SettingsKeys.LAUNCHER_ICON, icon);
+  }
+
+  /**
+   * UI layout override: 'auto' follows Platform.isTV (device detection);
+   * 'mobile' / 'tv' force the respective interface regardless of device.
+   */
+  getUiMode(): 'auto' | 'mobile' | 'tv' {
+    const mode = mainStorage.getString(SettingsKeys.UI_MODE);
+    return mode === 'mobile' || mode === 'tv' ? mode : 'auto';
+  }
+
+  setUiMode(mode: 'auto' | 'mobile' | 'tv'): void {
+    mainStorage.setString(SettingsKeys.UI_MODE, mode);
   }
 
   // UI preferences
