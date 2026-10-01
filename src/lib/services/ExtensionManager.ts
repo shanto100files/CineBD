@@ -7,7 +7,7 @@ import {
 } from '../storage/extensionStorage';
 import {mainStorage} from '../storage/StorageService';
 import {createProviderSource} from '../utils/helpers';
-import { HARDCODED_KILL_KEY } from './initService';
+import {HARDCODED_KILL_KEY, compareVersions} from './initService';
 /**
  * Extension manager service for handling dynamic provider loading
  */
@@ -465,6 +465,12 @@ export class ExtensionManager {
       // list, otherwise freshly granted providers miss this session.
       await this.autoInstallNewProviders();
       this.syncAccessModes();
+      // PLUGIN-VERSION-SYNC: autoInstall only installs NEW providers — it never
+      // refreshes the module code of already-installed ones, so a server-side
+      // plugin fix (e.g. MovieLinkBD season parsing) would only reach fresh
+      // installs. Every startup, re-download modules for installed providers
+      // whose manifest version is newer than the cached one (throttled 30 min).
+      await this.refreshOutdatedProviderModules();
       // Re-gate the visible provider list NOW: auto-install may have just
       // added newly-granted providers, and the entitlement filter may have
       // run earlier with the OLD installed list (race) — without this the
@@ -528,6 +534,59 @@ export class ExtensionManager {
       }
     } catch (error) {
       console.warn('syncAccessModes failed:', error);
+    }
+  }
+
+  /**
+   * PLUGIN-VERSION-SYNC: re-download module code for installed providers whose
+   * manifest version is newer than the cached module version. Silent + throttled
+   * so a burst of plugin releases does not hammer the server on every launch.
+   */
+  private async refreshOutdatedProviderModules(): Promise<void> {
+    try {
+      const source = this.getActiveSource();
+      if (!source) return;
+      const throttleKey = 'plugin_version_sync_last_at';
+      const now = Date.now();
+      if (now - Number(mainStorage.getString(throttleKey) || 0) < 30 * 60 * 1000) {
+        return;
+      }
+      mainStorage.setString(throttleKey, String(now));
+
+      const manifest = extensionStorage.getManifestCache(source.author);
+      if (manifest.length === 0) return;
+      const versionByValue = new Map(manifest.map(p => [p.value, p.version]));
+      const installed = extensionStorage.getInstalledProviders();
+
+      const outdated = installed.filter(p => {
+        const latest = versionByValue.get(p.value);
+        if (!latest) return false;
+        const cached = extensionStorage.getProviderModules(p.value, p.source?.author);
+        const cachedVersion = cached?.version || p.version;
+        // local<min semantic: true means `cachedVersion` is older than `latest`
+        return compareVersions(cachedVersion, latest);
+      });
+      if (outdated.length === 0) return;
+
+      console.log(
+        `PLUGIN-VERSION-SYNC: refreshing ${outdated.length} outdated provider module(s): ${outdated.map(p => p.value).join(', ')}`,
+      );
+      await Promise.allSettled(
+        outdated.map(async p => {
+          const manifestProvider = manifest.find(m => m.value === p.value);
+          if (!manifestProvider) return;
+          await this.downloadProviderModules(
+            p.source?.url || source.url,
+            p.source?.author || source.author,
+            p.value,
+            manifestProvider.version,
+          );
+          extensionStorage.installProvider(manifestProvider);
+          console.log(`PLUGIN-VERSION-SYNC: refreshed ${p.value} -> ${manifestProvider.version}`);
+        }),
+      );
+    } catch (error) {
+      console.warn('PLUGIN-VERSION-SYNC failed:', error);
     }
   }
 
