@@ -119,6 +119,26 @@ function autoGroupEpisodesBySeason(
     return [episodes];
   }
 
+  // Guard: if the remaining list is in strictly DESCENDING episode order the
+  // provider simply returned newest-first cards; a descending run is NOT a
+  // sequence of season resets, so treat it as a single season instead of
+  // splitting it wrongly into fake seasons.
+  if (episodes.length >= 4) {
+    const nums = episodes
+      .map(ep => detectEpisodeFromTitle(ep.title))
+      .filter((n): n is number => n !== null);
+    if (nums.length >= 4) {
+      let descendingRun = true;
+      for (let i = 1; i < nums.length; i++) {
+        if (nums[i] > nums[i - 1]) {
+          descendingRun = false;
+          break;
+        }
+      }
+      if (descendingRun) return [episodes];
+    }
+  }
+
   const groups: EpisodeLink[][] = [];
   let current: EpisodeLink[] = [];
   let prevEpNum: number | null = null;
