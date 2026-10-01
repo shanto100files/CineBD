@@ -57,13 +57,41 @@ const createLauncherAlias = (packageName, variant) => ({
   ],
 });
 
+// The activity can be registered as `.MainActivity` (relative, older Expo
+// templates) or `com.<pkg>.MainActivity` (fully-qualified, current templates).
+// Only matching one form left the other intact and produced TWO launcher
+// entries in the installed app: the alias plus the untouched activity.
+const isMainActivity = (activity, packageName) => {
+  const name = activity?.$?.['android:name'];
+  return name === '.MainActivity' || name === `${packageName}.MainActivity`;
+};
+
 const removeLauncherIntent = activity => {
-  activity['intent-filter'] = (activity['intent-filter'] || []).filter(
-    filter =>
-      !filter.action?.some(
-        action => action?.$?.['android:name'] === 'android.intent.action.MAIN',
-      ),
-  );
+  activity['intent-filter'] = (activity['intent-filter'] || []).flatMap(filter => {
+    const actions = (filter.action || []).map(
+      action => action?.$?.['android:name'],
+    );
+    if (!actions.includes('android.intent.action.MAIN')) {
+      return [filter];
+    }
+    const categories = (filter.category || []).map(
+      category => category?.$?.['android:name'],
+    );
+    if (categories.includes('android.intent.category.LEANBACK_LAUNCHER')) {
+      // Keep MAIN + LEANBACK_LAUNCHER (added by with-android-tv) so the app
+      // still shows on TV home screens; drop only the phone LAUNCHER
+      // category so the alias stays the sole phone launcher entry.
+      filter.category = (filter.category || []).filter(
+        category =>
+          category?.$?.['android:name']
+            !== 'android.intent.category.LAUNCHER',
+      );
+      return [filter];
+    }
+    // No TV launcher on this filter: drop the whole MAIN filter — the
+    // activity-alias below provides the single phone launcher entry.
+    return [];
+  });
 };
 
 const withLauncherManifest = config =>
@@ -72,11 +100,16 @@ const withLauncherManifest = config =>
     if (!application) {
       return manifestConfig;
     }
-    const mainActivity = application.activity?.find(
-      activity => activity?.$?.['android:name'] === '.MainActivity',
+    const mainActivity = application.activity?.find(activity =>
+      isMainActivity(activity, manifestConfig.android?.package),
     );
     if (mainActivity) {
       removeLauncherIntent(mainActivity);
+    } else {
+      console.warn(
+        'with-dynamic-launcher-splash: MainActivity not found in manifest; '
+          + 'leaving its launcher intent untouched',
+      );
     }
     application['activity-alias'] = variants
       .filter(variant => variant.enabled)
