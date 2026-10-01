@@ -3,9 +3,10 @@
  */
 
 import {AppRegistry} from 'react-native';
-// Must run before the app module tree evaluates: overrides Platform.isTV
-// from the Settings > Appearance "UI layout" choice (auto/mobile/tv).
-import './src/lib/uiMode';
+// NOTE: do NOT import uiMode here. Installing the Platform.isTV override
+// during bootstrap (v5.7.17) pulled the MMKV storage graph into the earliest
+// startup window and hard-crashed the app before any UI/error reporting.
+// The override installs after app init from App.tsx instead.
 import App from './src/App';
 import notifee from '@notifee/react-native';
 

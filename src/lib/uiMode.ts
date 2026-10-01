@@ -3,41 +3,71 @@ import {Platform} from 'react-native';
 export type UiMode = 'auto' | 'mobile' | 'tv';
 
 /**
- * Reads the UI mode override without touching MMKV until it is first needed.
- * 'auto' (default) follows the real device detection (Platform.isTV).
+ * UI layout override (Settings > Appearance > UI layout: auto/mobile/tv).
+ *
+ * v5.7.17 installed this from index.js BEFORE the app module tree evaluated.
+ * That dragged the MMKV storage graph into the earliest bootstrap window and
+ * hard-crashed phones on startup ("keeps stopping") — too early for any OTA
+ * self-heal, so v5.7.18 removes the startup install entirely. The override is
+ * now installed explicitly AFTER app init (App.tsx), and even then every step
+ * is guarded: a storage failure just means "follow the real device".
  */
-const readUiMode = (): UiMode => {
+
+// Snapshot of the real device detection, taken when this module is first
+// imported (post-init, long after RN is up). 'auto' mode keeps using it.
+let realIsTV = false;
+let realCaptured = false;
+
+// Resolved once from storage, then memoized: the getter never re-enters
+// require() on every Platform.isTV access. A restart applies changes fully.
+let override: 'mobile' | 'tv' | null = null;
+let resolved = false;
+
+let installed = false;
+
+const readOverride = (): 'mobile' | 'tv' | null => {
+  if (resolved) {
+    return override;
+  }
+  resolved = true;
   try {
-    // Lazy require: settings storage (MMKV) must not load before the app
-    // bootstrap is ready — index.js imports this module first.
+    // Lazy require: the storage graph (MMKV) must already be up by the time
+    // this runs — install happens after app init, never during bootstrap.
     const {settingsStorage} = require('./storage');
     const mode = settingsStorage.getUiMode();
     if (mode === 'mobile' || mode === 'tv') {
-      return mode;
+      override = mode;
     }
   } catch {
-    // Storage unavailable — fall back to real device detection.
+    // Storage unavailable — follow the real device detection.
+    override = null;
   }
-  return 'auto';
+  return override;
 };
 
 /**
- * Overrides React Native's Platform.isTV with the user's UI mode choice so
- * every existing call site — app components AND third-party libraries —
- * follows it. Some modules capture Platform.isTV at import time, so a full
- * app restart guarantees the layout is applied everywhere.
+ * Make every Platform.isTV read follow the user's UI layout choice so the
+ * whole app — app components AND third-party libraries — obeys it. Some
+ * modules capture Platform.isTV at import time; those keep the native value
+ * until the next cold start, so a restart applies the choice everywhere.
  *
- * Must be installed before the app module tree evaluates (see index.js).
+ * Idempotent. Must NEVER be called during module evaluation — only after the
+ * app is initialized (see App.tsx).
  */
 export function installUiModeOverride(): void {
+  if (installed) {
+    return;
+  }
   try {
-    // Snapshot the real device detection once; the 'auto' mode keeps using it.
-    const realIsTV = Platform.isTV;
+    if (!realCaptured) {
+      realIsTV = Platform.isTV === true;
+      realCaptured = true;
+    }
     Object.defineProperty(Platform, 'isTV', {
       configurable: true,
       enumerable: true,
       get() {
-        const mode = readUiMode();
+        const mode = readOverride();
         if (mode === 'tv') {
           return true;
         }
@@ -47,9 +77,28 @@ export function installUiModeOverride(): void {
         return realIsTV;
       },
     });
+    installed = true;
   } catch {
-    // Never break startup over the override.
+    // Never break the app over the override.
+    installed = false;
   }
 }
 
-installUiModeOverride();
+/** Test hook: uninstall the override and forget the memoized storage read. */
+export function __resetUiModeForTests(): void {
+  try {
+    if (installed) {
+      delete (Platform as any).isTV;
+      // Restore RN's own data property from the platform constants.
+      Object.defineProperty(Platform, 'isTV', {
+        configurable: true,
+        enumerable: true,
+        writable: true,
+        value: realIsTV,
+      });
+    }
+  } catch {}
+  installed = false;
+  resolved = false;
+  override = null;
+}

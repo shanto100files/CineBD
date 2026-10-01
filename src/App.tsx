@@ -54,6 +54,7 @@ import {QueryClientProvider} from '@tanstack/react-query';
 import {initNetStatus} from './lib/netStatus';
 import * as ExpoUpdates from 'expo-updates';
 import {runOtaCheck, resetOtaThrottle} from './lib/services/otaManager';
+import {installUiModeOverride} from './lib/uiMode';
 import {useUpdates} from 'expo-updates';
 import {reportAppError, setErrorReporterUser} from './lib/services/errorReporter';
 import * as Application from 'expo-application';
@@ -998,6 +999,15 @@ const App = () => {
       clearTimeout(cap);
     };
   }, [appReady, navTreeReady, splashOverlayOpacity]);
+
+  // UI layout override (Settings > Appearance > UI layout) — must install
+  // AFTER app init. Installing it during bootstrap (v5.7.17) hard-crashed
+  // startup before any UI could render; see src/lib/uiMode.ts.
+  useEffect(() => {
+    if (appReady) {
+      installUiModeOverride();
+    }
+  }, [appReady]);
 
   // Self-hosted OTA — advanced flow:
   //  1. Background check/download after launch (never blocks startup)
