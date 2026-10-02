@@ -201,7 +201,9 @@ export default function ProfileEditScreen() {
               </View>
               {p.id === activeId && (
                 <View style={{backgroundColor: colors.primary, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginRight: 8}}>
-                  <AppText style={{color: '#FFF', fontSize: 10, fontWeight: '700'}}>সক্রিয়</AppText>
+                  {/* onPrimary, not #FFF: on a light seed the accent fill goes
+                      near-white and a hardcoded white label vanished into it. */}
+                  <AppText style={{color: colors.onPrimary, fontSize: 10, fontWeight: '700'}}>সক্রিয়</AppText>
                 </View>
               )}
               <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceVariant} />

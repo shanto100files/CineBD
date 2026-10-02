@@ -341,14 +341,14 @@ export default function AdultLockScreen() {
         </AppText>
 
         <Pressable
-          style={[st.row, {backgroundColor: colors.surfaceContainerHigh}]}
+          style={[st.row, {backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant}]}
           onPress={() => navigation.push('AdultLock', {mode: 'setup'})}>
           <MaterialCommunityIcons name="lock-reset" size={22} color={colors.primary} />
           <AppText style={{flex: 1, marginLeft: 12, color: colors.onSurface}}>পিন পরিবর্তন করুন</AppText>
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceVariant} />
         </Pressable>
 
-        <View style={[st.row, {backgroundColor: colors.surfaceContainerHigh, marginTop: 10}]}>
+        <View style={[st.row, {backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant, marginTop: 10}]}>
           <MaterialCommunityIcons name="fingerprint" size={22} color={colors.primary} />
           <View style={{flex: 1, marginLeft: 12}}>
             <AppText style={{color: colors.onSurface}}>ফিঙ্গারপ্রিন্ট দিয়ে আনলক</AppText>
@@ -385,7 +385,7 @@ export default function AdultLockScreen() {
         </View>
 
         <Pressable
-          style={[st.row, {backgroundColor: colors.surfaceContainerHigh, marginTop: 10}]}
+          style={[st.row, {backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant, marginTop: 10}]}
           onPress={removeLock}>
           <MaterialCommunityIcons name="lock-open-variant" size={22} color={colors.error} />
           <AppText style={{flex: 1, marginLeft: 12, color: colors.error}}>লক সরিয়ে ফেলুন</AppText>
@@ -419,10 +419,36 @@ export default function AdultLockScreen() {
         <MaterialCommunityIcons name="close" size={22} color={colors.onSurfaceVariant} />
       </Pressable>
 
-      <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, textAlign: 'center'}}>
+      {/* Identity mark. Without it the page was a bare title floating on
+          black and read like an Android system dialog rather than the app's
+          own gate — a two-ring medallion in the theme accent gives the screen
+          something to belong to. */}
+      <View style={st.hero}>
+        <View style={[st.heroOuter, {borderColor: colors.outlineVariant}]} />
+        <View
+          style={[
+            st.heroDisc,
+            {
+              backgroundColor: colors.surfaceContainerHigh,
+              borderColor: colors.primary,
+            },
+          ]}>
+          <MaterialCommunityIcons
+            name={startMode === 'setup' ? 'shield-key-outline' : 'shield-lock-outline'}
+            size={34}
+            color={colors.primary}
+          />
+        </View>
+      </View>
+
+      <AppText
+        role="headlineMediumEmphasized"
+        style={{color: colors.onSurface, textAlign: 'center', marginTop: 20}}>
         {title}
       </AppText>
-      <AppText style={{color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 8, paddingHorizontal: 20}}>
+      <AppText
+        role="bodyMedium"
+        style={{color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 8, paddingHorizontal: 20}}>
         {startMode === 'setup'
           ? stage === 'enter'
             ? '৪-৮ ডিজিটের পিন দিন — এটা ছাড়া 18+ চালু হবে না'
@@ -430,26 +456,67 @@ export default function AdultLockScreen() {
           : 'পিন দিন বা ফিঙ্গারপ্রিন্ট ব্যবহার করুন'}
       </AppText>
 
-      {/* dots */}
+      {/* PIN dots: a filled dot lights up in the accent with a soft glow and
+          an empty one is outlined. Two flat greys read as "disabled" rather
+          than "not typed yet". */}
       <View style={st.dotsRow}>
-        {Array.from({length: Math.max(ADULT_PIN_MIN, pin.length || ADULT_PIN_MIN)}).map((_, i) => (
-          <View
-            key={i}
-            style={[
-              st.dot,
-              {backgroundColor: i < pin.length ? colors.primary : colors.surfaceContainerHighest},
-            ]}
-          />
-        ))}
+        {Array.from({length: Math.max(ADULT_PIN_MIN, pin.length || ADULT_PIN_MIN)}).map((_, i) => {
+          const filled = i < pin.length;
+          return (
+            <View
+              key={i}
+              style={[
+                st.dot,
+                filled
+                  ? {
+                      backgroundColor: colors.primary,
+                      shadowColor: colors.primary,
+                      shadowOpacity: 0.65,
+                      shadowRadius: 6,
+                      shadowOffset: {width: 0, height: 0},
+                      elevation: 4,
+                    }
+                  : {
+                      backgroundColor: colors.surfaceContainerHighest,
+                      borderWidth: 1,
+                      borderColor: colors.outlineVariant,
+                    },
+              ]}
+            />
+          );
+        })}
       </View>
 
+      {/* Fingerprint as a real button. It used to be a bare 40px glyph with a
+          label under it — nothing signalled "tap me". */}
       {startMode === 'unlock' && pinSet && bioOn && bioAvailable && (
-        <Pressable style={{alignItems: 'center', marginBottom: 8}} disabled={busy} onPress={() => tryBiometric()}>
-          <MaterialCommunityIcons name="fingerprint" size={40} color={bioFailed ? colors.error : colors.primary} />
-          <AppText style={{color: bioFailed ? colors.error : colors.primary, fontSize: 12}}>
+        <View style={{alignItems: 'center', marginTop: 2}}>
+          <Pressable
+            disabled={busy}
+            onPress={() => tryBiometric()}
+            style={({pressed}) => [
+              st.bioBtn,
+              {
+                backgroundColor: colors.surfaceContainerHigh,
+                borderColor: bioFailed ? colors.error : colors.outlineVariant,
+                opacity: pressed ? 0.78 : 1,
+              },
+            ]}>
+            <MaterialCommunityIcons
+              name="fingerprint"
+              size={34}
+              color={bioFailed ? colors.error : colors.primary}
+            />
+          </Pressable>
+          <AppText
+            role="labelMedium"
+            style={{
+              marginTop: 7,
+              color: bioFailed ? colors.error : colors.onSurfaceVariant,
+            }}>
             {bioFailed ? 'আবার ফিঙ্গারপ্রিন্ট দিন' : 'ফিঙ্গারপ্রিন্ট'}
           </AppText>
-        </Pressable>
+        </View>
       )}
       {startMode === 'unlock' && pinSet && bioOn && !bioAvailable && (
         <AppText
@@ -464,26 +531,38 @@ export default function AdultLockScreen() {
         </AppText>
       )}
 
-      <View style={st.pad}>
-        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
+      {/* The keypad lives in its own panel. On a flat black page the digits
+          had no affordance at all — nothing read as tappable, and the pad
+          floated in the same void as the title. */}
+      <View
+        style={[
+          st.panel,
+          {backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant},
+        ]}>
+        <View style={st.pad}>
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
+            <PadKey
+              key={d}
+              label={d}
+              onPress={() => pressDigit(d)}
+              hasTVPreferredFocus={d === '5'}
+            />
+          ))}
+          <PadKey label="" onPress={() => {}} ghost />
+          <PadKey label="0" onPress={() => pressDigit('0')} />
           <PadKey
-            key={d}
-            label={d}
-            onPress={() => pressDigit(d)}
-            hasTVPreferredFocus={d === '5'}
+            icon="backspace-outline"
+            onPress={pressBackspace}
           />
-        ))}
-        <PadKey label="" onPress={() => {}} ghost />
-        <PadKey label="0" onPress={() => pressDigit('0')} />
-        <PadKey
-          icon="backspace-outline"
-          onPress={pressBackspace}
-        />
+        </View>
       </View>
 
       {/* Fixed-height slot, not a conditional: the pad used to jump the
           moment the first digit landed (and again when cleared) because the
-          button mounted/dismounted with pin.length. */}
+          button mounted/dismounted with pin.length. The CTA uses primary +
+          onPrimary rather than the *Container roles: on a light seed the
+          container pair washed out, while an accent fill reads as a real
+          call to action. */}
       <View style={st.actionSlot}>
         {pin.length >= ADULT_PIN_MIN ? (
           busy ? (
@@ -491,9 +570,16 @@ export default function AdultLockScreen() {
           ) : (
             <Pressable
               focusable
-              style={[st.doneBtn, {backgroundColor: colors.primaryContainer}]}
+              style={({pressed}) => [
+                st.doneBtn,
+                {
+                  backgroundColor: colors.primary,
+                  opacity: pressed ? 0.85 : 1,
+                  transform: [{scale: pressed ? 0.985 : 1}],
+                },
+              ]}
               onPress={() => submitPin(pin)}>
-              <AppText style={[st.doneTxt, {color: colors.onPrimaryContainer}]}>
+              <AppText role="labelLargeEmphasized" style={[st.doneTxt, {color: colors.onPrimary}]}>
                 {startMode === 'setup' ? 'পরবর্তী' : 'আনলক করুন'}
               </AppText>
             </Pressable>
@@ -538,26 +624,27 @@ const PadKey = ({
       style={({pressed}) => [
         st.key,
         {
-          // surfaceContainerHigh (#222222) on a #000 page read as "no key
-          // at all"; Highest + an outline makes the pad legible.
-          backgroundColor: colors.surfaceContainerHighest,
+          // Highest + an outline makes the pad legible; pressed tints a step
+          // darker and shrinks so a tap feels like a physical key press.
+          backgroundColor: pressed
+            ? colors.surfaceContainerHighest
+            : colors.surfaceContainerHigh,
           borderWidth: isTv && focused ? 3 : 1,
           borderColor: isTv && focused ? colors.primary : colors.outlineVariant,
-          transform: [{scale: isTv && focused ? 1.12 : 1}],
-          opacity: pressed ? 0.8 : 1,
+          transform: [{scale: isTv && focused ? 1.12 : pressed ? 0.96 : 1}],
+          opacity: 1,
         },
       ]}>
       {icon ? (
         <MaterialCommunityIcons name={icon} size={26} color={colors.onSurface} />
       ) : label ? (
-        <AppText style={st.keyTxt}>{label}</AppText>
+        <AppText style={[st.keyTxt, {color: colors.onSurface}]}>{label}</AppText>
       ) : null}
     </Pressable>
   );
 };
 
 const st = StyleSheet.create({
-  full: {flex: 1},
   // justifyContent:'center' is the whole fix for the dead space: children
   // were packing against the top edge and leaving a ~300dp void below the
   // pad. paddingBottom keeps the block clear of the tab bar.
@@ -578,30 +665,77 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dotsRow: {flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 26, marginBottom: 18},
-  dot: {width: 14, height: 14, borderRadius: 7},
-  // 3x72dp keys + 2x14dp gaps = 244dp. Horizontal inset now lives solely on
-  // padWrap (16dp/side), so available width is screenWidth-32 and the 4x3
-  // grid survives down to a 276dp screen — 320dp devices get 288dp >= 244dp,
-  // i.e. still exactly 3 columns. Do not re-add side padding here: padWrap's
-  // inset plus an inner one pushed 320dp phones back under the threshold.
+  // Two concentric rings instead of a bare icon: the outer hairline separates
+  // the medallion from the black page, the inner accent ring ties it to the
+  // filled PIN dots below.
+  hero: {
+    width: 92,
+    height: 92,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroOuter: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 46, borderWidth: 1},
+  heroDisc: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotsRow: {flexDirection: 'row', justifyContent: 'center', gap: 13, marginTop: 24, marginBottom: 18},
+  dot: {width: 15, height: 15, borderRadius: 8},
+  // Own surface so the digits sit on something rather than floating on the
+  // page. Padding is small on purpose: 3x72dp keys + 2x14dp gaps = 244dp, and
+  // padWrap(16) + this panel(12) must leave a 320dp screen >= 244dp wide.
+  panel: {
+    width: '100%',
+    borderRadius: 26,
+    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    marginTop: 4,
+  },
+  bioBtn: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // 3x72dp keys + 2x14dp gaps = 244dp. Horizontal inset lives on padWrap (16)
+  // plus this panel (12) — a 320dp screen yields 320-32-24 = 264dp >= 244dp,
+  // i.e. still exactly 3 columns. Do not widen the panel padding: past ~20dp
+  // the grid falls back to 2 columns.
   pad: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14},
-  key: {width: 72, height: 62, borderRadius: 18, alignItems: 'center', justifyContent: 'center'},
-  keyTxt: {fontSize: 24, color: '#FFF'},
+  key: {width: 72, height: 62, borderRadius: 20, alignItems: 'center', justifyContent: 'center'},
+  // tabular-nums keeps every digit column the same width while typing.
+  keyTxt: {fontSize: 25, fontWeight: '600', fontVariant: ['tabular-nums']},
   // Reserves the action row so the keypad never shifts as digits are typed.
   actionSlot: {
     height: 52,
-    marginTop: 12,
+    marginTop: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   doneBtn: {
-    borderRadius: 14,
-    paddingHorizontal: 34,
-    paddingVertical: 13,
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
+    paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
   doneTxt: {fontWeight: '700'},
-  row: {flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 14},
+  // Shared by the settings-mode rows: a hairline outline (painted inline from
+  // the theme) turns them from grey blobs into distinct tappable cards.
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
 });

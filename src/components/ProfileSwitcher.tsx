@@ -95,7 +95,13 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
       <View
         style={[
           st.avatar,
-          {backgroundColor: p.color, borderColor: active ? colors.primary : 'transparent', borderWidth: active ? 3 : 0},
+          {
+            backgroundColor: p.color,
+            // Hairline at rest instead of nothing: an unselected tile had no
+            // edge against the sheet, so only the selected one looked real.
+            borderColor: active ? colors.primary : colors.outlineVariant,
+            borderWidth: active ? 3 : 1,
+          },
         ]}>
         <MaterialCommunityIcons
           name={(p.avatar as any) || 'account'}
@@ -103,18 +109,6 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
           color="#FFFFFF"
         />
       </View>
-      {active && (
-        <View
-          style={{
-            marginTop: 4,
-            backgroundColor: colors.primary,
-            borderRadius: 999,
-            paddingHorizontal: 9,
-            paddingVertical: 2,
-          }}>
-          <AppText style={{color: '#FFF', fontSize: 10, fontWeight: '700'}}>সক্রিয়</AppText>
-        </View>
-      )}
       {canCustomize && (
         <TvFocusable
           style={st.editBadge}
@@ -140,14 +134,26 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
       <Pressable
         style={[st.backdrop, {paddingTop: insets.top + 20, paddingBottom: insets.bottom + 24}]}
         onPress={onClose}>
-        <Pressable style={[st.sheet, {backgroundColor: colors.surfaceContainerLow}]} onPress={() => {}}>
+        <Pressable
+          style={[
+            st.sheet,
+            {backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant},
+          ]}
+          onPress={() => {}}>
+          {/* Grabber: makes the box read as a dismissible sheet instead of a
+              raw card dropped on the scrim. */}
+          <View style={[st.grabber, {backgroundColor: colors.outline}]} />
           <ScrollView
             style={{flexShrink: 1}}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{paddingBottom: 4}}>
-          <AppText role="headlineMediumEmphasized" style={st.title}>
+          <AppText role="headlineSmallEmphasized" style={st.title}>
             কে দেখছে?
           </AppText>
+          <AppText style={[st.subtitle, {color: colors.onSurfaceVariant}]}>
+            প্রোফাইল বেছে নিন
+          </AppText>
+          <View style={[st.headerRule, {backgroundColor: colors.outlineVariant}]} />
 
           {!isLoggedIn ? (
             <>
@@ -170,7 +176,10 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                     আপনার পুরনো প্রোফাইল লগইন করলে অ্যাকাউন্টে যুক্ত হবে।
                   </AppText>
                 )}
-                <TvFocusable style={st.loginBtn} onPress={goLogin} hasTVPreferredFocus>
+                <TvFocusable
+                  style={[st.loginBtn, {borderColor: colors.primary}]}
+                  onPress={goLogin}
+                  hasTVPreferredFocus>
                   <MaterialCommunityIcons name="login" size={20} color={colors.primary} />
                   <AppText style={{color: colors.primary, fontWeight: '700'}}>লগইন করুন</AppText>
                 </TvFocusable>
@@ -178,13 +187,20 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
 
               {presets.length > 0 && (
                 <>
-                  <AppText role="titleSmallEmphasized" style={{marginTop: 18, color: colors.onSurfaceVariant}}>
-                    প্রিসেট প্রোফাইল
-                  </AppText>
+                  {/* Centre-aligned with flanking rules: the section header
+                      was flush-left while every item under it was centred,
+                      so the two halves never lined up. */}
+                  <View style={st.sectionRow}>
+                    <View style={[st.sectionRule, {backgroundColor: colors.outlineVariant}]} />
+                    <AppText style={[st.sectionTxt, {color: colors.onSurfaceVariant}]}>
+                      প্রিসেট প্রোফাইল
+                    </AppText>
+                    <View style={[st.sectionRule, {backgroundColor: colors.outlineVariant}]} />
+                  </View>
                   <View style={st.grid}>
                     {presets.map(p => (
                       <TvFocusable key={p.id} style={st.avatarWrap} onPress={goLogin}>
-                        <View style={[st.avatar, {backgroundColor: p.color, opacity: 0.85}]}>
+                        <View style={[st.avatar, {backgroundColor: p.color, opacity: 0.85, borderWidth: 1, borderColor: colors.outlineVariant}]}>
                           <MaterialCommunityIcons name={(p.avatar as any) || 'shape'} size={38} color="#FFF" />
                         </View>
                         <AppText style={st.avatarName} numberOfLines={1}>
@@ -199,40 +215,10 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
           ) : (
             <>
               <View style={st.grid}>
-                {profiles.length > 0 && (
-                  <TvFocusable style={st.avatarWrap} onPress={() => onSelect(null)}>
-                    <View
-                      style={[
-                        st.avatar,
-                        {
-                          backgroundColor: colors.surfaceContainerHighest,
-                          borderColor: activeId === null ? colors.primary : 'transparent',
-                          borderWidth: activeId === null ? 3 : 0,
-                        },
-                      ]}>
-                      <MaterialCommunityIcons
-                        name="home-variant-outline"
-                        size={38}
-                        color={colors.onSurfaceVariant}
-                      />
-                    </View>
-                    <AppText style={[st.avatarName, activeId === null && {color: colors.primary, fontWeight: '700'}]}>
-                      ডিফল্ট
-                    </AppText>
-                    {activeId === null && (
-                      <View
-                        style={{
-                          marginTop: 4,
-                          backgroundColor: colors.primary,
-                          borderRadius: 999,
-                          paddingHorizontal: 9,
-                          paddingVertical: 2,
-                        }}>
-                        <AppText style={{color: '#FFF', fontSize: 10, fontWeight: '700'}}>সক্রিয়</AppText>
-                      </View>
-                    )}
-                  </TvFocusable>
-                )}
+                {/* The "ডিফল্ট" aggregate tile was removed on request: default
+                    pools the 18+ provider set together with the normal ones on
+                    one surface, so it kept them side by side anyway. Pick a
+                    real profile instead. */}
                 {profiles.map(p => (
                   <AvatarCircle
                     key={p.id}
@@ -244,7 +230,7 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                 ))}
                 {canCustomize && (
                   <TvFocusable style={st.avatarWrap} onPress={() => goEdit({})}>
-                    <View style={[st.avatar, {backgroundColor: colors.surfaceContainerHighest}]}>
+                    <View style={[st.avatar, {backgroundColor: colors.surfaceContainerHighest, borderWidth: 1, borderColor: colors.outlineVariant}]}>
                       <MaterialCommunityIcons name="plus" size={40} color={colors.onSurfaceVariant} />
                     </View>
                     <AppText style={st.avatarName}>নতুন</AppText>
@@ -254,9 +240,16 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
 
               {presets.length > 0 && (
                 <>
-                  <AppText role="titleSmallEmphasized" style={{marginTop: 18, color: colors.onSurfaceVariant}}>
-                    প্রিসেট প্রোফাইল
-                  </AppText>
+                  {/* Centre-aligned with flanking rules: the section header
+                      was flush-left while every item under it was centred,
+                      so the two halves never lined up. */}
+                  <View style={st.sectionRow}>
+                    <View style={[st.sectionRule, {backgroundColor: colors.outlineVariant}]} />
+                    <AppText style={[st.sectionTxt, {color: colors.onSurfaceVariant}]}>
+                      প্রিসেট প্রোফাইল
+                    </AppText>
+                    <View style={[st.sectionRule, {backgroundColor: colors.outlineVariant}]} />
+                  </View>
                   <View style={st.grid}>
                     {presets.map(p => {
                       const existingLocal = profiles.find(lp => lp.presetId === p.id || lp.name === p.name);
@@ -293,7 +286,7 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                               }
                             : undefined
                         }>
-                        <View style={[st.avatar, {backgroundColor: p.color, opacity: 0.85}]}>
+                        <View style={[st.avatar, {backgroundColor: p.color, opacity: 0.85, borderWidth: 1, borderColor: colors.outlineVariant}]}>
                           <MaterialCommunityIcons name={(p.avatar as any) || 'shape' } size={38} color="#FFF" />
                           {existingLocal && (
                             <View style={st.addedBadge}>
@@ -317,14 +310,16 @@ export const ProfileSwitcherModal = ({visible, onClose}: {visible: boolean; onCl
                   প্রোফাইল আপনার অ্যাকাউন্টে সংরক্ষিত হয় — নতুন ডিভাইসে লগইন করলেই পাবেন।
                 </AppText>
                 {canCustomize ? (
-                  <TvFocusable style={st.footerBtn} onPress={() => goEdit({manage: true})}>
+                  <TvFocusable
+                    style={[st.footerBtn, {backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant}]}
+                    onPress={() => goEdit({manage: true})}>
                     <MaterialCommunityIcons name="pencil" size={20} color={colors.primary} />
                     <AppText style={{color: colors.primary}}>প্রোফাইল ম্যানেজ করুন</AppText>
                   </TvFocusable>
                 ) : (
                   <>
                     <TvFocusable
-                      style={st.footerBtn}
+                      style={[st.footerBtn, {backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant}]}
                       onPress={() => {
                         const target = profiles.find(p => p.id === activeId) || profiles[0];
                         goEdit(target ? {profileId: target.id} : {});
@@ -379,20 +374,75 @@ const ProfileAvatarChip = ({onPress}: {onPress: () => void}) => {
 export default ProfileAvatarChip;
 
 const st = StyleSheet.create({
-  backdrop: {flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24},
-  sheet: {width: '100%', maxWidth: 420, maxHeight: '86%', borderRadius: 24, padding: 22, paddingBottom: 16},
-  title: {textAlign: 'center', marginBottom: 16, color: '#FFF'},
-  grid: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14},
+  backdrop: {flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24},
+  // Depth + a hairline outline so the box separates from the scrim instead of
+  // sitting on it as a flat grey card.
+  sheet: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '86%',
+    borderRadius: 28,
+    borderWidth: 1,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.55,
+    shadowRadius: 26,
+    shadowOffset: {width: 0, height: 14},
+    elevation: 14,
+  },
+  grabber: {width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 12, opacity: 0.7},
+  title: {textAlign: 'center', color: '#FFF'},
+  subtitle: {textAlign: 'center', fontSize: 13, marginTop: 4},
+  headerRule: {height: 1, borderRadius: 1, marginTop: 14, marginBottom: 2, marginHorizontal: 14},
+  sectionRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 20,
+    marginBottom: 4,
+  },
+  sectionRule: {flex: 1, height: 1, borderRadius: 1},
+  sectionTxt: {fontSize: 12, fontWeight: '700'},
+  grid: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, marginTop: 8},
   avatarWrap: {alignItems: 'center', width: 74, minHeight: 96},
-  avatar: {width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
+  // elevation/shadow lift the avatar off the sheet; the hairline resting ring
+  // (painted inline) gives unselected tiles an edge on a same-toned surface.
+  // No overflow:'hidden' — the badges are absolutely pinned past the circle.
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    shadowOffset: {width: 0, height: 3},
+    elevation: 3,
+  },
   avatarName: {marginTop: 6, fontSize: 12, color: '#DDD', maxWidth: 72},
   familyBadge: {position: 'absolute', top: 46, right: 8, backgroundColor: '#2E7D32', borderRadius: 8, padding: 2},
-  editBadge: {position: 'absolute', top: -3, right: -3, backgroundColor: '#3A3A3C', borderRadius: 11, padding: 4, borderWidth: 2, borderColor: '#1C1C1E'},
-  addedBadge: {position: 'absolute', top: -2, right: -2, backgroundColor: '#2E7D32', borderRadius: 10, padding: 2, borderWidth: 2, borderColor: '#1C1C1E'},
+  editBadge: {position: 'absolute', top: -3, right: -3, backgroundColor: '#3A3A3C', borderRadius: 11, padding: 4, borderWidth: 2, borderColor: '#141414'},
+  addedBadge: {position: 'absolute', top: -2, right: -2, backgroundColor: '#2E7D32', borderRadius: 10, padding: 2, borderWidth: 2, borderColor: '#141414'},
   guestBody: {marginTop: 8, fontSize: 13, color: '#BBB', textAlign: 'center', lineHeight: 19},
   guestNote: {marginTop: 8, fontSize: 12, color: '#8BC34A', textAlign: 'center'},
-  loginBtn: {flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, paddingHorizontal: 26, paddingVertical: 11, borderRadius: 24, borderWidth: 1.5, borderColor: 'rgba(120,140,255,0.6)'},
-  accountNote: {fontSize: 11, color: '#9E9E9E', textAlign: 'center', marginBottom: 4, paddingHorizontal: 8},
+  loginBtn: {flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, paddingHorizontal: 26, paddingVertical: 11, borderRadius: 24, borderWidth: 1.5},
+  accountNote: {fontSize: 11, color: '#9E9E9E', textAlign: 'center', marginBottom: 10, paddingHorizontal: 8},
   footerRow: {marginTop: 16, alignItems: 'center'},
-  footerBtn: {flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8},
+  // Full-width outlined pill rather than a loose icon+label floating above
+  // the sheet edge — it now reads as the sheet's primary action.
+  footerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 26,
+    borderWidth: 1,
+  },
 });
