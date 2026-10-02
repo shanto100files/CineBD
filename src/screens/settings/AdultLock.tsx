@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {
+  ActivityIndicator,
   Platform,
   Pressable,
   ScrollView,
@@ -12,7 +13,6 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AppText from '../../components/ui/Text';
 import {useM3Colors} from '../../theme/M3PaletteContext';
-import {settingsStorage} from '../../lib/storage';
 import {
   ADULT_PIN_MAX,
   ADULT_PIN_MIN,
@@ -400,20 +400,30 @@ export default function AdultLockScreen() {
   }
 
   // ---------------- pin pad (setup / unlock) ----------------
-  // NOTE: wrapped in a ScrollView on purpose. Title + subtitle + dots + the
-  // 4-row keypad + the action button is TALLER than a short (or landscape)
-  // viewport; the old bare <View flex:1> just clipped the bottom rows and the
-  // unlock button, which is what made the lock page look like its styling had
-  // collapsed.
+  // Wrapped in a ScrollView on purpose: title + subtitle + dots + the 4-row
+  // keypad + the action button outgrow a short (or landscape) viewport, and a
+  // bare <View flex:1> clipped the bottom rows. st.padWrap also CENTRES that
+  // block — children used to stack against the top edge, which left a ~300dp
+  // black void between the pad and the tab bar on tall phones.
   return (
     <ScrollView
       style={{flex: 1, backgroundColor: colors.background}}
-      contentContainerStyle={{flexGrow: 1, paddingBottom: 28}}
+      contentContainerStyle={st.padWrap}
       showsVerticalScrollIndicator={false}>
-      <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, textAlign: 'center', marginTop: 60}}>
+      {/* Every screen in this stack sets headerShown:false, so the lock page
+          needs its own way out — otherwise hardware back is the only escape. */}
+      <Pressable
+        style={st.closeBtn}
+        hitSlop={12}
+        disabled={busy}
+        onPress={() => navigation.goBack()}>
+        <MaterialCommunityIcons name="close" size={22} color={colors.onSurfaceVariant} />
+      </Pressable>
+
+      <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, textAlign: 'center'}}>
         {title}
       </AppText>
-      <AppText style={{color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 8, paddingHorizontal: 30}}>
+      <AppText style={{color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 8, paddingHorizontal: 20}}>
         {startMode === 'setup'
           ? stage === 'enter'
             ? '৪-৮ ডিজিটের পিন দিন — এটা ছাড়া 18+ চালু হবে না'
@@ -472,20 +482,25 @@ export default function AdultLockScreen() {
         />
       </View>
 
-      {startMode === 'setup' && pin.length >= ADULT_PIN_MIN && (
-        <Pressable style={st.doneBtn} onPress={() => submitPin(pin)}>
-          <AppText style={{color: colors.primary, fontWeight: '700'}}>পরবর্তী</AppText>
-        </Pressable>
-      )}
-      {startMode !== 'setup' && pin.length >= ADULT_PIN_MIN && (
-        <Pressable
-          focusable
-          style={[st.doneBtn, {backgroundColor: colors.primaryContainer, borderRadius: 14, paddingHorizontal: 28, alignSelf: 'center'}]}
-          disabled={busy}
-          onPress={() => submitPin(pin)}>
-          <AppText style={{color: colors.onPrimaryContainer, fontWeight: '700'}}>আনলক করুন</AppText>
-        </Pressable>
-      )}
+      {/* Fixed-height slot, not a conditional: the pad used to jump the
+          moment the first digit landed (and again when cleared) because the
+          button mounted/dismounted with pin.length. */}
+      <View style={st.actionSlot}>
+        {pin.length >= ADULT_PIN_MIN ? (
+          busy ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Pressable
+              focusable
+              style={[st.doneBtn, {backgroundColor: colors.primaryContainer}]}
+              onPress={() => submitPin(pin)}>
+              <AppText style={[st.doneTxt, {color: colors.onPrimaryContainer}]}>
+                {startMode === 'setup' ? 'পরবর্তী' : 'আনলক করুন'}
+              </AppText>
+            </Pressable>
+          )
+        ) : null}
+      </View>
     </ScrollView>
   );
 }
@@ -524,10 +539,12 @@ const PadKey = ({
       style={({pressed}) => [
         st.key,
         {
-          backgroundColor: colors.surfaceContainerHigh,
+          // surfaceContainerHigh (#222222) on a #000 page read as "no key
+          // at all"; Highest + an outline makes the pad legible.
+          backgroundColor: colors.surfaceContainerHighest,
+          borderWidth: isTv && focused ? 3 : 1,
+          borderColor: isTv && focused ? colors.primary : colors.outlineVariant,
           transform: [{scale: isTv && focused ? 1.12 : 1}],
-          borderWidth: isTv && focused ? 3 : 0,
-          borderColor: isTv && focused ? colors.primary : 'transparent',
           opacity: pressed ? 0.8 : 1,
         },
       ]}>
@@ -542,14 +559,50 @@ const PadKey = ({
 
 const st = StyleSheet.create({
   full: {flex: 1},
-  dotsRow: {flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 30, marginBottom: 20},
+  // justifyContent:'center' is the whole fix for the dead space: children
+  // were packing against the top edge and leaving a ~300dp void below the
+  // pad. paddingBottom keeps the block clear of the tab bar.
+  padWrap: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+  },
+  // alignSelf, not position:'absolute' — inside a ScrollView contentContainer
+  // it is unclear whether absolute offsets from the padding or border box, so
+  // a plain top-left flow item is predictable.
+  closeBtn: {
+    alignSelf: 'flex-start',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotsRow: {flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 26, marginBottom: 18},
   dot: {width: 14, height: 14, borderRadius: 7},
-  // 3x72dp keys + 2x14dp gaps = 244dp. The old 40dp side padding needed a
-  // 324dp-wide screen, so anything narrower wrapped the grid into a ragged
-  // 2-column blob. 16dp keeps the 4x3 pad intact from 276dp upwards.
-  pad: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, paddingHorizontal: 16},
-  key: {width: 72, height: 62, borderRadius: 16, alignItems: 'center', justifyContent: 'center'},
+  // 3x72dp keys + 2x14dp gaps = 244dp. Horizontal inset now lives solely on
+  // padWrap (16dp/side), so available width is screenWidth-32 and the 4x3
+  // grid survives down to a 276dp screen — 320dp devices get 288dp >= 244dp,
+  // i.e. still exactly 3 columns. Do not re-add side padding here: padWrap's
+  // inset plus an inner one pushed 320dp phones back under the threshold.
+  pad: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14},
+  key: {width: 72, height: 62, borderRadius: 18, alignItems: 'center', justifyContent: 'center'},
   keyTxt: {fontSize: 24, color: '#FFF'},
-  doneBtn: {alignItems: 'center', padding: 14, marginTop: 8},
+  // Reserves the action row so the keypad never shifts as digits are typed.
+  actionSlot: {
+    height: 52,
+    marginTop: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneBtn: {
+    borderRadius: 14,
+    paddingHorizontal: 34,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneTxt: {fontWeight: '700'},
   row: {flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 14},
 });
