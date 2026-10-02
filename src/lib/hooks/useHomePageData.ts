@@ -1,5 +1,6 @@
-import React, {useEffect, useState} from 'react';
-import {useQuery} from '@tanstack/react-query';
+import React, {useEffect} from 'react';
+import {InteractionManager} from 'react-native';
+import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {getHomePageData, HomePageData} from '../getHomepagedata';
 import {Content} from '../zustand/contentStore';
 import {cacheStorage} from '../storage';
@@ -25,6 +26,71 @@ async function syncToServer(providerValue: string, sections: HomePageData[]) {
     }, {timeout: 10000});
   } catch {}
 }
+
+/**
+ * The home rows are cached PER identity (profile | providers | token) instead
+ * of in one shared slot.
+ *
+ * The single slot meant a profile switch produced a brand-new query key with
+ * nothing to seed it, so every profile change fell back to the bare skeleton
+ * and re-fetched all 16 rows from scratch. Keying by the signature lets a
+ * profile paint its own rows immediately and refresh behind them.
+ */
+const HOME_CACHE_PREFIX = 'homeDataAggregate::';
+/** LRU list of the signatures currently held, newest first. */
+const HOME_CACHE_INDEX = 'homeDataAggregate:sigs';
+/** The pre-per-signature slot, still read once so the first run after this
+ *  change does not throw away a warm cache. */
+const HOME_CACHE_LEGACY = 'homeDataAggregate';
+/** Bounded: many profiles / repeated logins must not grow the cache forever. */
+const HOME_CACHE_KEEP = 6;
+
+interface HomeCacheEntry {
+  /** ms epoch of the FETCH that produced `data` (0 = never fetched / legacy). */
+  updatedAt: number;
+  data: HomePageData[];
+}
+
+const readHomeCache = (sig: string): HomeCacheEntry | undefined => {
+  try {
+    const raw = cacheStorage.getString(HOME_CACHE_PREFIX + sig);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.data)) {
+        return {updatedAt: Number(parsed.updatedAt) || 0, data: parsed.data};
+      }
+    }
+    const legacy = cacheStorage.getString(HOME_CACHE_LEGACY);
+    if (legacy) {
+      const parsed = JSON.parse(legacy);
+      if (parsed && Array.isArray(parsed.data) && parsed.sig === sig) {
+        // No timestamp in the old slot: seeds as stale, so it repaints at once
+        // and refetches — the previous behaviour, minus the spinner.
+        return {updatedAt: 0, data: parsed.data};
+      }
+    }
+  } catch {}
+  return undefined;
+};
+
+const writeHomeCache = (sig: string, entry: HomeCacheEntry): void => {
+  try {
+    cacheStorage.setString(HOME_CACHE_PREFIX + sig, JSON.stringify(entry));
+    let index: string[] = [];
+    try {
+      const parsed = JSON.parse(cacheStorage.getString(HOME_CACHE_INDEX) || '[]');
+      if (Array.isArray(parsed)) {
+        index = parsed.filter((s: unknown) => typeof s === 'string');
+      }
+    } catch {}
+    index = [sig, ...index.filter(s => s !== sig)];
+    const evicted = index.slice(HOME_CACHE_KEEP);
+    index = index.slice(0, HOME_CACHE_KEEP);
+    evicted.forEach(s => cacheStorage.delete(HOME_CACHE_PREFIX + s));
+    cacheStorage.setString(HOME_CACHE_INDEX, JSON.stringify(index));
+    cacheStorage.delete(HOME_CACHE_LEGACY);
+  } catch {}
+};
 
 interface UseHomePageDataOptions {
   provider: Content['provider'];
@@ -87,16 +153,49 @@ export const useHomePageData = ({
     [activeProfileId, providersToFetch, token],
   );
 
+  const queryClient = useQueryClient();
+
+  const queryKey = React.useMemo(
+    () => [
+      'homePageData',
+      'aggregate',
+      activeProfileId || 'nopf',
+      providersToFetch.map((p: any) => p.value).sort().join(','),
+      token || 'anon',
+    ],
+    [activeProfileId, providersToFetch, token],
+  );
+
+  // Parsed once per signature rather than on every render.
+  const cachedHome = React.useMemo(() => readHomeCache(cacheSig), [cacheSig]);
+
   const query = useQuery<HomePageData[], Error>({
-    queryKey: ['homePageData', 'aggregate', activeProfileId || 'nopf', providersToFetch.map(p => p.value).sort().join(','), token || 'anon'],
+    queryKey,
     queryFn: async ({signal}) => {
-      const allData: HomePageData[] = [];
+      // Published the moment each provider settles. The fast provider (3 rows)
+      // used to be held hostage by the slow one (13 rows) behind a single
+      // Promise.allSettled, so the screen showed skeletons the whole time and
+      // then every row at once.
+      const partial: Array<HomePageData[] | undefined> = new Array(
+        providersToFetch.length,
+      );
+      const publishPartial = () => {
+        const merged: HomePageData[] = [];
+        for (const list of partial) {
+          if (list && list.length > 0) {
+            merged.push(...list);
+          }
+        }
+        if (merged.length > 0) {
+          queryClient.setQueryData<HomePageData[]>(queryKey, merged);
+        }
+      };
 
       const results = await Promise.allSettled(
-        providersToFetch.map(async prov => {
+        providersToFetch.map(async (prov: any, index: number) => {
           if (signal.aborted) return [];
           const data = await getHomePageData(prov, signal);
-          return data.map(section => ({
+          const mapped = data.map(section => ({
             ...section,
             title: section.title,
             // Section-level provider tag: the "All" page must load posts from
@@ -108,9 +207,13 @@ export const useHomePageData = ({
               provider: prov.value,
             })),
           }));
+          partial[index] = mapped;
+          publishPartial();
+          return mapped;
         }),
       );
 
+      const allData: HomePageData[] = [];
       for (const result of results) {
         if (result.status === 'fulfilled' && result.value.length > 0) {
           allData.push(...result.value);
@@ -118,7 +221,11 @@ export const useHomePageData = ({
       }
 
       if (allData.length > 0) {
-        syncToServer(provider.value, allData).catch(() => {});
+        // Off the paint frame: this maps and stringifies every post on the
+        // home screen, and it used to run the instant the rows landed.
+        InteractionManager.runAfterInteractions(() => {
+          syncToServer(provider.value, allData).catch(() => {});
+        });
       }
 
       return allData;
@@ -133,45 +240,35 @@ export const useHomePageData = ({
       return failureCount < 2;
     },
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 15000),
-    initialData: () => {
-      // The aggregate cache is shared by every profile/provider. Seeding a
-      // NEW query (a profile switch changes the key) with it used to paint
-      // the previous profile's rows instantly and then flip the whole screen
-      // at once when the real fetch landed — no loader, stale content. Only
-      // reuse the cache when it was written for exactly this identity.
-      const cache = cacheStorage.getString('homeDataAggregate');
-      if (cache) {
-        try {
-          const parsed = JSON.parse(cache);
-          if (
-            parsed &&
-            Array.isArray(parsed.data) &&
-            parsed.sig === cacheSig
-          ) {
-            return parsed.data;
-          }
-        } catch {
-          return undefined;
-        }
-      }
-      return undefined;
-    },
-    initialDataUpdatedAt: 0,
-    refetchOnMount: 'always',
+    initialData: cachedHome?.data,
+    // When those rows were ACTUALLY fetched. The old `0` marked warm cache as
+    // stale the instant it existed, so `refetchOnMount` fired on every mount.
+    initialDataUpdatedAt: cachedHome?.updatedAt ?? 0,
+    // With the real timestamp, a Home return inside staleTime paints from
+    // cache with no request at all; older content repaints immediately and
+    // refreshes behind it. (v5: `true` = refetch only when stale, which is
+    // exactly the "stale" semantics; 'always' was what forced a refetch on
+    // every single mount.)
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
     refetchOnReconnect: 'always',
   });
 
   useEffect(() => {
     if (query.data && query.data.length > 0) {
-      cacheStorage.setString(
-        'homeDataAggregate',
-        JSON.stringify({sig: cacheSig, data: query.data}),
-      );
+      writeHomeCache(cacheSig, {
+        // dataUpdatedAt is 0 only while nothing has ever been fetched, which
+        // we do not want to persist as "fresh".
+        updatedAt: query.dataUpdatedAt || 0,
+        data: query.data,
+      });
     }
-  }, [query.data, cacheSig]);
+  }, [query.data, query.dataUpdatedAt, cacheSig]);
 
-  return query;
+  // The Home screen needs the exact provider set to draw skeletons that match
+  // the rows that are coming (previously it skeletonised the ONE selected
+  // provider, so3 shimmer rows were replaced by 16 real ones in one jump).
+  return Object.assign(query, {providersToFetch});
 };
 
 const heroSelectionCache = new Map<

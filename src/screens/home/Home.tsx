@@ -1,4 +1,4 @@
-import {SafeAreaView, RefreshControl, View, Pressable, InteractionManager, Animated, ActivityIndicator, ToastAndroid} from 'react-native';
+import {SafeAreaView, RefreshControl, View, Pressable, InteractionManager, ActivityIndicator, ToastAndroid} from 'react-native';
 import Slider from '../../components/Slider';
 import SponsoredBrowser from '../../components/SponsoredBrowser';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -32,7 +32,6 @@ import {providerManager} from '../../lib/services/ProviderManager';
 import {normalizeAppAds} from '../../lib/services/adService';
 import {extensionManager} from '../../lib/services/ExtensionManager';
 import {Catalog} from '../../lib/providers/types';
-import Tutorial from '../../components/Touturial';
 import {QueryErrorBoundary} from '../../components/ErrorBoundary';
 import {StatusBar} from 'expo-status-bar';
 import AppText from '../../components/ui/Text';
@@ -54,7 +53,7 @@ const MID_AD_EVERY = 2;
 const MAX_MID_ADS = 3;
 const MID_AD_HEIGHT = 150;
 
-const Home = ({navigation}: Props) => {
+const Home = (_props: Props) => {
   const colors = useM3Colors();
   const {isPremium} = useAuthStore();
   // Ad WebViews are expensive on low-RAM phones: unmount them while another
@@ -112,9 +111,13 @@ const Home = ({navigation}: Props) => {
   const {
     data: homeData = [],
     isLoading,
+    // NOT isLoading for the skeletons: publishing the first provider's rows
+    // flips isLoading to false while 13 more are still in flight, which would
+    // strip the placeholders and make the remaining sliders pop in bare.
+    isFetching,
     error,
     refetch,
-    isRefetching,
+    providersToFetch,
   } = useHomePageData({
     provider,
     enabled: !!provider?.value,
@@ -220,18 +223,47 @@ const Home = ({navigation}: Props) => {
   // Catalog now runs in the provider sandbox, so it resolves asynchronously.
   const [skeletonCatalog, setSkeletonCatalog] = useState<Catalog[]>([]);
 
+  // Skeletons must describe what is actually coming. In aggregate home mode
+  // the selected provider supplies only 3 of the 16 rows, so skeletonising it
+  // alone meant 3 shimmer rows were suddenly replaced by 16 real sliders in
+  // one jump — the load looked like it "popped" rather than filled in.
   useEffect(() => {
-    if (!provider?.value) {
+    const targets =
+      providersToFetch && providersToFetch.length > 0
+        ? providersToFetch
+        : provider?.value
+        ? [{value: provider.value}]
+        : [];
+    if (targets.length === 0) {
       setSkeletonCatalog([]);
       return;
     }
     let cancelled = false;
-    providerManager
-      .getCatalog({providerValue: provider.value})
-      .then(catalog => {
-        if (!cancelled) {
-          setSkeletonCatalog(catalog);
+    Promise.all(
+      targets.map((p: any) =>
+        providerManager
+          .getCatalog({providerValue: p.value})
+          .catch(() => [] as Catalog[]),
+      ),
+    )
+      .then(groups => {
+        if (cancelled) {
+          return;
         }
+        const merged: Catalog[] = [];
+        const seen = new Set<string>();
+        for (const group of groups) {
+          for (const item of group) {
+            // Two providers can declare the same section title; one shimmer
+            // row per title is enough.
+            if (seen.has(item.title)) {
+              continue;
+            }
+            seen.add(item.title);
+            merged.push(item);
+          }
+        }
+        setSkeletonCatalog(merged);
       })
       .catch(() => {
         if (!cancelled) {
@@ -241,12 +273,19 @@ const Home = ({navigation}: Props) => {
     return () => {
       cancelled = true;
     };
-  }, [provider?.value]);
+  }, [providersToFetch, provider?.value]);
 
-  // Memoized loading skeleton
-  const loadingSliders = useMemo(
-    () =>
-      skeletonCatalog.map((item, index) => (
+  // Sections that have not landed yet. Rendered AFTER the real rows so a
+  // slider that has loaded is never yanked back into a skeleton when the next
+  // one arrives — the screen fills top-down instead of flipping wholesale.
+  const pendingSkeletons = useMemo(() => {
+    if (!isFetching) {
+      return null;
+    }
+    const loaded = new Set(homeData.map(s => s.filter));
+    return skeletonCatalog
+      .filter(item => !loaded.has(item.filter))
+      .map((item, index) => (
         <Slider
           isLoading={true}
           key={`loading-${item.filter}-${index}`}
@@ -254,9 +293,8 @@ const Home = ({navigation}: Props) => {
           posts={[]}
           filter={item.filter}
         />
-      )),
-    [skeletonCatalog],
-  );
+      ));
+  }, [isFetching, homeData, skeletonCatalog]);
 
   const preferredLang = settingsStorage.getPreferredLanguage();
   const contentSliders = useMemo(() => {
@@ -325,11 +363,17 @@ const Home = ({navigation}: Props) => {
     }
   }, [provider?.value, installedProviders, adultEnabled]);
 
-  // Auto-install / auto-update providers from server on every app open
+  // Auto-install / auto-update providers from server on every app open.
+  //
+  // NOT force=true: boot has already fetched the manifest with force, and this
+  // effect runs on every Home mount. Forcing here burned an extra cache-busting
+  // HTTP round trip against the very bandwidth the home rows were trying to
+  // use. The 24h manifest cache still serves it (and initialize() re-checks
+  // modules on its own 30-minute throttle).
   const runAutoInstall = useCallback(() => {
     setAutoInstalling(true);
     extensionManager
-      .fetchManifest(undefined, true)
+      .fetchManifest(undefined, false)
       .then(() => extensionManager.initialize())
       .catch(() => {})
       .finally(() => setAutoInstalling(false));
@@ -368,10 +412,14 @@ const Home = ({navigation}: Props) => {
     return () => task.cancel();
   }, []);
 
-  // Signal App to fade the splash: the shell painted, heavy content follows.
+  // Signal App to fade the splash ONLY once the heavy tree has mounted.
+  // Firing it on mount beat runAfterInteractions, so the splash faded onto a
+  // still-black shell and the app read as hung on "loading".
   useEffect(() => {
-    markHomeReady();
-  }, []);
+    if (!deferredMount) {
+      markHomeReady();
+    }
+  }, [deferredMount]);
 
   // Both blocks below hit MMKV: `getInstalledProviders()` JSON.parses the
   // whole provider list. Home re-renders on every scroll threshold crossing,
@@ -721,10 +769,7 @@ const Home = ({navigation}: Props) => {
               ) : null}
 
               <View className="relative z-20 pb-8">
-                {isLoading ? (
-                  loadingSliders
-                ) : (
-                  contentSliders.map((slider, index) => (
+                {contentSliders.map((slider, index) => (
                     <React.Fragment key={`section-${index}`}>
                       {slider}
                       {showMidAds &&
@@ -757,8 +802,8 @@ const Home = ({navigation}: Props) => {
                         </View>
                       ) : null}
                     </React.Fragment>
-                  ))
-                )}
+                  ))}
+                {pendingSkeletons}
                 {errorComponent}
               </View>
 

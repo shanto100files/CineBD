@@ -161,6 +161,9 @@ export default function AdultLockScreen() {
     } catch {
       // getState unavailable — fall through to goBack().
     }
+    // The unlock is already stamped; flag the exit so the blur handler knows
+    // this was our own navigation, not the user abandoning the prompt.
+    navigatingOutRef.current = true;
     navigation.goBack();
   }, [navigation, routeParams.switchProfile, startMode, resetToHome]);
 
@@ -186,14 +189,23 @@ export default function AdultLockScreen() {
     return false;
   }, [finishUnlock]);
 
-  // Session-capture when the lock screen closes for real. Replaces the old
-  // blur handler that wiped the unlock timestamp on every blur: the blur
-  // also fires for the Programmatic reset-to-Home navigation (wiping the
-  // just-stamped unlock → Settings re-locked itself on every entry) and for
-  // fingerprint dialogs (wiping the session mid-attempt → Home's stale-typo
-  // guard then swallowed the successful unlock).
+  // Housekeeping when the lock screen loses focus. It deliberately does NOT
+  // touch the unlock session any more.
+  //
+  // It used to: on blur it compared against a timestamp captured at MOUNT
+  // (never re-captured on focus, despite the name), and finishUnlock()'s
+  // plain goBack() path did not set navigatingOutRef — so the comparison
+  // `getUnlockedAt() > hadFreshSessionAtFocus` was true on every successful
+  // unlock and clearUnlockSession() fired the instant the user left the
+  // screen. The 15-minute window never survived its own unlock, which is
+  // exactly why the PIN was demanded again on every later profile change and
+  // every trip into Settings.
+  //
+  // Nothing needs clearing here: markUnlocked() only ever runs on a real PIN
+  // or biometric success (a cancel cannot stamp anything), the TTL is the
+  // documented behaviour, and profileStore.setActive still drops the window
+  // when the user switches into a kid-safe profile.
   useEffect(() => {
-    const hadFreshSessionAtFocus = getUnlockedAt();
     const unsubFocus = navigation.addListener('focus', () => {
       navigatingOutRef.current = false;
     });
@@ -201,19 +213,6 @@ export default function AdultLockScreen() {
       setPin('');
       setBusy(false);
       cancelBiometricPrompt();
-      if (navigatingOutRef.current) {
-        return; // our own navigation — the unlock survives
-      }
-      if (Date.now() - hadFreshSessionAtFocus < 15000) {
-        return; // unlock happened during this visit — keep the session
-      }
-      // True abandonment (no unlock this visit, user backed out): drop a
-      // fresh-looking timestamp so a cancel cannot ride an older window.
-      if (getUnlockedAt() > hadFreshSessionAtFocus) {
-        try {
-          require('../../lib/adultLock').clearUnlockSession();
-        } catch {}
-      }
     });
     return () => {
       unsubFocus();

@@ -10,7 +10,10 @@ import {
 } from './protocol';
 import {isPrivateHostname, validateProviderUrl} from './urlGuard';
 
-const REQUEST_TIMEOUT_MS = 30_000;
+// Provider GETs back the home rows, so a dead host used to cost 30s per row.
+// 12s still clears a slow CDN (the per-row deadline in getHomepagedata.ts is
+// 15s) while keeping a bad request from dominating the load.
+const REQUEST_TIMEOUT_MS = 12_000;
 
 /** `Set-Cookie` is response-only. `Cookie` remains allowed for provider WAF flows. */
 const BLOCKED_REQUEST_HEADERS = new Set(['set-cookie', 'set-cookie2']);

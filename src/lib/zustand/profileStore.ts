@@ -261,14 +261,33 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   },
 
   setActive: id => {
-    // A profile switch re-engages the 18+ lock: drop the fresh-unlock
-    // session so leaving an adult profile and returning always
-    // re-challenges instead of riding the 15-minute window. AdultLock
-    // re-stamps right after a successful unlock+switch, so a completed
-    // unlock is never lost to this.
+    // Re-engage the 18+ lock ONLY when the switch lands on a surface that can
+    // no longer show adult (family, or 18+ off). That is the hand-over moment:
+    // leaving the 18+ profile for a kid-safe one must drop the fresh-unlock
+    // window, so coming BACK always re-challenges and a child cannot ride the
+    // parent's 15-minute session.
+    //
+    // Adult -> adult keeps the window. Clearing it unconditionally meant every
+    // single profile change threw away a valid unlock and asked for the PIN
+    // again from scratch.
+    //
+    // (AdultLock re-stamps right after a completed unlock+switch, so that
+    // flow is never lost either.)
+    let canShowAdult = false;
     try {
-      require('../adultLock').clearUnlockSession();
-    } catch {}
+      const target = id ? get().profiles.find(p => p.id === id) || null : null;
+      canShowAdult = require('../adultLock').profileCanShowAdult(
+        target,
+        settingsStorage.isAdultEnabled(),
+      );
+    } catch {
+      canShowAdult = false; // fail closed: doubt -> drop the window
+    }
+    if (!canShowAdult) {
+      try {
+        require('../adultLock').clearUnlockSession();
+      } catch {}
+    }
     persist(get().profiles, id, currentBucket());
     set({activeId: id});
     applyActiveProfile();

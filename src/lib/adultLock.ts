@@ -192,13 +192,41 @@ export const isAdultLockOpen = (): boolean => {
 };
 
 /**
+ * Does an explicit provider set contain at least one 18+ provider?
+ *
+ * The old check was `providers.length > 0`, i.e. ANY curated profile counted
+ * as "adult" — so switching into a plain, non-adult provider set still
+ * demanded the PIN, which is why the lock seemed to fire on every profile
+ * change instead of only on the 18+ profile.
+ *
+ * Fail CLOSED: if the installed list cannot be read we cannot prove the set
+ * is safe, so a non-empty set is treated as capable.
+ */
+const providerSetIncludesAdult = (values: string[]): boolean => {
+  if (!values || values.length === 0) return false;
+  try {
+    // Lazy require: adultLock is pulled in by UI modules during startup, so
+    // keep the storage graph out of its module-init path.
+    const extensionStorage = require('./storage/extensionStorage')
+      ?.extensionStorage;
+    const installed: any[] = extensionStorage?.getInstalledProviders?.() || [];
+    const adultValues = new Set(
+      installed.filter(p => p?.is_adult).map(p => p?.value),
+    );
+    return values.some(v => adultValues.has(v));
+  } catch {
+    return true;
+  }
+};
+
+/**
  * Can this profile surface 18+ content?
  *  - family profiles: never
- *  - explicit provider set: assumed capable when non-empty (we don't know
- *    which entries are adult here; failing "safe" is fine for child-proofing)
+ *  - explicit provider set: only when that set actually lists a provider
+ *    flagged `is_adult`
  *  - aggregate (null): depends on the device 18+ toggle
  */
-const profileAdultCapable = (
+export const profileCanShowAdult = (
   profile: {kind?: string; providers?: string[] | null} | null,
   adultToggleOn: boolean,
 ): boolean => {
@@ -207,23 +235,31 @@ const profileAdultCapable = (
     return adultToggleOn;
   }
   if (profile.kind === 'family') return false;
-  if (profile.providers) return profile.providers.length > 0;
+  if (profile.providers) return providerSetIncludesAdult(profile.providers);
   return adultToggleOn;
 };
 
 /**
- * Does switching profiles require the 18+ lock? True when the PIN is set
- * and the target profile can show adult content (18+ explicit set, or
- * aggregate/default with the device 18+ toggle on). The CURRENT profile is
- * irrelevant: child-proofing locks the door INTO adult content no matter
- * where the user is coming from — a user on the default profile must be
- * challenged when entering the 18+ profile too.
+ * Does switching profiles require the 18+ lock?
+ *
+ * True when a PIN exists AND the target can show adult content AND that
+ * session is not already fresh. Honouring the same 15-minute window Settings
+ * and Home already honour is what stops the prompt firing on every single
+ * profile change — the challenge now happens when it should (first entry into
+ * the 18+ profile, or after expiry) instead of on each tap.
+ *
+ * A fresh window cannot leak adult content to a kid: switching INTO a
+ * kid-safe profile drops the session in profileStore.setActive, so leaving
+ * the 18+ profile and coming back always re-challenges.
  */
 export const profileSwitchNeedsLock = (
   targetProfile: {kind?: string; providers?: string[] | null} | null,
   _currentProfile: {kind?: string; providers?: string[] | null} | null,
   adultToggleOn: boolean,
-): boolean => isAdultPinSet() && profileAdultCapable(targetProfile, adultToggleOn);
+): boolean =>
+  isAdultPinSet() &&
+  profileCanShowAdult(targetProfile, adultToggleOn) &&
+  !isAdultLockOpen();
 
 export const ADULT_PIN_MIN = 4;
 export const ADULT_PIN_MAX = 8;
