@@ -123,8 +123,19 @@ echo ">> Bundle export size: $BUNDLE_SIZE"
 echo ">> Building release registration (critical=$CRITICAL) ..."
 node -e '
   const fs = require("fs");
-  const [id, createdAt, message, critical, out] = process.argv.slice(2);
+  // `node -e` has NO script-path slot in argv: argv is [nodePath, arg1, ...],
+  // so the arguments start at index 1. Using slice(2) (the correct index for
+  // a script FILE) dropped the first argument, shifted every field one place
+  // (id received createdAt, message received critical) and left `out`
+  // undefined - which is what crashed writeFileSync in CI.
+  const args = process.argv.slice(1);
+  if (args.length !== 5) {
+    console.error("release registration: expected 5 args, got " + JSON.stringify(args));
+    process.exit(1);
+  }
+  const [id, createdAt, message, critical, out] = args;
   fs.writeFileSync(out, JSON.stringify({id, createdAt, message, critical: critical === "true"}));
+  console.log("registered", id, "critical=" + (critical === "true"));
 ' "$UPDATE_ID" "$CREATED_AT" "$MSG" "$CRITICAL" ".ota-release.json"
 
 # Also drop a copy inside the bundle folder: _mirror.sh on the server rewrites
