@@ -72,7 +72,7 @@ remote() {
   elif [ "$HAVE_KEY" = 1 ]; then
     ssh -i "$OTA_SSH_KEY" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes "$HOST" "$@"
   else
-    SSH_PASSWORD="$OTA_SSH_PW" sshpass -e ssh -o StrictHostKeyChecking=accept-new "$HOST" "$@"
+    SSHPASS="$OTA_SSH_PW" sshpass -e ssh -o StrictHostKeyChecking=accept-new "$HOST" "$@"
   fi
 }
 
@@ -84,7 +84,7 @@ upload() {
   elif [ "$HAVE_KEY" = 1 ]; then
     scp -i "$OTA_SSH_KEY" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -r "$@" "$HOST:$dest"
   else
-    SSH_PASSWORD="$OTA_SSH_PW" sshpass -e scp -o StrictHostKeyChecking=accept-new -r "$@" "$HOST:$dest"
+    SSHPASS="$OTA_SSH_PW" sshpass -e scp -o StrictHostKeyChecking=accept-new -r "$@" "$HOST:$dest"
   fi
 }
 
