@@ -257,12 +257,16 @@ export function getSeasonBadge(post: Post): string | undefined {
   return undefined;
 }
 
-export function getProviderBadge(post: Post): string | undefined {
-  const provider = (post.provider || '').toLowerCase();
-  if (provider.includes('cinefreak')) return 'CF';
-  if (provider.includes('moviebox') || provider.includes('movieboxweb')) return 'MB';
-  return undefined;
-}
+/**
+ * NOTE: posters no longer carry a provider chip.
+ *
+ * There used to be a `getProviderBadge()` here that stamped a hardcoded
+ * abbreviation onto every card — 'CF' for cinefreak, 'MB' for moviebox — baked
+ * straight into the function, so it ignored the provider's configured name and
+ * could not be turned off per user. It has been deleted along with the chip in
+ * MediaPosterCard: the poster shows the artwork and the title, nothing else.
+ * The provider is still carried on `post.provider` for playback and filtering.
+ */
 
 export function getProviderFullName(providerValue: string): string | undefined {
   const p = providerValue.toLowerCase();

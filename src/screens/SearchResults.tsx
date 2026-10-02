@@ -14,7 +14,7 @@ import {FLOATING_TAB_BAR_RESERVE} from '../theme/layout';
 import LoadingIndicator from '../components/ui/LoadingIndicator';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import {useNavigation} from '@react-navigation/native';
-import {getPostBadge, getSeasonBadge, getProviderBadge} from '../lib/utils/helpers';
+import {getPostBadge, getSeasonBadge} from '../lib/utils/helpers';
 import {getUniqueSeasons} from '../lib/utils/titleMetadata';
 import {Post} from '../lib/providers/types';
 import {MMKV} from '../lib/Mmkv';
@@ -463,7 +463,6 @@ const SearchResults = ({route}: Props): React.ReactElement => {
           width={cardWidth}
           badge={getPostBadge(item)}
           seasonBadge={getSeasonBadge(item)}
-          providerBadge={getProviderBadge(item)}
           durationBadge={item.duration}
           onPress={() => handleItemPress(item)}
         />
@@ -480,7 +479,9 @@ const SearchResults = ({route}: Props): React.ReactElement => {
               {key: 'all', label: 'All', count: baseFiltered.length},
               ...Array.from(providerCounts.entries()).map(([k, v]) => ({
                 key: k,
-                label: getProviderBadge({provider: k} as Post) || k,
+                // The raw provider value. This used to be abbreviated to 'CF'
+                // / 'MB' by the poster badge helper, which has been deleted.
+                label: k,
                 count: v,
               })),
             ]}
