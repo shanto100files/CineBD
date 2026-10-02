@@ -338,16 +338,44 @@ const ShareWithFriendsSheet = ({
               )}
             </View>
 
-            <View style={{flexDirection: 'row', gap: 10, justifyContent: 'flex-end', paddingHorizontal: 20, paddingTop: 14}}>
+            {/* Footer.
+                Both buttons now carry flexShrink:0 and a fixed 44dp height,
+                and the send button's icon + label live in their OWN inner row
+                View rather than as loose siblings of the Pressable. They used
+                to be direct children of the Pressable relying on its
+                style-function for flexDirection:'row', which laid the
+                paper-plane out beside "বাতিল" while "পাঠান" dropped to the line
+                underneath — the two buttons read as one broken jumble. */}
+            <View
+              style={{
+                alignItems: 'center',
+                flexDirection: 'row',
+                flexWrap: 'nowrap',
+                gap: 12,
+                justifyContent: 'flex-end',
+                paddingBottom: 4,
+                paddingHorizontal: 20,
+                paddingTop: 16,
+              }}>
               <Pressable
                 onPress={onClose}
                 style={({pressed}) => ({
-                  borderRadius: 22,
-                  paddingHorizontal: 20,
-                  paddingVertical: 10,
+                  alignItems: 'center',
                   backgroundColor: pressed ? colors.surfaceContainerHigh : 'transparent',
+                  borderColor: colors.outlineVariant,
+                  borderRadius: 22,
+                  borderWidth: 1,
+                  flexShrink: 0,
+                  justifyContent: 'center',
+                  minHeight: 44,
+                  paddingHorizontal: 22,
                 })}>
-                <AppText role="labelLargeEmphasized" numberOfLines={1} style={{color: colors.onSurfaceVariant}}>বাতিল</AppText>
+                <AppText
+                  role="labelLargeEmphasized"
+                  numberOfLines={1}
+                  style={{color: colors.onSurfaceVariant}}>
+                  বাতিল
+                </AppText>
               </Pressable>
               <Pressable
                 disabled={selected.length === 0 || sending}
@@ -363,40 +391,47 @@ const ShareWithFriendsSheet = ({
                         : colors.primary,
                     borderRadius: 22,
                     elevation: active ? 2 : 0,
-                    flexDirection: 'row',
-                    gap: 6,
-                    minWidth: 110,
+                    flexShrink: 0,
                     justifyContent: 'center',
+                    minHeight: 44,
+                    minWidth: 110,
                     paddingHorizontal: 18,
-                    paddingVertical: 10,
                     shadowColor: colors.primary,
                     shadowOffset: {width: 0, height: 2},
                     shadowOpacity: active ? 0.45 : 0,
                     shadowRadius: 4,
                   };
                 }}>
-                {sending ? (
-                  <ActivityIndicator size="small" color={readableOn(colors.primary, colors.onPrimary)} />
-                ) : (
-                  <>
-                    <MaterialCommunityIcons
-                      name="send"
-                      size={16}
-                      color={selected.length === 0 ? colors.onSurfaceVariant : readableOn(colors.primary, colors.onPrimary)}
-                    />
-                    <AppText
-                      role="labelLargeEmphasized"
-                      numberOfLines={1}
-                      style={{
-                        color:
-                          selected.length === 0
-                            ? colors.onSurfaceVariant
-                            : readableOn(colors.primary, colors.onPrimary),
-                      }}>
-                      পাঠান{selected.length > 0 ? ` (${selected.length})` : ''}
-                    </AppText>
-                  </>
-                )}
+                <View
+                  style={{
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    gap: 6,
+                    justifyContent: 'center',
+                  }}>
+                  {sending ? (
+                    <ActivityIndicator size="small" color={readableOn(colors.primary, colors.onPrimary)} />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons
+                        name="send"
+                        size={16}
+                        color={selected.length === 0 ? colors.onSurfaceVariant : readableOn(colors.primary, colors.onPrimary)}
+                      />
+                      <AppText
+                        role="labelLargeEmphasized"
+                        numberOfLines={1}
+                        style={{
+                          color:
+                            selected.length === 0
+                              ? colors.onSurfaceVariant
+                              : readableOn(colors.primary, colors.onPrimary),
+                        }}>
+                        পাঠান{selected.length > 0 ? ` (${selected.length})` : ''}
+                      </AppText>
+                    </>
+                  )}
+                </View>
               </Pressable>
             </View>
           </Pressable>
