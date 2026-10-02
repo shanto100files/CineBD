@@ -77,6 +77,16 @@ export const useHomePageData = ({
     return useEntitlementStore.getState().applyTo(candidates);
   }, [installedProviders, entAllowed, provider, homeProviderValue, activeProfileId]);
 
+  const cacheSig = React.useMemo(
+    () =>
+      [
+        activeProfileId || 'nopf',
+        providersToFetch.map((p: any) => p.value).sort().join(','),
+        token || 'anon',
+      ].join('|'),
+    [activeProfileId, providersToFetch, token],
+  );
+
   const query = useQuery<HomePageData[], Error>({
     queryKey: ['homePageData', 'aggregate', activeProfileId || 'nopf', providersToFetch.map(p => p.value).sort().join(','), token || 'anon'],
     queryFn: async ({signal}) => {
@@ -124,10 +134,22 @@ export const useHomePageData = ({
     },
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 15000),
     initialData: () => {
+      // The aggregate cache is shared by every profile/provider. Seeding a
+      // NEW query (a profile switch changes the key) with it used to paint
+      // the previous profile's rows instantly and then flip the whole screen
+      // at once when the real fetch landed — no loader, stale content. Only
+      // reuse the cache when it was written for exactly this identity.
       const cache = cacheStorage.getString('homeDataAggregate');
       if (cache) {
         try {
-          return JSON.parse(cache);
+          const parsed = JSON.parse(cache);
+          if (
+            parsed &&
+            Array.isArray(parsed.data) &&
+            parsed.sig === cacheSig
+          ) {
+            return parsed.data;
+          }
         } catch {
           return undefined;
         }
@@ -142,9 +164,12 @@ export const useHomePageData = ({
 
   useEffect(() => {
     if (query.data && query.data.length > 0) {
-      cacheStorage.setString('homeDataAggregate', JSON.stringify(query.data));
+      cacheStorage.setString(
+        'homeDataAggregate',
+        JSON.stringify({sig: cacheSig, data: query.data}),
+      );
     }
-  }, [query.data]);
+  }, [query.data, cacheSig]);
 
   return query;
 };

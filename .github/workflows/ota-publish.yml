@@ -1,0 +1,122 @@
+name: Publish OTA
+
+# Self-hosted expo-updates publish to cinepix.top.
+#
+#   * auto: a push to main that touches JS (src/**, assets/**)
+#   * manual: workflow_dispatch (message + critical flag) — dispatching by hand
+#     is the escape hatch that bypasses the native-change guard below.
+#
+# Only JS + JS-imported assets travel over OTA. If android/, ios/, native-src/,
+# plugins/ or patches/ also changed, an OTA would ship JS that expects new
+# native code — this workflow then fails the push and tells you to cut an APK
+# first (native-guard.yml blocks that at PR time too).
+#
+# Required repo secrets (Settings > Secrets and variables > Actions):
+#   OTA_SSH_KEY  - raw PEM or base64 private key for the VPS (preferred), OR
+#   OTA_SSH_PW   - VPS password (workflow installs sshpass for this)
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Release message (shown in the restart dialog)'
+        type: string
+        required: true
+        default: 'bug fixes'
+      critical:
+        description: 'Critical - force the restart dialog'
+        type: boolean
+        required: false
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'assets/**'
+
+# Never let an older publish overwrite a newer one mid-flight.
+concurrency:
+  group: ota-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Export + upload bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Refuse to publish JS over changed native code
+        if: ${{ github.event_name == 'push' }}
+        env:
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            echo "No usable base commit - skipping the native-change guard."
+            exit 0
+          fi
+          STRICT=$(git diff --name-only "$BEFORE" "$SHA" \
+            | grep -E '^(android/|ios/|native-src/|plugins/|patches/)' \
+            | tr '\n' ' ' || true)
+          if [ -n "$STRICT" ]; then
+            echo "::error::This push also changed native sources - an OTA would ship JS that expects new native code:"
+            echo "  $STRICT"
+            echo ""
+            echo "1) cut a new APK first (Release (Android + iOS) workflow), then"
+            echo "2) run 'Publish OTA' manually to also reach older installs."
+            exit 1
+          fi
+          echo "Native sources untouched - safe to ship as pure JS."
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --include=dev --no-audit --no-fund
+
+      - name: Install sshpass (password auth fallback)
+        env:
+          SSH_KEY: ${{ secrets.OTA_SSH_KEY }}
+        run: |
+          if [ -z "$SSH_KEY" ]; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+          fi
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.OTA_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          if [ -n "$SSH_KEY" ]; then
+            # Accept a raw PEM key or a base64-encoded one.
+            if printf '%s' "$SSH_KEY" | grep -q 'BEGIN'; then
+              printf '%s\n' "$SSH_KEY" > ~/.ssh/ota_id
+            else
+              printf '%s' "$SSH_KEY" | base64 --decode > ~/.ssh/ota_id
+            fi
+            chmod 600 ~/.ssh/ota_id
+            echo "OTA_SSH_KEY=$HOME/.ssh/ota_id" >> "$GITHUB_ENV"
+          fi
+
+      - name: Publish
+        env:
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+          OTA_SSH_PW: ${{ secrets.OTA_SSH_PW }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            bash ota_publish.sh "${{ inputs.message }}" ${{ inputs.critical && '--critical' || '' }}
+          else
+            bash ota_publish.sh "$(git log -1 --pretty=%s | tr -d '\r')"
+          fi

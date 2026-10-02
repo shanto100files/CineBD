@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import React, {useEffect, useState, useCallback, memo, useRef} from 'react';
+import React, {useEffect, useState, useCallback, memo, useRef, useMemo} from 'react';
 import './global.css';
 import Home from './screens/home/Home';
 import Info from './screens/home/Info';
@@ -11,6 +11,7 @@ import ScrollList from './screens/ScrollList';
 import {
   NavigationContainer,
   createNavigationContainerRef,
+  type Theme,
 } from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
@@ -514,7 +515,10 @@ const App = () => {
   const hasFirebase =
     Boolean(Constants?.expoConfig?.extra?.hasFirebase) &&
     isFirebaseNativeReady();
-  const {isLoading} = useAuthStore();
+  // Selector, not `const {isLoading} = useAuthStore()` — without one this
+  // subscribes to EVERY auth field, so a token/profile write re-renders the
+  // whole navigation tree (theme, screenOptions, all 5 stacks).
+  const isLoading = useAuthStore(s => s.isLoading);
   const loadToken = useAuthStore(s => s.loadToken);
   const [initProgress, setInitProgress] = useState<InitProgress>({progress: 0, status: 'Starting...'});
   const [appReady, setAppReady] = useState(false);
@@ -524,6 +528,33 @@ const App = () => {
   const [shutdownMessage, setShutdownMessage] = useState('');
   const [showDownloadSetup, setShowDownloadSetup] = useState(false);
   const [isPickingFolder, setIsPickingFolder] = useState(false);
+
+  // NavigationContainer re-renders whenever App does; handing it fresh
+  // object literals every time makes it and every navigator re-render with
+  // it. These are constants — build them once.
+  const navTheme = useMemo(
+    (): Theme => ({
+      fonts: {
+        regular: {fontFamily: 'Inter_400Regular', fontWeight: '400'},
+        medium: {fontFamily: 'Inter_500Medium', fontWeight: '500'},
+        bold: {fontFamily: 'Inter_700Bold', fontWeight: '700'},
+        heavy: {fontFamily: 'Inter_800ExtraBold', fontWeight: '800'},
+      },
+      dark: true,
+      colors: {background: 'transparent', card: 'black', primary: '#E4E4E4', text: 'white', border: 'black', notification: '#E4E4E4'},
+    }),
+    [],
+  );
+  const rootScreenOptions = useMemo(
+    () => ({
+      headerShown: false,
+      animation: 'ios_from_right' as const,
+      animationDuration: 200,
+      freezeOnBlur: true,
+      contentStyle: {backgroundColor: 'transparent'},
+    }),
+    [],
+  );
 
   LogBox.ignoreLogs([
     'You have passed a style to FlashList',
@@ -1230,25 +1261,23 @@ const App = () => {
                     }
                   } catch {}
                 }}
-                theme={{
-                  fonts: {
-                    regular: {fontFamily: 'Inter_400Regular', fontWeight: '400'},
-                    medium: {fontFamily: 'Inter_500Medium', fontWeight: '500'},
-                    bold: {fontFamily: 'Inter_700Bold', fontWeight: '700'},
-                    heavy: {fontFamily: 'Inter_800ExtraBold', fontWeight: '800'},
-                  },
-                  dark: true,
-                  colors: {background: 'transparent', card: 'black', primary: '#E4E4E4', text: 'white', border: 'black', notification: '#E4E4E4'},
-                }}>
-                <RootStackNav.Navigator
-                  screenOptions={{
-                    headerShown: false,
-                    animation: 'ios_from_right',
-                    animationDuration: 200,
-                    freezeOnBlur: true,
-                    contentStyle: {backgroundColor: 'transparent'},
-                  }}>
-                  <RootStackNav.Screen name="TabStack" component={TabStack} />
+                theme={navTheme}>
+                <RootStackNav.Navigator screenOptions={rootScreenOptions}>
+                  <RootStackNav.Screen
+                    name="TabStack"
+                    component={TabStack}
+                    options={
+                      // ScreenWindowTraits writes SCREEN_ORIENTATION_UNSPECIFIED
+                      // for any screen that declares no orientation — that
+                      // UNLOCKS the activity, so the main UI was free to swing
+                      // into landscape the moment focus returned from the
+                      // Player (and while its container updated). Declare
+                      // portrait so the root screen always restores it.
+                      // Skipped on TV: a fixed-landscape panel must never be
+                      // told "portrait".
+                      Platform.isTV ? {} : {orientation: 'portrait'}
+                    }
+                  />
                   <RootStackNav.Screen
                     name="Player"
                     component={Player}

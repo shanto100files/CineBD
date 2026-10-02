@@ -3,11 +3,12 @@ import {Animated, StyleSheet, View} from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useM3Colors} from '../theme/M3PaletteContext';
-import {useIsOffline} from '../lib/netStatus';
+import {useIsOffline, useOfflineNoticeSuppressed} from '../lib/netStatus';
 import AppText from './ui/Text';
 
 const OfflineBanner: React.FC = () => {
   const offline = useIsOffline();
+  const suppressed = useOfflineNoticeSuppressed();
   const insets = useSafeAreaInsets();
   const colors = useM3Colors();
   const slide = React.useRef(new Animated.Value(0)).current;
@@ -24,7 +25,7 @@ const OfflineBanner: React.FC = () => {
     }).start();
   }, [offline, slide]);
 
-  if (!offline) {
+  if (!offline || suppressed) {
     return null;
   }
 

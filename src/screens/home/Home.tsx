@@ -122,7 +122,9 @@ const Home = ({navigation}: Props) => {
 
   // Memoized scroll handler
   const handleScroll = useCallback((event: any) => {
-    setStatusBarScrimVisible(event.nativeEvent.contentOffset.y > 12);
+    const next = event.nativeEvent.contentOffset.y > 12;
+    // Returning the identical value lets React bail out without re-rendering.
+    setStatusBarScrimVisible(prev => (prev === next ? prev : next));
   }, []);
 
   const handleOpenDrawer = useCallback(() => setIsDrawerOpen(true), []);
@@ -145,6 +147,19 @@ const Home = ({navigation}: Props) => {
       setHero({link: '', image: '', title: ''});
     }
   }, [heroPost, setHero]);
+
+  // A profile switch must not keep the previous profile's cached hero —
+  // the cached pick can be a post the new profile is not allowed to see
+  // (e.g. an 18+ title left behind by the adult profile). Skips the first
+  // run so a normal mount doesn't throw away the warm cache.
+  const heroProfileRef = useRef(activeProfileId);
+  useEffect(() => {
+    if (heroProfileRef.current === activeProfileId) {
+      return;
+    }
+    heroProfileRef.current = activeProfileId;
+    clearHeroCache(provider?.value);
+  }, [activeProfileId, provider?.value]);
 
   // Pool of posters for the MovieBox-style hero overlap strip: deduped,
   // image-carrying posts from every home section (max 12 keeps the strip snappy).
@@ -358,7 +373,11 @@ const Home = ({navigation}: Props) => {
     markHomeReady();
   }, []);
 
-  const activeProfileInfo = (() => {
+  // Both blocks below hit MMKV: `getInstalledProviders()` JSON.parses the
+  // whole provider list. Home re-renders on every scroll threshold crossing,
+  // every query tick and every drawer toggle — memoize so those parses only
+  // happen when the underlying data actually changes.
+  const activeProfileInfo = useMemo(() => {
     try {
       const p = useProfileStore.getState().activeProfile();
       return {
@@ -368,15 +387,16 @@ const Home = ({navigation}: Props) => {
     } catch {
       return {family: false, explicitSet: false};
     }
-  })();
+  }, [activeProfileId]);
   const deviceAdultOff = !settingsStorage.isAdultEnabled();
-  const rawHasAdult = (() => {
+  const rawHasAdult = useMemo(() => {
     try {
       return (extensionStorage.getInstalledProviders() || []).some(p => p.is_adult);
     } catch {
       return false;
     }
-  })();
+    // installedProviders identity changes exactly when the provider list does.
+  }, [installedProviders]);
   const showSwitchProfile = activeProfileInfo.family || activeProfileInfo.explicitSet;
   const showEnableAdult = deviceAdultOff && rawHasAdult;
 
@@ -453,15 +473,19 @@ const Home = ({navigation}: Props) => {
     }
   }, [isScreenFocused]);
   const enableAdult = () => {
-    const {isAdultPinSet, getUnlockedAt} = require('../../lib/adultLock');
-    if (isAdultPinSet()) {
-      // Always prompt when enabling 18+ — a fresh unlock is required every
-      // time the gate opens, regardless of the 15-min session window.
+    const {isAdultPinSet, isAdultLockOpen, getUnlockedAt} = require('../../lib/adultLock');
+    // Challenge only when a PIN exists AND the 15-min unlock session has
+    // actually expired — a fresh unlock (e.g. the profile switch the user
+    // just completed) counts, instead of demanding the PIN all over again.
+    if (isAdultPinSet() && !isAdultLockOpen()) {
       unlockedAtBeforePromptRef.current = getUnlockedAt();
       pendingAdultEnableRef.current = true;
       require('../../App').openAdultLock({mode: 'unlock'});
       return;
     }
+    try {
+      require('../../lib/adultLock').markUnlocked();
+    } catch {}
     settingsStorage.setAdultEnabled(true);
     useContentStore.setState({installedProviders: getGatedInstalledProviders()});
     useEntitlementStore.getState().refresh();
@@ -618,7 +642,11 @@ const Home = ({navigation}: Props) => {
 
             <ScrollView
               onScroll={handleScroll}
-              scrollEventThrottle={16} // Optimize scroll performance
+              // The handler only flips one boolean — there is no need to push
+              // 60 events/sec across the bridge for it. 64ms still makes the
+              // status-bar scrim feel instant while cutting JS wakeups ~4x
+              // during a scroll gesture.
+              scrollEventThrottle={64}
               showsVerticalScrollIndicator={false}
               className="bg-m3-background"
               contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}

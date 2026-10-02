@@ -72,7 +72,6 @@ const LocalVideosGrid = ({
   columns: number;
 }) => {
   const colors = useM3Colors();
-  const topInset = useSafeAreaInsets().top;
   const navigation =
     useNavigation<NativeStackNavigationProp<DownloadsStackParamList>>();
 
@@ -127,7 +126,8 @@ const LocalVideosGrid = ({
         gap: 14,
         paddingBottom: FLOATING_TAB_BAR_RESERVE,
         paddingHorizontal: GRID_PADDING,
-        paddingTop: topInset + 12,
+        // The shared screen header above owns the status-bar inset now.
+        paddingTop: 8,
       }}
       renderItem={({item}) => (
         <Pressable
@@ -511,6 +511,63 @@ const Downloads = () => {
         </View>
       ) : null}
 
+      {/* Shared screen header — MUST sit outside the tab switcher below.
+          It used to live in the CineBD FlatList's ListHeaderComponent, so the
+          moment "Local files" was selected the list (and with it the tab
+          chips) unmounted and there was no way back to CineBD. */}
+      {isSelectionMode ? null : (
+        <View
+          style={{
+            paddingHorizontal: GRID_PADDING,
+            paddingTop: Platform.OS === 'android' ? topInset + 28 : topInset + 12,
+          }}>
+          <AppText
+            role="headlineLargeEmphasized"
+            className="mb-4 mt-2 text-center text-m3-on-background">
+            Downloads
+          </AppText>
+
+          {/* Tab chips: CineBD downloads vs device's own videos */}
+          <View style={{alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: 14, paddingHorizontal: 4}}>
+            {([
+              {key: 'cinebd' as const, label: 'CineBD'},
+              {key: 'local' as const, label: 'Local files'},
+            ]).map(tab => (
+              <Pressable
+                key={tab.key}
+                onPress={() => handleTabChange(tab.key)}
+                style={({pressed}) => ({
+                  backgroundColor:
+                    activeTab === tab.key
+                      ? colors.primary
+                      : colors.surfaceContainerHigh,
+                  borderColor:
+                    activeTab === tab.key
+                      ? colors.primary
+                      : colors.outlineVariant,
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  opacity: pressed ? 0.8 : 1,
+                  paddingHorizontal: 16,
+                  paddingVertical: 7,
+                })}>
+                <AppText
+                  style={{
+                    color:
+                      activeTab === tab.key
+                        ? colors.onPrimary
+                        : colors.onSurface,
+                    fontSize: 13,
+                    fontWeight: '600',
+                  }}>
+                  {tab.label}
+                </AppText>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
       {activeTab === 'local' ? (
         <LocalVideosGrid
           videos={localVideos}
@@ -529,75 +586,23 @@ const Downloads = () => {
         columnWrapperStyle={{gap: GRID_GAP}}
         contentContainerStyle={{
           paddingHorizontal: GRID_PADDING,
-          paddingTop: isSelectionMode
-            ? topInset + 14
-            : Platform.OS === 'android'
-            ? topInset + 28
-            : topInset + 12,
+          // The shared header above already owns the status-bar inset.
+          paddingTop: isSelectionMode ? topInset + 14 : 8,
           paddingBottom: isSelectionMode ? 120 : FLOATING_TAB_BAR_RESERVE,
         }}
         ListHeaderComponent={
           !isSelectionMode ? (
-            <View>
-              <AppText
-                role="headlineLargeEmphasized"
-                className="mb-4 mt-2 text-center text-m3-on-background">
-                Downloads
-              </AppText>
-
-              {/* Tab chips: CineBD downloads vs device's own videos */}
-              <View style={{alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: 14, paddingHorizontal: 4}}>
-                {([
-                  {key: 'cinebd' as const, label: 'CineBD'},
-                  {key: 'local' as const, label: 'Local files'},
-                ]).map(tab => (
-                  <Pressable
-                    key={tab.key}
-                    onPress={() => handleTabChange(tab.key)}
-                    style={({pressed}) => ({
-                      backgroundColor:
-                        activeTab === tab.key
-                          ? colors.primary
-                          : colors.surfaceContainerHigh,
-                      borderColor:
-                        activeTab === tab.key
-                          ? colors.primary
-                          : colors.outlineVariant,
-                      borderRadius: 18,
-                      borderWidth: 1,
-                      opacity: pressed ? 0.8 : 1,
-                      paddingHorizontal: 16,
-                      paddingVertical: 7,
-                    })}>
-                    <AppText
-                      style={{
-                        color:
-                          activeTab === tab.key
-                            ? colors.onPrimary
-                            : colors.onSurface,
-                        fontSize: 13,
-                        fontWeight: '600',
-                      }}>
-                      {tab.label}
-                    </AppText>
-                  </Pressable>
-                ))}
-              </View>
-
-              {activeTab === 'cinebd' ? (
-                <>
-                  <CurrentDownloadsSection primary={colors.primary} />
-                  <MissingDownloadsSection primary={colors.primary} />
-                  {groups.length > 0 ? (
-                    <AppText
-                      role="titleLargeEmphasized"
-                      className="mb-4 text-m3-on-background">
-                      Downloaded
-                    </AppText>
-                  ) : null}
-                </>
+            <>
+              <CurrentDownloadsSection primary={colors.primary} />
+              <MissingDownloadsSection primary={colors.primary} />
+              {groups.length > 0 ? (
+                <AppText
+                  role="titleLargeEmphasized"
+                  className="mb-4 text-m3-on-background">
+                  Downloaded
+                </AppText>
               ) : null}
-            </View>
+            </>
           ) : null
         }
         renderItem={({item}) => (

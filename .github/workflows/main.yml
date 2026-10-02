@@ -1,10 +1,9 @@
-name: Custom Build
+name: Custom Build (Android)
 
+# Tag push (v*) এখন release-all.yml (Android + iOS একসাথে) হ্যান্ডেল করে;
+# এই workflow শুধু হাতে চালানো Android-only build-এর জন্য।
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
 
 jobs:
   build-android:

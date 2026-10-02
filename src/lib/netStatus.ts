@@ -37,3 +37,24 @@ const subscribe = (cb: () => void) => {
 
 export const useIsOffline = (): boolean =>
   !useSyncExternalStore(subscribe, () => currentOnline);
+
+/**
+ * Suppresses the floating "no internet" pill.
+ *
+ * The banner is rendered once at the app root with `zIndex: 1000`, so it
+ * paints over the fullscreen player too — including while a DOWNLOADED file
+ * is playing, which needs no network at all and should never be told the
+ * internet is missing. The Player sets this for as long as it is mounted.
+ */
+let offlineNoticeSuppressed = false;
+
+export const setOfflineNoticeSuppressed = (value: boolean): void => {
+  if (value === offlineNoticeSuppressed) {
+    return;
+  }
+  offlineNoticeSuppressed = value;
+  notify();
+};
+
+export const useOfflineNoticeSuppressed = (): boolean =>
+  useSyncExternalStore(subscribe, () => offlineNoticeSuppressed);

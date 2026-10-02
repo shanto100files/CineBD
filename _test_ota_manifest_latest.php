@@ -27,7 +27,16 @@ foreach ($rvs as $rv) {
     echo "$rv id=" . substr((string)$id, 0, 8) . " critical=$critical " . ($critical === 'true' ? 'OK' : 'CHECK') . "\n";
 }
 if ($lastId) {
-    $u = "https://cinepix.top/ota-endpoint/index.php?appKey=78a0e573dfd894d443685159b2e71e2f&file=5.7.15/$lastId/bundle";
-    $b = @file_get_contents($u);
+    // The endpoint only accepts X-App-Key (the ?appKey= query fallback was
+    // removed so the credential stops landing in access logs).
+    $u = "https://cinepix.top/ota-endpoint/index.php?file=5.7.15/$lastId/bundle";
+    $ch = curl_init($u);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_HTTPHEADER => ['X-App-Key: 78a0e573dfd894d443685159b2e71e2f'],
+    ]);
+    $b = curl_exec($ch);
+    curl_close($ch);
     echo "bundle: " . ($b === false ? 'DL-FAIL' : (bin2hex(substr($b, 0, 4)) === 'c61fbc03' ? 'magic-ok len=' . strlen($b) : 'BAD-MAGIC')) . "\n";
 }

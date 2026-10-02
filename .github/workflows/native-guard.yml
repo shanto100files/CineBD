@@ -1,0 +1,105 @@
+name: Native Build Guard
+
+# OTA can only ship JS + JS-imported assets. Anything under android/, ios/,
+# native-src/, plugins/ or patches/ bakes into the APK and is invisible to
+# OTA — so those changes MUST ship with an `app.config.js` version bump, which
+# is what tells users (and ForceUpdateScreen) there is a new APK.
+#
+# Blocking when native sources change without a version bump; everything else
+# (app.config.js, package.json) only warns, because those are often JS-only
+# edits. Add the `js-only` label to a PR to skip the check entirely.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-guard:
+    name: Native change needs a version bump
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Skip when labelled js-only
+        id: skip
+        env:
+          LABELS: ${{ github.event_name == 'pull_request' && join(github.event.pull_request.labels.*.name, ' ') || '' }}
+        run: |
+          case " $LABELS " in
+            *" js-only "*) echo "skip=true" >> "$GITHUB_OUTPUT"; echo "PR labelled js-only - skipping." ;;
+            *)             echo "skip=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Check
+        if: ${{ steps.skip.outputs.skip == 'false' }}
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT" = "pull_request" ]; then
+            BASE="$PR_BASE"
+          else
+            BASE="$BEFORE"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$BASE" 2>/dev/null; then
+            echo "No usable base commit - skipping."
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only "$BASE...$SHA")
+          echo "Changed files:"; echo "$CHANGED"
+
+          ver_of() { git show "$1:app.config.js" 2>/dev/null \
+                     | grep -oE "^[[:space:]]*version:[[:space:]]*'[^']+'" \
+                     | head -1 | sed -E "s/.*'([^']+)'.*/\1/" || true; }
+          vc_of()  { git show "$1:app.config.js" 2>/dev/null \
+                     | grep -oE "^[[:space:]]*versionCode:[[:space:]]*[0-9]+" \
+                     | head -1 | grep -oE "[0-9]+" || true; }
+
+          V_BASE=$(ver_of "$BASE"); V_HEAD=$(ver_of "$SHA")
+          C_BASE=$(vc_of  "$BASE"); C_HEAD=$(vc_of  "$SHA")
+          echo "version: ${V_BASE:-?} -> ${V_HEAD:-?}   versionCode: ${C_BASE:-?} -> ${C_HEAD:-?}"
+
+          STRICT=$(echo "$CHANGED" | grep -E '^(android/|ios/|native-src/|plugins/|patches/)' | tr '\n' ' ' || true)
+          SOFT=$(echo "$CHANGED" | grep -E '^(app\.config\.js|package\.json)$' | tr '\n' ' ' || true)
+
+          FAILED=0
+          if [ -n "$STRICT" ]; then
+            if [ -z "$V_HEAD" ] || [ "$V_HEAD" = "$V_BASE" ]; then
+              echo "::error::Native sources changed but app.config.js 'version' did not: ${V_HEAD:-unset}"
+              echo "  $STRICT"
+              echo ""
+              echo "OTA cannot deliver any of this. Either:"
+              echo "  * bump 'version' (and android.versionCode) in app.config.js so a new APK is cut, or"
+              echo "  * add the 'js-only' label if you are certain none of it is compiled into the APK."
+              FAILED=1
+            else
+              echo "Native sources changed and version was bumped (${V_BASE} -> ${V_HEAD})."
+              if [ -z "$C_HEAD" ] || [ "$C_HEAD" = "$C_BASE" ]; then
+                echo "::warning::version bumped but android.versionCode is still ${C_HEAD:-unset} - Android may not treat it as an upgrade."
+              fi
+            fi
+          else
+            echo "No native sources changed."
+          fi
+
+          if [ -n "$SOFT" ] && [ -z "$STRICT" ]; then
+            echo "::warning::${SOFT}changed. If this touched native config/deps (plugins, permissions, newArch, native modules), it needs a new APK too - OTA will not carry it."
+          fi
+
+          exit $FAILED

@@ -92,6 +92,19 @@ const Settings = ({navigation}: Props) => {
       ToastAndroid.show('18+ চালু হয়নি — পিন/ফিঙ্গারপ্রিন্ট দিয়ে আনলক করুন', ToastAndroid.LONG);
     }
   }, [isFocused]);
+
+  // Turns 18+ on without going through the lock screen. Used when no PIN is
+  // set, or when the unlock session is still fresh — the user already proved
+  // themselves within the 15-minute TTL (e.g. they just unlocked to switch
+  // profiles) and being challenged again on every toggle felt broken.
+  const applyAdultEnable = useCallback(() => {
+    try {
+      require('../../lib/adultLock').markUnlocked();
+    } catch {}
+    settingsStorage.setAdultEnabled(true);
+    setAdultEnabled(true);
+    ToastAndroid.show('18+ content enabled', ToastAndroid.SHORT);
+  }, []);
   const {user, isPremium, isLoggedIn, logout} = useAuthStore();
   const authUserId = user?.id;
   const [friendsUnread, setFriendsUnread] = useState(0);
@@ -705,21 +718,23 @@ const Settings = ({navigation}: Props) => {
                           variant: 'destructive',
                           onPress: () => {
                             // PIN/biometric lock: first time = set up a PIN,
-                            // afterwards ALWAYS require a fresh unlock when
-                            // turning 18+ ON — even if the 15-min session
-                            // window is still open. Parental lock must prompt
-                            // every time the gate is opened, and a cancelled
-                            // prompt must never auto-enable via the old
-                            // session. 18+ is only enabled AFTER the lock
-                            // succeeds (checked when Settings regains focus).
+                            // afterwards challenge when the session has
+                            // expired. A still-fresh unlock (15-min TTL) is
+                            // accepted as-is — asking for the PIN again right
+                            // after the user unlocked to switch profile is
+                            // what made Settings feel like it "keeps asking
+                            // for the lock". 18+ is only ever enabled from
+                            // here, never from a cancelled prompt.
                             const {isAdultPinSet, isAdultLockOpen, getUnlockedAt} = require('../../lib/adultLock');
                             if (!isAdultPinSet()) {
                               pendingAdultEnable.current = true;
                               require('../../App').openAdultLock({mode: 'setup'});
-                            } else {
+                            } else if (!isAdultLockOpen()) {
                               unlockedAtBeforePrompt.current = getUnlockedAt();
                               pendingAdultEnable.current = true;
                               require('../../App').openAdultLock({mode: 'unlock'});
+                            } else {
+                              applyAdultEnable();
                             }
                           },
                         },

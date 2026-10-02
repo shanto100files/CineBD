@@ -96,7 +96,24 @@ google-services.json
 
 build_test/
 .ota-export/
+.ota-release.json
+ota-endpoint/.app_key
+.app_key
 
 # Local-only secrets (VPS SSH password for ota_publish.sh) — never commit.
 .ota-secret
 _ota_log*.txt
+
+# Release signing identity. `*.keystore` above already excludes the key itself;
+# these hold its password / CI upload payload. NEVER commit or delete them —
+# losing the keystore OR its password makes the app un-updatable forever.
+.keystore-secret
+.keystore-base64.txt
+/signing-backup/
+/CineBD-signing-backup.zip
+/GITHUB-SECRETS.txt
+
+# Local build helpers — contain the signing password + this machine's paths.
+# Kept out of the (public) repo on purpose.
+/run-release-build.bat
+/build-release.log

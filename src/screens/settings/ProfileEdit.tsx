@@ -21,6 +21,7 @@ import useContentStore from '../../lib/zustand/contentStore';
 import {useEntitlementStore} from '../../lib/zustand/entitlementStore';
 import {useAuthStore} from '../../lib/zustand/authStore';
 import {settingsStorage} from '../../lib/storage';
+import {useEnsureSettingsBase} from '../../lib/settingsStackBase';
 import {extensionStorage} from '../../lib/storage/extensionStorage';
 import {FLOATING_TAB_BAR_RESERVE} from '../../theme/layout';
 
@@ -45,6 +46,10 @@ export default function ProfileEditScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<Record<string, object | undefined>>>();
   const route = useRoute() as any;
   const editId: string | undefined = route.params?.profileId;
+  // Same lazy-tab guard as AdultLock: ProfileEdit can be the first screen
+  // SettingsStack ever mounts, which would leave the tab with no Settings
+  // underneath (see lib/settingsStackBase.ts).
+  useEnsureSettingsBase();
 
   const profiles = useProfileStore(s => s.profiles);
   const createProfile = useProfileStore(s => s.createProfile);

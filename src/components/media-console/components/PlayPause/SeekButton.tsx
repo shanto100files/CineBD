@@ -467,15 +467,21 @@ const styles = {
     left: 0,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    // Buttons hug the left/right edges; the centre stays free for the big
-    // play/pause circle (YouTube-style layout).
-    justifyContent: 'space-between' as const,
-    paddingHorizontal: '7%' as const,
+    // Both buttons sit either side of the play/pause circle instead of
+    // hugging the screen edges: edge-hugging left a huge dead zone between
+    // the two 10s buttons and made them feel detached from the control they
+    // belong to. A centred cluster keeps them a thumb-length apart at every
+    // screen width while still clearing the centre circle.
+    justifyContent: 'center' as const,
     zIndex: 100000,
   },
-  // Flex spacer keeps the two buttons pinned to opposite edges at any width.
+  // Fixed centre gutter: wide enough for the 92dp play/pause circle plus
+  // breathing room, capped so tablets don't push the buttons out again and
+  // floored so small screens can't wrap the row.
   spacer: {
-    flex: 1 as const,
+    width: '22%' as const,
+    minWidth: 168,
+    maxWidth: 240,
   },
   control: {
     opacity: 0.7,

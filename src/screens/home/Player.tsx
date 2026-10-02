@@ -57,6 +57,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 import { StatusBar } from 'react-native';
 import { torrentManager } from '../../lib/torrentManager';
 import { syncFromSharedFolder } from '../../lib/sync/syncService';
+import { setOfflineNoticeSuppressed } from '../../lib/netStatus';
 import { useM3Colors } from '../../theme/M3PaletteContext';
 import useContinueWatchingStore from '../../lib/zustand/continueWatchingStore';
 import useLocalVideoStore from '../../lib/zustand/localVideoStore';
@@ -374,6 +375,14 @@ const SidebarEpisodeRow = React.memo<SidebarEpisodeRowProps>(
 
 const Player = ({ route }: Props): React.JSX.Element => {
   const [syncReady, setSyncReady] = useState(false);
+
+  // The root-mounted offline pill floats over the fullscreen player. That is
+  // simply wrong for downloaded/offline playback (no network needed) and is
+  // noise during playback in general — the player has its own error UI.
+  useEffect(() => {
+    setOfflineNoticeSuppressed(true);
+    return () => setOfflineNoticeSuppressed(false);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -1446,6 +1455,23 @@ const Player = ({ route }: Props): React.JSX.Element => {
     manualOrientationOverrideRef.current = manualOrientationOverride;
   }, [manualOrientationOverride]);
 
+  // react-native-screens re-applies THIS screen's declared orientation on
+  // every container update (ScreenFragment.onContainerUpdate ->
+  // ScreenWindowTraits.setOrientation). The screen options hardcoded
+  // `orientation: 'landscape'`, so whatever we locked from JS — a portrait
+  // video, or the manual portrait toggle — was silently overwritten with
+  // SENSOR_LANDSCAPE about a second later, and our portrait police then
+  // fought it back: the visible portrait<->landscape ping-pong. Keep the
+  // declared value in sync with the orientation we actually want so the
+  // native side and JS agree.
+  useEffect(() => {
+    try {
+      navigation.setOptions({
+        orientation: isPortraitVideo ? 'portrait' : 'landscape',
+      });
+    } catch {}
+  }, [navigation, isPortraitVideo]);
+
   // Enter landscape and fullscreen on mount & focus, and restore on unmount.
   // If the loaded video turned out to be portrait, stay in portrait instead.
     useFocusEffect(
@@ -1463,7 +1489,14 @@ const Player = ({ route }: Props): React.JSX.Element => {
           clearTimeout(portraitReassertTimerRef.current);
           portraitReassertTimerRef.current = null;
         }
-        Orientation.unlockAllOrientations();
+        // Restore the app's normal orientation now that playback is over.
+        // unlockAllOrientations() left the activity SENSOR-driven, which is
+        // why portrait screens came back in landscape right after the player.
+        if (Platform.isTV) {
+          Orientation.unlockAllOrientations();
+        } else {
+          Orientation.lockToPortrait();
+        }
         exitFullScreen();
       };
     }, []),

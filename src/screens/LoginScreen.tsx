@@ -16,6 +16,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import {useAuthStore} from '../lib/zustand/authStore';
 import {useM3Colors} from '../theme/M3PaletteContext';
 import {FLOATING_TAB_BAR_RESERVE} from '../theme/layout';
+import {useEnsureSettingsBase} from '../lib/settingsStackBase';
 
 /**
  * Login screen:
@@ -31,6 +32,9 @@ export default function LoginScreen({navigation}: any) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // Login can also be the first screen SettingsStack ever mounts (opened
+  // from the profile switcher) — keep a Settings route underneath it.
+  useEnsureSettingsBase();
 
   const login = useAuthStore(s => s.login);
   const colors = useM3Colors();

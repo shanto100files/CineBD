@@ -31,6 +31,7 @@ import {
 // getUnlockedAt is imported for the session-capture blur/focus handlers.
 import {showAppDialog} from '../../lib/zustand/appDialogStore';
 import {useProfileStore} from '../../lib/zustand/profileStore';
+import {useEnsureSettingsBase} from '../../lib/settingsStackBase';
 
 /**
  * 18+ Lock screen.
@@ -64,6 +65,11 @@ export default function AdultLockScreen() {
     nonce?: string;
   } = route.params || {};
   const mode: 'setup' | 'unlock' | 'settings' = routeParams.mode || 'unlock';
+
+  // Opening the lock from another tab can be the first thing that ever
+  // mounts SettingsStack — make sure a Settings screen exists underneath so
+  // unlock/back has somewhere to land (see settingsStackBase.ts).
+  useEnsureSettingsBase();
 
   const pinSet = isAdultPinSet();
   const [stage, setStage] = useState<'enter' | 'confirm'>(pinSet || mode !== 'setup' ? 'enter' : 'enter');
@@ -132,6 +138,28 @@ export default function AdultLockScreen() {
       navigatingOutRef.current = true;
       resetToHome();
       return;
+    }
+    // Safety net (belt-and-braces for useEnsureSettingsBase): if Settings is
+    // somehow not underneath us — the lazy SettingsStack having mounted with
+    // AdultLock as its ONLY route — a plain goBack() has nothing to pop and
+    // bubbles out of the tab, dumping the user on Home while the Settings tab
+    // stays stuck on the lock screen. Reset to a real Settings instead.
+    try {
+      const routes = navigation.getState?.()?.routes as
+        | Array<{name?: string}>
+        | undefined;
+      if (
+        !Array.isArray(routes) ||
+        routes.length === 0 ||
+        (routes.length === 1 && routes[0]?.name !== 'Settings')
+      ) {
+        const {CommonActions} = require('@react-navigation/native');
+        navigatingOutRef.current = true;
+        navigation.dispatch(CommonActions.reset({routes: [{name: 'Settings'}]}));
+        return;
+      }
+    } catch {
+      // getState unavailable — fall through to goBack().
     }
     navigation.goBack();
   }, [navigation, routeParams.switchProfile, startMode, resetToHome]);
@@ -372,8 +400,16 @@ export default function AdultLockScreen() {
   }
 
   // ---------------- pin pad (setup / unlock) ----------------
+  // NOTE: wrapped in a ScrollView on purpose. Title + subtitle + dots + the
+  // 4-row keypad + the action button is TALLER than a short (or landscape)
+  // viewport; the old bare <View flex:1> just clipped the bottom rows and the
+  // unlock button, which is what made the lock page look like its styling had
+  // collapsed.
   return (
-    <View style={[st.full, {backgroundColor: colors.background}]}>
+    <ScrollView
+      style={{flex: 1, backgroundColor: colors.background}}
+      contentContainerStyle={{flexGrow: 1, paddingBottom: 28}}
+      showsVerticalScrollIndicator={false}>
       <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, textAlign: 'center', marginTop: 60}}>
         {title}
       </AppText>
@@ -436,29 +472,6 @@ export default function AdultLockScreen() {
         />
       </View>
 
-      {startMode !== 'setup' && pin.length > 0 && pin.length < ADULT_PIN_MIN && (
-        <View style={{alignItems: 'center', marginTop: 8}}>
-          <Pressable
-            focusable
-            style={[
-              st.doneBtn,
-              {
-                backgroundColor: colors.primaryContainer,
-                borderRadius: 14,
-                paddingHorizontal: 28,
-                alignSelf: 'center',
-              },
-            ]}
-            disabled={busy}
-            onPress={() => submitPin(pin)}>
-            <AppText
-              style={{color: colors.onPrimaryContainer, fontWeight: '700'}}>
-              আনলক করুন ({pin.length} ডিজিট)
-            </AppText>
-          </Pressable>
-        </View>
-      )}
-
       {startMode === 'setup' && pin.length >= ADULT_PIN_MIN && (
         <Pressable style={st.doneBtn} onPress={() => submitPin(pin)}>
           <AppText style={{color: colors.primary, fontWeight: '700'}}>পরবর্তী</AppText>
@@ -473,7 +486,7 @@ export default function AdultLockScreen() {
           <AppText style={{color: colors.onPrimaryContainer, fontWeight: '700'}}>আনলক করুন</AppText>
         </Pressable>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -531,7 +544,10 @@ const st = StyleSheet.create({
   full: {flex: 1},
   dotsRow: {flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 30, marginBottom: 20},
   dot: {width: 14, height: 14, borderRadius: 7},
-  pad: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, paddingHorizontal: 40},
+  // 3x72dp keys + 2x14dp gaps = 244dp. The old 40dp side padding needed a
+  // 324dp-wide screen, so anything narrower wrapped the grid into a ragged
+  // 2-column blob. 16dp keeps the 4x3 pad intact from 276dp upwards.
+  pad: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, paddingHorizontal: 16},
   key: {width: 72, height: 62, borderRadius: 16, alignItems: 'center', justifyContent: 'center'},
   keyTxt: {fontSize: 24, color: '#FFF'},
   doneBtn: {alignItems: 'center', padding: 14, marginTop: 8},
