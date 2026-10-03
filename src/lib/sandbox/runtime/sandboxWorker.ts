@@ -17,6 +17,7 @@
 import axios, {AxiosHeaders, type AxiosAdapter} from 'axios';
 import * as cheerio from 'cheerio';
 import {base64ToBytes} from '../base64';
+import {MODULE_UNKNOWN_PREFIX} from '../protocol';
 import type {HostMessage, RpcOperation, SerializedResponse} from '../protocol';
 import {
   createAwaiter,
@@ -360,6 +361,12 @@ addMessageListener('message', async (event: {data: HostMessage}) => {
 
   try {
     const {commonHeaders = {}, ...providerArgs} = message.args ?? {};
+    // The document resolves and caches the source before spawning this worker,
+    // so this only guards against a protocol/typing mismatch. Handing
+    // `undefined` to `new Function` would produce a confusing SyntaxError.
+    if (typeof message.moduleCode !== 'string') {
+      throw new Error(`${MODULE_UNKNOWN_PREFIX}${message.moduleHash ?? ''}`);
+    }
     const result = await executeProvider(
       message.moduleCode,
       message.exportName,

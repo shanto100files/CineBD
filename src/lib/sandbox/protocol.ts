@@ -34,7 +34,15 @@ export type HostMessage =
   | {
       type: 'invoke';
       token: string;
-      moduleCode: string;
+      /**
+       * The provider module source. Omitted once the document has confirmed
+       * it already holds this exact `moduleHash` — shipping up to 2 MB of
+       * source on EVERY call (then JSON.stringify + base64 + a bridge hop)
+       * was the single biggest per-call cost in the app.
+       */
+      moduleCode?: string;
+      /** Content hash of `moduleCode`; stable across invokes and app restarts. */
+      moduleHash?: string;
       exportName?: string;
       args?: Record<string, unknown>;
       state: Record<string, unknown>;
@@ -79,3 +87,11 @@ export const SANDBOX_INVOKE_TIMEOUT_MS = 120_000;
 export const MAX_MODULE_SIZE = 2_000_000;
 export const MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
 export const MAX_STATE_BYTES = 256_000;
+/**
+ * The document answers with this when an invoke arrived without `moduleCode`
+ * and it does not hold that `moduleHash` (page restarted, cache evicted, or a
+ * stale runtime). The native side treats it as "re-send the source" instead of
+ * surfacing a provider error — a miss costs one extra round trip, never a
+ * broken call.
+ */
+export const MODULE_UNKNOWN_PREFIX = 'MODULE_UNKNOWN:';

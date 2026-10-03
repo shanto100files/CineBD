@@ -12,5 +12,5 @@
     "resolveJsonModule": true,
     "types": []
   },
-  "include": ["./**/*.ts", "../base64.ts", "../protocol.ts"]
+  "include": ["./**/*.ts", "../base64.ts", "../protocol.ts", "../moduleHash.ts"]
 }

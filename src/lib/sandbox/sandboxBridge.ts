@@ -1,10 +1,12 @@
 import {
   MAX_MODULE_SIZE,
+  MODULE_UNKNOWN_PREFIX,
   SANDBOX_INVOKE_TIMEOUT_MS,
   type HostMessage,
   type SandboxMessage,
 } from './protocol';
 import {utf8ToBase64} from './base64';
+import {hashModuleSource} from './moduleHash';
 import {handleProviderRpc} from './providerRpc';
 
 /**
@@ -24,6 +26,9 @@ interface PendingInvoke {
   timer: ReturnType<typeof setTimeout>;
   onAbort?: () => void;
   signal?: AbortSignal;
+  /** The original invoke, kept so a MODULE_UNKNOWN reply can be retried with source. */
+  invoke?: Extract<HostMessage, {type: 'invoke'}>;
+  moduleRetried?: boolean;
 }
 
 const randomToken = (): string => {
@@ -39,6 +44,13 @@ class SandboxBridge {
   private ready = false;
   private readonly queue: HostMessage[] = [];
   private readonly pending = new Map<string, PendingInvoke>();
+  /**
+   * Module hashes the CURRENT document has been sent. Every page load starts
+   * empty because the page's own module cache dies with it — so this must be
+   * cleared alongside every path that can replace the page, or we would send
+   * hash-only invokes to a document that has nothing to resolve them against.
+   */
+  private readonly delivered = new Set<string>();
   private reloadRequester: (() => void) | null = null;
   private readyTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -57,6 +69,7 @@ class SandboxBridge {
       this.readyTimer = null;
     }
     this.queue.length = 0;
+    this.delivered.clear();
     for (const [token, entry] of this.pending) {
       clearTimeout(entry.timer);
       entry.signal?.removeEventListener?.('abort', entry.onAbort as never);
@@ -70,10 +83,31 @@ class SandboxBridge {
       this.queue.push(message);
       return;
     }
+    // Omit module source the document already holds. This has to happen here,
+    // AFTER the not-ready guard: a stripped message queued before a reload
+    // would otherwise be delivered to a fresh page with an empty cache.
+    let outgoing = message;
+    if (
+      message.type === 'invoke' &&
+      message.moduleCode &&
+      message.moduleHash &&
+      this.delivered.has(message.moduleHash)
+    ) {
+      // `undefined` is dropped by JSON.stringify, so the wire message simply
+      // has no `moduleCode` key at all.
+      const withoutSource: Extract<HostMessage, {type: 'invoke'}> = {
+        ...message,
+        moduleCode: undefined,
+      };
+      outgoing = withoutSource;
+    }
     // base64 so no quote or U+2028/U+2029 in provider data can break out of
     // the injected script.
-    const encoded = utf8ToBase64(JSON.stringify(message));
+    const encoded = utf8ToBase64(JSON.stringify(outgoing));
     this.injector(`window.__sandboxReceive("${encoded}");true;`);
+    if (message.type === 'invoke' && message.moduleCode && message.moduleHash) {
+      this.delivered.add(message.moduleHash);
+    }
   }
 
   private flush(): void {
@@ -138,6 +172,9 @@ class SandboxBridge {
           clearTimeout(this.readyTimer);
           this.readyTimer = null;
         }
+        // New page => empty module cache. Forget what we think it has so the
+        // flush below re-sends sources in full.
+        this.delivered.clear();
         this.flush();
         return;
 
@@ -176,11 +213,27 @@ class SandboxBridge {
 
       case 'result':
         if (message.error) {
+          const entry = this.pending.get(message.token);
+          if (
+            message.error.startsWith(MODULE_UNKNOWN_PREFIX) &&
+            entry?.invoke?.moduleCode &&
+            !entry.moduleRetried
+          ) {
+            // The document does not hold this hash (page restarted, cache
+            // evicted, or a runtime older than this protocol). Re-send the
+            // source once instead of failing the provider call.
+            entry.moduleRetried = true;
+            if (entry.invoke.moduleHash) {
+              this.delivered.delete(entry.invoke.moduleHash);
+            }
+            this.post({...entry.invoke, token: message.token});
+            return;
+          }
           this.settle(message.token, new Error(message.error));
         } else {
-          const entry = this.pending.get(message.token);
-          if (entry && message.state) {
-            onStateSaved?.(entry.providerValue, message.state);
+          const live = this.pending.get(message.token);
+          if (live && message.state) {
+            onStateSaved?.(live.providerValue, message.state);
           }
           this.settle(message.token, null, message.result);
         }
@@ -206,6 +259,16 @@ class SandboxBridge {
     }
 
     const token = randomToken();
+    const invoke: Extract<HostMessage, {type: 'invoke'}> = {
+      type: 'invoke',
+      token,
+      moduleCode,
+      moduleHash: hashModuleSource(moduleCode),
+      exportName,
+      args,
+      state,
+      timeoutMs: SANDBOX_INVOKE_TIMEOUT_MS,
+    };
 
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -228,23 +291,18 @@ class SandboxBridge {
         timer,
         onAbort,
         signal,
+        invoke,
       });
 
-      this.post({
-        type: 'invoke',
-        token,
-        moduleCode,
-        exportName,
-        args,
-        state,
-        timeoutMs: SANDBOX_INVOKE_TIMEOUT_MS,
-      });
+      this.post(invoke);
     });
   }
 
   /** Called by the host component when the WebView reloads. */
   handleReload(): void {
     this.ready = false;
+    // The reloaded page starts with an empty module cache.
+    this.delivered.clear();
     this.startReadyTimer();
   }
 }

@@ -1,7 +1,9 @@
 /**
  * Sandbox document: the WebView page that hosts provider workers.
  *
- * It holds no provider code itself. Its only jobs are:
+ * It holds no provider code beyond a small content-addressed source cache
+ * (see `moduleCache`) used to avoid re-shipping megabytes of module source on
+ * every call. Its other jobs are:
  *  - spawn one nested Worker per invoke (fresh realm, no shared prototypes)
  *  - relay RPC frames between the worker and the native host
  *  - terminate a worker that overruns its timeout, which is the only way to
@@ -10,6 +12,7 @@
  * The worker bundle is inlined at build time as `__WORKER_SOURCE__`.
  */
 import {base64ToUtf8} from '../base64';
+import {MODULE_UNKNOWN_PREFIX} from '../protocol';
 import type {HostMessage, SandboxMessage} from '../protocol';
 
 declare const __WORKER_SOURCE__: string;
@@ -24,7 +27,7 @@ const nativeBridge = (window as unknown as {ReactNativeWebView: NativeBridge})
 const send = (message: SandboxMessage): void => {
   try {
     nativeBridge.postMessage(JSON.stringify(message));
-  } catch (error) {
+  } catch {
     // Nothing else to do: the bridge is the only channel out.
   }
 };
@@ -36,6 +39,45 @@ interface ActiveInvoke {
 
 const active = new Map<string, ActiveInvoke>();
 let workerUrl = '';
+
+/**
+ * Provider module source this page already holds, keyed by content hash.
+ *
+ * The host omits `moduleCode` for hashes in here, which removes the
+ * `JSON.stringify` + base64 encode + bridge transfer of up to 2 MB from every
+ * provider call after the first — that transfer was the dominant per-call cost
+ * in the app. Deliberately dies with the page: the host clears its own
+ * "delivered" set on every ready/reload, so a fresh page always gets sources
+ * again.
+ */
+const moduleCache = new Map<string, string>();
+let moduleCacheBytes = 0;
+const MAX_MODULE_CACHE_BYTES = 12 * 1024 * 1024;
+
+const rememberModule = (hash: string, code: string): void => {
+  const existing = moduleCache.get(hash);
+  if (existing === code) {
+    return;
+  }
+  if (existing !== undefined) {
+    moduleCacheBytes -= existing.length;
+  }
+  moduleCache.set(hash, code);
+  moduleCacheBytes += code.length;
+  // FIFO eviction. A later miss is not an error: the host sees
+  // MODULE_UNKNOWN and re-sends the source, costing one round trip.
+  while (moduleCacheBytes > MAX_MODULE_CACHE_BYTES && moduleCache.size > 1) {
+    const oldest = moduleCache.keys().next();
+    if (oldest.done) {
+      return;
+    }
+    const evicted = moduleCache.get(oldest.value);
+    moduleCache.delete(oldest.value);
+    if (evicted !== undefined) {
+      moduleCacheBytes -= evicted.length;
+    }
+  }
+};
 
 const getWorkerUrl = (): string => {
   if (!workerUrl) {
@@ -101,6 +143,28 @@ const handleInvoke = (
     return;
   }
 
+  // Resolve the module source BEFORE spawning anything. A hash-only invoke we
+  // cannot satisfy fails closed with a retryable marker rather than handing
+  // `undefined` to `new Function`, and never reaches the document realm.
+  const hash = message.moduleHash ?? '';
+  const moduleCode =
+    typeof message.moduleCode === 'string'
+      ? message.moduleCode
+      : hash
+        ? moduleCache.get(hash)
+        : undefined;
+  if (typeof moduleCode !== 'string') {
+    send({
+      type: 'result',
+      token,
+      error: `${MODULE_UNKNOWN_PREFIX}${hash}`,
+    });
+    return;
+  }
+  if (hash) {
+    rememberModule(hash, moduleCode);
+  }
+
   let worker: Worker;
   try {
     worker = takeWorker();
@@ -148,7 +212,7 @@ const handleInvoke = (
     cleanup(token);
   };
 
-  worker.postMessage(message);
+  worker.postMessage({...message, moduleCode});
 };
 
 const handleHostMessage = (message: HostMessage): void => {
