@@ -322,13 +322,22 @@ export const useDownloadsStore = create<DownloadState>()(
       // emits every 500ms and each call used to produce a brand-new
       // `downloads` map — which means a full JSON.stringify + MMKV write of
       // EVERY download record plus a re-render of every subscriber
-      // (Player, Downloads, syncService, each Downloader row). Coalescing to
-      // one write per second halves that with no visible cost: completion,
-      // pause and error all go through their own actions below and are
-      // never throttled.
+      // (Player, Downloads, syncService, each Downloader row). Coalescing the
+      // steady-state ticks to one write per second halves that with no
+      // visible cost: completion, pause and error all go through their own
+      // actions below and are never throttled.
+      //
+      // Only 'downloading' is throttled. A transition state is rare, and its
+      // progress event is the one that records the final byte count — a late
+      // tick right after `pauseDownload` must land, or the persisted record
+      // keeps the bytes from before the pause forever.
       updateProgress: (id, downloaded, total, speed) => {
         const now = Date.now();
-        if (now - (lastProgressWriteAt[id] || 0) < PROGRESS_WRITE_INTERVAL_MS) {
+        const steady = get().downloads[id]?.status === 'downloading';
+        if (
+          steady &&
+          now - (lastProgressWriteAt[id] || 0) < PROGRESS_WRITE_INTERVAL_MS
+        ) {
           return;
         }
         lastProgressWriteAt[id] = now;
