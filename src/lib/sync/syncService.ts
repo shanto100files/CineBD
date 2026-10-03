@@ -217,15 +217,49 @@ const saveLocalHistory = (history: Record<string, SyncedHistory>) => {
   return limited;
 };
 
+// Field-level equality for one history entry. The merge below used to always
+// re-serialize the whole history map, so an entry that had not moved still
+// cost a full JSON.parse + JSON.stringify + MMKV write.
+const historyEntryChanged = (a: SyncedHistory, b: SyncedHistory): boolean =>
+  a.progress !== b.progress ||
+  a.duration !== b.duration ||
+  a.currentTime !== b.currentTime ||
+  a.updatedAt !== b.updatedAt ||
+  a.lastPlayed !== b.lastPlayed ||
+  a.title !== b.title ||
+  a.poster !== b.poster ||
+  a.background !== b.background ||
+  a.provider !== b.provider ||
+  a.link !== b.link ||
+  a.episodeTitle !== b.episodeTitle ||
+  a.isSeries !== b.isSeries ||
+  a.type !== b.type ||
+  a.episode?.link !== b.episode?.link ||
+  a.episode?.sourceLink !== b.episode?.sourceLink;
+
 const mergeContinueWatchingIntoHistory = (items: ContinueWatchingItem[]) => {
   const history = getLocalHistory();
-  items.forEach(item => {
+  let changed = false;
+  for (const item of items) {
     const synced = toSyncedHistory(item);
     const existing = history[synced.id];
-    if (!existing || synced.updatedAt >= existing.updatedAt) {
-      history[synced.id] = synced;
+    if (
+      existing &&
+      (synced.updatedAt < existing.updatedAt ||
+        !historyEntryChanged(existing, synced))
+    ) {
+      continue;
     }
-  });
+    history[synced.id] = synced;
+    changed = true;
+  }
+  // No-op merge => no write. This runs on every continue-watching store tick
+  // AND again from buildManifest (re-armed ~1s after that same tick), so
+  // without this it parsed and re-serialized the entire history map into MMKV
+  // twice per 5 seconds of playback even when nothing had moved.
+  if (!changed) {
+    return history;
+  }
   return saveLocalHistory(history);
 };
 

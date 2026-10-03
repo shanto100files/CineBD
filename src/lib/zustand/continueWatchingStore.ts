@@ -30,7 +30,33 @@ interface ContinueWatchingState {
   syncWithServer: () => Promise<void>;
 }
 
-async function serverSync(item: ContinueWatchingItem) {
+// History POSTs are coalesced. Playback saves progress every ~5s and each
+// save used to fire its own axios request immediately — on a slow connection
+// that meant a queue of in-flight writes (plus their serializations) fighting
+// the video decoder. One trailing flush covers the whole burst; a newer item
+// for the same id simply replaces the pending payload.
+const pendingSync = new Map<string, ContinueWatchingItem>();
+let syncTimer: ReturnType<typeof setTimeout> | undefined;
+
+const flushServerSync = () => {
+  syncTimer = undefined;
+  const items = Array.from(pendingSync.values());
+  pendingSync.clear();
+  const token = useAuthStore.getState().token;
+  if (!token || items.length === 0) return;
+  Promise.all(items.map(item => postHistory(item))).catch(() => {});
+};
+
+const serverSync = (item: ContinueWatchingItem) => {
+  if (!useAuthStore.getState().token) return;
+  pendingSync.set(item.id, item);
+  if (syncTimer) {
+    clearTimeout(syncTimer);
+  }
+  syncTimer = setTimeout(flushServerSync, 3000);
+};
+
+async function postHistory(item: ContinueWatchingItem) {
   const token = useAuthStore.getState().token;
   if (!token) return;
   try {

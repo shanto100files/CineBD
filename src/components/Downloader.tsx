@@ -33,6 +33,7 @@ import DownloadLocationDialog from './DownloadLocationDialog';
 import { useM3Colors } from '../theme/M3PaletteContext';
 import { LEGACY_TERTIARY_BACKGROUND } from '../theme/seeds';
 import { showAppDialog } from '../lib/zustand/appDialogStore';
+import {useShallow} from 'zustand/react/shallow';
 
 const DOWNLOAD_PROGRESS_SIZE = 42;
 const DOWNLOAD_PROGRESS_RADIUS = 18;
@@ -200,12 +201,19 @@ const DownloadComponent = ({
       ),
   );
 
-  const subDownloads = useDownloadsStore(state =>
-    Object.values(state.downloads).filter(
-      item =>
-        isSubtitleDownloadItem(item) &&
-        (item.id.startsWith(`${downloadId}_subtitle_`) ||
-          (item.infoUrl === infoUrl && item.sourceLink === link)),
+  // `filter()` allocates a fresh array on every store write, so the default
+  // Object.is check always failed and EVERY mounted Downloader (one per
+  // episode row on the Info screen) re-rendered on every download progress
+  // tick — 2×/second app-wide for as long as anything was downloading.
+  // useShallow keeps the previous array identity while the items match.
+  const subDownloads = useDownloadsStore(
+    useShallow(state =>
+      Object.values(state.downloads).filter(
+        item =>
+          isSubtitleDownloadItem(item) &&
+          (item.id.startsWith(`${downloadId}_subtitle_`) ||
+            (item.infoUrl === infoUrl && item.sourceLink === link)),
+      ),
     ),
   );
 

@@ -33,16 +33,33 @@ function getDeviceInfo() {
   return deviceInfo;
 }
 
+// The batch lives in memory. Every trackEvent used to JSON.parse + re-stringify
+// the whole pending batch and write it back to MMKV — and trackEvent fires on
+// EVERY navigation (App.tsx onStateChange), so switching tabs cost a full
+// round trip of a list that grows to 50 events. It is now persisted only in
+// flushes and once every 10 events (bounding what a hard kill can lose).
+let pendingBatch: any[] | null = null;
+
 function getPendingBatch(): any[] {
+  const existing = pendingBatch;
+  if (existing) {
+    return existing;
+  }
+  // Local, not `pendingBatch` directly: because savePendingBatch assigns the
+  // module-level variable from another closure, TS refuses to narrow it here.
+  let batch: any[] = [];
   try {
     const raw = storage.getString(BATCH_KEY);
-    return raw ? JSON.parse(raw) : [];
+    batch = raw ? JSON.parse(raw) : [];
   } catch {
-    return [];
+    batch = [];
   }
+  pendingBatch = batch;
+  return batch;
 }
 
 function savePendingBatch(events: any[]) {
+  pendingBatch = events;
   storage.setString(BATCH_KEY, JSON.stringify(events));
 }
 
@@ -80,7 +97,10 @@ export function trackEvent(eventType: string, data: Record<string, any> = {}) {
 
   const batch = getPendingBatch();
   batch.push(event);
-  savePendingBatch(batch);
+  // Checkpoint every 10 events instead of writing on each one.
+  if (batch.length % 10 === 0) {
+    savePendingBatch(batch);
+  }
 
   if (batch.length >= MAX_BATCH_SIZE) {
     flushBatch();

@@ -188,7 +188,12 @@ const Slider = ({
       </View>
       {isLoading ? (
         <View className="flex flex-row gap-2 overflow-hidden">
-          {Array.from({length: 20}).map((_, index) => (
+          {/* 20 placeholders per row x ~16 loading rows x 2 loaders each was
+              ~640 shimmer components (1280 extra native views + 640 running
+              animations) mounted on the loading frame. The strip is clipped
+              by `overflow-hidden` anyway, so 8 fills the viewport and stops
+              there. */}
+          {Array.from({length: 8}).map((_, index) => (
             <View
               className="gap-2 flex mb-3 justify-center"
               style={{marginLeft: index === 0 ? 18 : 0, marginRight: 12}}
@@ -223,9 +228,9 @@ const Slider = ({
               : undefined
           }
           scrollEventThrottle={isTv ? 100 : undefined}
-          initialNumToRender={15}
-          maxToRenderPerBatch={10}
-          windowSize={8}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={6}
           removeClippedSubviews={true}
           getItemLayout={(_, index) => ({length: ITEM_WIDTH + ITEM_GAP, offset: (ITEM_WIDTH + ITEM_GAP) * index, index})}
           ListFooterComponent={

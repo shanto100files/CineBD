@@ -124,7 +124,12 @@ const Settings = ({navigation}: Props) => {
     setAdultEnabled(true);
     ToastAndroid.show('18+ content enabled', ToastAndroid.SHORT);
   }, []);
-  const {user, isPremium, isLoggedIn, logout} = useAuthStore();
+  // Selectors, not a destructure — see the same comment in App.tsx/Home.tsx:
+  // a whole-store subscription re-renders the entire screen on any auth write.
+  const user = useAuthStore(s => s.user);
+  const isPremium = useAuthStore(s => s.isPremium);
+  const isLoggedIn = useAuthStore(s => s.isLoggedIn);
+  const logout = useAuthStore(s => s.logout);
   const authUserId = user?.id;
   const [friendsUnread, setFriendsUnread] = useState(0);
   const provider = useContentStore(state => state.provider);
@@ -192,6 +197,10 @@ const Settings = ({navigation}: Props) => {
         if (alive) setFriendsUnread(shareUnread + chatUnread);
       });
     };
+    // Tab screens stay mounted (freezeOnBlur: false), so without this guard
+    // the interval kept firing 2 axios GETs every 30s for the rest of the
+    // app's life — even while the user was on Home or watching a video.
+    if (!isFocused) return;
     load();
     const iv = setInterval(load, 30000);
     return () => {

@@ -24,13 +24,9 @@ export const useEpisodes = (
         return [];
       }
 
-      console.log('Fetching episodes for:', episodesLink);
-
       // Check if provider has episodes module
       const hasEpisodesModule =
         extensionManager.getProviderModules(providerValue)?.modules.episodes;
-
-      console.log('Has episodes module:', !!hasEpisodesModule);
 
       if (!hasEpisodesModule) {
         return [];
@@ -44,7 +40,11 @@ export const useEpisodes = (
       return episodes || [];
     },
     enabled: enabled && !!episodesLink && !!providerValue,
-    staleTime: 0,
+    // Was `staleTime: 0` + `refetchOnMount: 'always'`, which meant EVERY
+    // visit to a detail screen paid a full provider round-trip (sandbox
+    // encode + inject + compile + network) for an episode list that had
+    // almost certainly not changed. Pull-to-refresh still forces a refetch.
+    staleTime: 5 * 60 * 1000,
     gcTime: 60 * 60 * 1000, // 1 hour (was cacheTime)
     retry: (failureCount, _error) => {
       // Don't retry on provider/network errors
@@ -71,15 +71,20 @@ export const useEpisodes = (
       }
       return undefined;
     },
-    initialDataUpdatedAt: 0,
-    refetchOnMount: 'always',
+    // When those rows were ACTUALLY fetched. An explicit 0 marked warm cache
+    // stale the instant it existed, which is what forced the refetch above.
+    initialDataUpdatedAt: cacheKey
+      ? cacheStorage.getNumber(`${cacheKey}:at`) || 0
+      : 0,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
-    refetchOnReconnect: 'always',
+    refetchOnReconnect: true,
   });
 
   useEffect(() => {
     if (cacheKey && query.data && query.data.length > 0) {
       cacheStorage.setString(cacheKey, JSON.stringify(query.data));
+      cacheStorage.setNumber(`${cacheKey}:at`, query.dataUpdatedAt || Date.now());
     }
   }, [cacheKey, query.data]);
 

@@ -13,7 +13,7 @@ import {syncFromSharedFolder} from '../../lib/sync/syncService';
 import {useAuthStore} from '../../lib/zustand/authStore';
 import {useEntitlementStore} from '../../lib/zustand/entitlementStore';
 import {useProfileStore} from '../../lib/zustand/profileStore';
-import {useAdultAds} from '../../lib/services/adService';
+import {useAdultAds, useAppAds} from '../../lib/services/adService';
 import {CommonActions} from '@react-navigation/native';
 import {navigationRef} from '../../App';
 import {getGatedInstalledProviders} from '../../lib/utils/providerGate';
@@ -29,7 +29,6 @@ import {HomeStackParamList} from '../../App';
 import {Drawer} from 'react-native-drawer-layout';
 import {GestureHandlerRootView, ScrollView} from 'react-native-gesture-handler';
 import {providerManager} from '../../lib/services/ProviderManager';
-import {normalizeAppAds} from '../../lib/services/adService';
 import {extensionManager} from '../../lib/services/ExtensionManager';
 import {Catalog} from '../../lib/providers/types';
 import {QueryErrorBoundary} from '../../components/ErrorBoundary';
@@ -55,7 +54,10 @@ const MID_AD_HEIGHT = 150;
 
 const Home = (_props: Props) => {
   const colors = useM3Colors();
-  const {isPremium} = useAuthStore();
+  // Selector, not `const {isPremium} = useAuthStore()` — a destructured
+  // subscription re-renders EVERYTHING below (the full ~240-poster content
+  // list plus every ad box) on any auth/token/profile write. See App.tsx.
+  const isPremium = useAuthStore(s => s.isPremium);
   // Ad WebViews are expensive on low-RAM phones: unmount them while another
   // screen takes focus. AdBox is fully inert: impressions count on load;
   // every navigation inside the box is cancelled — nothing ever opens
@@ -65,7 +67,10 @@ const Home = (_props: Props) => {
   const [statusBarScrimVisible, setStatusBarScrimVisible] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
-  const [homeAds, setHomeAds] = useState<{enabled: boolean; top: string; bottom: string}>({enabled: false, top: '', bottom: ''});
+  // Single cached, deduped ad fetch shared with useAdultAds/Info. Home used
+  // to issue its own raw fetch (in addition to the one useAdultAds already
+  // triggers) with no cache and no dedupe.
+  const homeAds = useAppAds();
   // In-app "Sponsored" browser for 18+ ad click-throughs (never the
   // external browser — the user stays inside the app, back returns them).
   const [adTarget, setAdTarget] = useState<string | null>(null);
@@ -298,6 +303,13 @@ const Home = (_props: Props) => {
 
   const preferredLang = settingsStorage.getPreferredLanguage();
   const contentSliders = useMemo(() => {
+    // Key by content identity, not index. Index keys remounted ENTIRE rows
+    // whenever the array reshuffled: the warm cache paints the full list,
+    // then a refetch's partial publishes collapse it back down and rebuild
+    // it one provider at a time — so every poster was thrown away and
+    // re-requested mid-load. Only a genuinely duplicated identity falls back
+    // to the index.
+    const seen = new Set<string>();
     return homeData
       .filter(item => item.Posts && item.Posts.length > 0)
       .map((item, index) => {
@@ -308,10 +320,13 @@ const Home = (_props: Props) => {
           if (filtered.length > 0) posts = filtered;
         }
         if (posts.length === 0) return null;
+        const base = `content-${item.provider || provider?.value}-${item.filter}-${item.title}`;
+        const key = seen.has(base) ? `${base}-${index}` : base;
+        seen.add(base);
         return (
           <Slider
             isLoading={false}
-            key={`content-${item.provider || provider?.value}-${item.filter}-${index}`}
+            key={key}
             title={item.title}
             posts={posts}
             filter={item.filter}
@@ -320,7 +335,7 @@ const Home = (_props: Props) => {
         );
       })
       .filter(Boolean);
-  }, [homeData, preferredLang]);
+  }, [homeData, preferredLang, provider?.value]);
 
   // Memoized error message - only show if there is no cached data and an error occurred
   const errorComponent = useMemo(() => {
@@ -382,25 +397,6 @@ const Home = (_props: Props) => {
   useEffect(() => {
     runAutoInstall();
   }, [runAutoInstall]);
-
-  // Fetch ads (deferred until after first paint so startup stays light)
-  const [adsReady, setAdsReady] = useState(false);
-  useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => setAdsReady(true));
-    return () => task.cancel();
-  }, []);
-  useEffect(() => {
-    if (!adsReady) return;
-    fetch('https://cinepix.top/api/app/ads', {headers: {'X-App-Key': '78a0e573dfd894d443685159b2e71e2f'}})
-      .then(r => {
-        if (!r.ok) {
-          throw new Error(`ads request failed: ${r.status}`);
-        }
-        return r.json();
-      })
-      .then(d => setHomeAds(normalizeAppAds(d)))
-      .catch(() => {});
-  }, [adsReady]);
 
   // Startup fast path: render an empty shell first so the splash overlay can
   // fade to a *visible* screen instead of a black one, then mount the heavy

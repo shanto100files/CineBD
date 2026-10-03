@@ -635,21 +635,42 @@ const App = () => {
 
   // Strict foreground check: check update every time user comes back to app
   useEffect(() => {
+    // Deferred so the filesystem/manifest work does not land on the exact
+    // frame the app is re-mounting and re-laying out — that burst is what
+    // made switching back to the app feel frozen.
+    let heavyTimer: ReturnType<typeof setTimeout> | undefined;
+    const runHeavyJobs = () => {
+      reconcileCompletedDownloadOutputs().catch(() => {});
+      syncFromSharedFolder().catch(() => {});
+    };
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'active') {
         // Re-verify update status immediately on return
         runUpdateCheck();
-
-        reconcileCompletedDownloadOutputs().catch(() => {});
-        syncFromSharedFolder().catch(() => {});
         sendHeartbeat();
         resumeAnalytics();
+        if (heavyTimer) {
+          clearTimeout(heavyTimer);
+        }
+        heavyTimer = setTimeout(() => {
+          heavyTimer = undefined;
+          runHeavyJobs();
+        }, 2500);
       } else if (state === 'background' || state === 'inactive') {
+        if (heavyTimer) {
+          clearTimeout(heavyTimer);
+          heavyTimer = undefined;
+        }
         publishSyncManifest().catch(() => {});
         pauseAnalytics();
       }
     });
-    return () => subscription.remove();
+    return () => {
+      if (heavyTimer) {
+        clearTimeout(heavyTimer);
+      }
+      subscription.remove();
+    };
   }, [runUpdateCheck]);
 
   useEffect(() => {

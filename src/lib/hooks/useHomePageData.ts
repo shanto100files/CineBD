@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {InteractionManager} from 'react-native';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {getHomePageData, HomePageData} from '../getHomepagedata';
@@ -254,16 +254,46 @@ export const useHomePageData = ({
     refetchOnReconnect: 'always',
   });
 
+  // Coalesce the cache write. `publishPartial()` re-publishes the merged
+  // dataset once PER provider settle (~8-16 times per load), and every
+  // publish gave `query.data` a new identity — so this effect used to
+  // JSON.stringify the ENTIRE home catalogue (every row, every post) into
+  // MMKV that many times in a row, all during the paint window. A trailing
+  // 1.5s timer turns it into one write, and the ref below lets us still
+  // flush the newest entry if the screen unmounts first.
+  const pendingCacheRef = useRef<{sig: string; entry: HomeCacheEntry} | null>(
+    null,
+  );
   useEffect(() => {
-    if (query.data && query.data.length > 0) {
-      writeHomeCache(cacheSig, {
+    if (!query.data || query.data.length === 0) {
+      return;
+    }
+    const next = {
+      sig: cacheSig,
+      entry: {
         // dataUpdatedAt is 0 only while nothing has ever been fetched, which
         // we do not want to persist as "fresh".
         updatedAt: query.dataUpdatedAt || 0,
         data: query.data,
-      });
-    }
+      },
+    };
+    pendingCacheRef.current = next;
+    const timer = setTimeout(() => {
+      pendingCacheRef.current = null;
+      writeHomeCache(next.sig, next.entry);
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [query.data, query.dataUpdatedAt, cacheSig]);
+
+  useEffect(() => {
+    return () => {
+      const pending = pendingCacheRef.current;
+      if (pending) {
+        pendingCacheRef.current = null;
+        writeHomeCache(pending.sig, pending.entry);
+      }
+    };
+  }, []);
 
   // The Home screen needs the exact provider set to draw skeletons that match
   // the rows that are coming (previously it skeletonised the ONE selected

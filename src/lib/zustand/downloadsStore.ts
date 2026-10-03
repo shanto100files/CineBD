@@ -11,6 +11,10 @@ import type {SkipInterval} from '../providers/types';
 export const DOWNLOADS_STORAGE_KEY = 'vega-downloads-storage';
 export const DOWNLOADS_SCHEMA_VERSION = 1;
 
+/** Minimum spacing between progress-only writes (see updateProgress). */
+const PROGRESS_WRITE_INTERVAL_MS = 1000;
+const lastProgressWriteAt: Record<string, number> = {};
+
 export type DownloadStatus =
   | 'queued'
   | 'starting'
@@ -314,7 +318,20 @@ export const useDownloadsStore = create<DownloadState>()(
         });
       },
 
+      // Progress is the hottest write in the app: the native downloader
+      // emits every 500ms and each call used to produce a brand-new
+      // `downloads` map — which means a full JSON.stringify + MMKV write of
+      // EVERY download record plus a re-render of every subscriber
+      // (Player, Downloads, syncService, each Downloader row). Coalescing to
+      // one write per second halves that with no visible cost: completion,
+      // pause and error all go through their own actions below and are
+      // never throttled.
       updateProgress: (id, downloaded, total, speed) => {
+        const now = Date.now();
+        if (now - (lastProgressWriteAt[id] || 0) < PROGRESS_WRITE_INTERVAL_MS) {
+          return;
+        }
+        lastProgressWriteAt[id] = now;
         set(state => {
           const item = state.downloads[id];
           if (!item) {

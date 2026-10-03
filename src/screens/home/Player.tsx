@@ -632,6 +632,25 @@ const Player = ({ route }: Props): React.JSX.Element => {
     ? syncedContinueWatching?.updatedAt || 0
     : 0;
 
+  // The three progress values below are derived from continueWatchingStore —
+  // the very store this effect writes to. Keeping them in the effect's deps
+  // made every 5s progress save re-run it and issue a SECOND upsert (a full
+  // persist serialization + an HTTP POST) for a tick that had already been
+  // saved. Read them through a ref instead so only identity/episode changes
+  // re-run the effect.
+  const syncedProgressRef = useRef({
+    matches: false,
+    position: 0,
+    duration: 0,
+    updatedAt: 0,
+  });
+  syncedProgressRef.current = {
+    matches: syncedEpisodeMatches,
+    position: syncedPosition,
+    duration: syncedDuration,
+    updatedAt: syncedUpdatedAt,
+  };
+
   useEffect(() => {
     if (
       !syncReady ||
@@ -644,12 +663,11 @@ const Player = ({ route }: Props): React.JSX.Element => {
       return;
     }
     const cachedProgress = readCachedProgress(activeEpisode.link);
-    const position = syncedEpisodeMatches
-      ? syncedPosition
+    const synced = syncedProgressRef.current;
+    const position = synced.matches
+      ? synced.position
       : cachedProgress.position;
-    const duration = syncedEpisodeMatches
-      ? syncedDuration
-      : cachedProgress.duration;
+    const duration = synced.matches ? synced.duration : cachedProgress.duration;
     upsertContinueWatching({
       id: continueWatchingId,
       title: route.params.primaryTitle,
@@ -662,7 +680,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
       infoUrl: route.params.infoUrl,
       position,
       duration,
-      updatedAt: syncedUpdatedAt || (position > 0 ? Date.now() : 0),
+      updatedAt: synced.updatedAt || (position > 0 ? Date.now() : 0),
     });
   }, [
     activeEpisode,
@@ -675,10 +693,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
     route.params.secondaryTitle,
     route.params.type,
     syncReady,
-    syncedDuration,
     syncedEpisodeMatches,
-    syncedPosition,
-    syncedUpdatedAt,
     upsertContinueWatching,
   ]);
 
@@ -706,7 +721,30 @@ const Player = ({ route }: Props): React.JSX.Element => {
     [handleProgress],
   );
 
-  const downloads = useDownloadsStore(state => state.downloads);
+  // Select ONLY the matching download's skip intervals, not the whole map.
+  // `downloads` used to be subscribed wholesale, so every download progress
+  // write re-rendered this ~3000-line screen (2×/second), re-ran the memo
+  // below and handed <VideoPlayer> a brand-new `source` object. The `skip`
+  // reference survives the progress spread and never changes mid-playback,
+  // so this selector resolves to a stable value and never fires.
+  const downloadSkips = useDownloadsStore(state => {
+    const matched = Object.values(state.downloads).find(
+      d =>
+        (activeEpisode?.id && d.id === activeEpisode.id) ||
+        (activeEpisode?.link &&
+          (d.filePath === activeEpisode.link ||
+            d.url === activeEpisode.link ||
+            d.sourceLink === activeEpisode.link)) ||
+        (activeEpisode?.sourceLink &&
+          (d.sourceLink === activeEpisode.sourceLink ||
+            d.url === activeEpisode.sourceLink ||
+            d.filePath === activeEpisode.sourceLink)) ||
+        (selectedStream?.link &&
+          (d.filePath === selectedStream.link ||
+            d.url === selectedStream.link)),
+    );
+    return matched?.skip;
+  });
 
   // Combined skip intervals from episode, direct links, stream, downloads, and cache
   const combinedSkips: SkipInterval[] = useMemo(() => {
@@ -757,25 +795,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
     }
 
     // Check downloadsStore for matching download item with skip intervals
-    const allDownloadsList = Object.values(downloads);
-    const matchedDownload = allDownloadsList.find(
-      d =>
-        (activeEpisode?.id && d.id === activeEpisode.id) ||
-        (activeEpisode?.link &&
-          (d.filePath === activeEpisode.link ||
-            d.url === activeEpisode.link ||
-            d.sourceLink === activeEpisode.link)) ||
-        (activeEpisode?.sourceLink &&
-          (d.sourceLink === activeEpisode.sourceLink ||
-            d.url === activeEpisode.sourceLink ||
-            d.filePath === activeEpisode.sourceLink)) ||
-        (selectedStream?.link &&
-          (d.filePath === selectedStream.link ||
-            d.url === selectedStream.link)),
-    );
-    if (matchedDownload?.skip) {
-      addSkips(matchedDownload.skip);
-    }
+    addSkips(downloadSkips);
 
     // Check cacheStorage if no skips found yet
     if (list.length === 0) {
@@ -789,31 +809,34 @@ const Player = ({ route }: Props): React.JSX.Element => {
       addSkips(cached);
     }
 
-    const sorted = list.sort((a, b) => a.from - b.from);
-
-    // Save to cache for future offline / download playback if skips exist
-    if (sorted.length > 0) {
-      const episodeKey = getEpisodeIdentity(activeEpisode);
-      cacheSkips(
-        [
-          activeEpisode?.link,
-          activeEpisode?.sourceLink,
-          activeEpisodeKey,
-          episodeKey ? `${continueWatchingId}:${episodeKey}` : undefined,
-        ],
-        sorted,
-      );
-    }
-
-    return sorted;
+    return list.sort((a, b) => a.from - b.from);
   }, [
     activeEpisode,
     activeEpisodeKey,
     continueWatchingId,
-    downloads,
+    downloadSkips,
     selectedStream,
     (route.params as any)?.linkList,
   ]);
+
+  // Persist resolved skips in an effect, NOT inside the memo above: the
+  // memo used to write 4 synchronous MMKV keys straight from the render
+  // phase, and re-ran on every download progress write while video played.
+  useEffect(() => {
+    if (combinedSkips.length === 0) {
+      return;
+    }
+    const episodeKey = getEpisodeIdentity(activeEpisode);
+    cacheSkips(
+      [
+        activeEpisode?.link,
+        activeEpisode?.sourceLink,
+        activeEpisodeKey,
+        episodeKey ? `${continueWatchingId}:${episodeKey}` : undefined,
+      ],
+      combinedSkips,
+    );
+  }, [combinedSkips, activeEpisode, activeEpisodeKey, continueWatchingId]);
 
   // Currently active skip interval based on playback position
   const activeSkip = useMemo(() => {

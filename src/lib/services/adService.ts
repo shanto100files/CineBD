@@ -18,6 +18,9 @@ export interface AppAds {
 let cachedAds: AppAds | null = null;
 let lastFetch = 0;
 const CACHE_TTL = 5 * 60 * 1000;
+// In-flight dedupe: several screens call useAppAds/useAdultAds in the same
+// mount, and each used to fire its own request for the same payload.
+let inFlightAds: Promise<AppAds> | null = null;
 
 export const normalizeAppAds = (data: unknown): AppAds => {
   const source = (data && typeof data === 'object' ? data : {}) as Partial<
@@ -76,11 +79,23 @@ export function useAppAds() {
       return;
     }
     try {
-      const res = await axios.get(`${API_BASE}/ads`, {timeout: 10000});
-      const data = normalizeAppAds(res.data);
-      cachedAds = data;
-      lastFetch = Date.now();
-      setAds(data);
+      if (!inFlightAds) {
+        inFlightAds = (async () => {
+          const res = await axios.get(`${API_BASE}/ads`, {
+            timeout: 10000,
+            // Same key every other cinepix.top endpoint requires; without it
+            // the request can 403 and ads silently come back empty.
+            headers: {'X-App-Key': '78a0e573dfd894d443685159b2e71e2f'},
+          });
+          const data = normalizeAppAds(res.data);
+          cachedAds = data;
+          lastFetch = Date.now();
+          return data;
+        })().finally(() => {
+          inFlightAds = null;
+        });
+      }
+      setAds(await inFlightAds);
     } catch {}
   }, []);
 

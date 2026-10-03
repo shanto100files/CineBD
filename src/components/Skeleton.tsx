@@ -28,18 +28,19 @@ const SkeletonLoader = ({
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const startShimmer = () => {
-      Animated.loop(
-        Animated.timing(animatedValue, {
-          toValue: 1,
-          duration: 1500,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-      ).start();
-    };
-
-    startShimmer();
+    // Capture the loop so it can be stopped: it used to be created and
+    // forgotten, so every unmounted skeleton kept an infinite animation
+    // (and its Animated node) alive for the lifetime of the app.
+    const shimmer = Animated.loop(
+      Animated.timing(animatedValue, {
+        toValue: 1,
+        duration: 1500,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    shimmer.start();
+    return () => shimmer.stop();
   }, [animatedValue]);
 
   const lightColors = ['#E0E0E0', '#F5F5F5', '#E0E0E0'];

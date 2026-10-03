@@ -210,6 +210,28 @@ const getOriginalLinkIndex = <T extends {link: string}>(
   return originalIndex >= 0 ? originalIndex : fallbackIndex;
 };
 
+/**
+ * Parsed watch-progress for an episode row, memoised on the RAW MMKV string.
+ * `JSON.parse` used to run once per row render; now it only repeats when the
+ * stored value itself changed.
+ */
+const watchProgressCache = new Map<string, {raw: string; parsed: any}>();
+const getWatchProgress = (link: string) => {
+  const raw = cacheStorage.getString(link) || '{}';
+  const hit = watchProgressCache.get(link);
+  if (hit && hit.raw === raw) {
+    return hit.parsed;
+  }
+  let parsed: any = {};
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = {};
+  }
+  watchProgressCache.set(link, {raw, parsed});
+  return parsed;
+};
+
 const SeasonList: React.FC<SeasonListProps> = ({
   LinkList = [],
   poster,
@@ -490,9 +512,12 @@ const SeasonList: React.FC<SeasonListProps> = ({
     return links;
   }, [isMovieQualityMode, allQualitiesSelected, allMergedDirectLinks, activeSeason?.directLinks, activeSeasonGroup, searchText, sortOrder, activeEpType]);
 
-  // Memoized completion checker
+  // Memoized completion checker. Every row render used to do an MMKV read +
+  // a fresh JSON.parse, and rows re-render often (each mounted Downloader, the
+  // sticky menu, search). Cache by raw string: the parse is only repeated when
+  // the stored payload actually changes.
   const isCompleted = useCallback((link: string) => {
-    const watchProgress = JSON.parse(cacheStorage.getString(link) || '{}');
+    const watchProgress = getWatchProgress(link);
     const percentage =
       (watchProgress?.position / watchProgress?.duration) * 100;
     return percentage > 85;
@@ -538,7 +563,6 @@ const SeasonList: React.FC<SeasonListProps> = ({
           return;
         }
 
-        console.log('Available Streams Count:', streams.length);
         setExternalPlayerStreams([...streams]);
         setIsLoadingStreams(false);
         setVlcLoading(false);
@@ -1406,8 +1430,14 @@ const SeasonList: React.FC<SeasonListProps> = ({
             data={filteredAndSortedEpisodes}
             keyExtractor={(item, index) => `episode-${item.link}-${index}`}
             renderItem={renderEpisodeItem}
-            maxToRenderPerBatch={10}
-            windowSize={10}
+            // Info nests this list inside an empty FlatList's header, so it
+            // gets an UNBOUNDED height: windowSize/removeClippedSubviews
+            // cannot prune anything and every row eventually mounts. Keeping
+            // the first paint small at least stops the screen-open burst —
+            // the rest arrives in batches instead of all at once.
+            initialNumToRender={6}
+            maxToRenderPerBatch={8}
+            windowSize={5}
             removeClippedSubviews={true}
           />
         )}
@@ -1419,8 +1449,9 @@ const SeasonList: React.FC<SeasonListProps> = ({
               data={filteredAndSortedDirectLinks}
               keyExtractor={(item, index) => `direct-${item.link}-${index}`}
               renderItem={renderDirectLinkItem}
-              maxToRenderPerBatch={10}
-              windowSize={10}
+              initialNumToRender={6}
+              maxToRenderPerBatch={8}
+              windowSize={5}
               removeClippedSubviews={true}
             />
           </View>
@@ -1601,4 +1632,4 @@ const SeasonList: React.FC<SeasonListProps> = ({
   );
 };
 
-export default SeasonList;
+export default React.memo(SeasonList);

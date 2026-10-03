@@ -7,7 +7,7 @@ import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {FlatList, RefreshControl, View} from 'react-native';
 import {trackContent} from '../../lib/services/analyticsService';
-import {normalizeAppAds} from '../../lib/services/adService';
+import {useAppAds} from '../../lib/services/adService';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import AdBox from '../../components/AdBox';
 import {HomeStackParamList, TabStackParamList} from '../../App';
@@ -43,7 +43,10 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   const installedProviders = useContentStore(state => state.installedProviders);
   const addItem = useWatchListStore(state => state.addItem);
   const removeItem = useWatchListStore(state => state.removeItem);
-  const {isPremium} = useAuthStore();
+  // Selector, not `const {isPremium} = useAuthStore()` — Info renders the
+  // whole episode tree, so a whole-store subscription re-renders every
+  // mounted row on any auth/token/profile write.
+  const isPremium = useAuthStore(s => s.isPremium);
   // Ad WebViews are expensive on low-RAM phones: unmount them while the
   // Player screen is on top so video playback gets the full device resources.
   const isScreenFocused = useIsFocused();
@@ -91,22 +94,14 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   const imageAccentRequest = useRef(0);
   const [statusBarScrimVisible, setStatusBarScrimVisible] = useState(false);
   const dynamicInfoAccentEnabled = settingsStorage.isDynamicInfoAccentEnabled();
-  const [appAds, setAppAds] = useState<{enabled: boolean; web_url: string; top: string; bottom: string}>({enabled: false, web_url: '', top: '', bottom: ''});
 
   // Ad boxes are handled by AdBox: fully inert — impressions count on load,
   // every navigation inside the box is cancelled, nothing opens externally.
 
-  useEffect(() => {
-    fetch('https://cinepix.top/api/app/ads', {headers: {'X-App-Key': '78a0e573dfd894d443685159b2e71e2f'}})
-      .then(r => {
-        if (!r.ok) {
-          throw new Error(`ads request failed: ${r.status}`);
-        }
-        return r.json();
-      })
-      .then(d => setAppAds(normalizeAppAds(d)))
-      .catch(() => {});
-  }, []);
+  // Use adService's 5-minute cached fetch. This used to hit
+  // /api/app/ads with a raw fetch on EVERY Info mount — no cache, no
+  // dedupe, and a set-state that could land after unmount.
+  const appAds = useAppAds();
   const contentProviderName = useMemo(
     () =>
       installedProviders.find(item => item.value === providerValue)
@@ -197,6 +192,19 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   }, [colors, imageAccent]);
 
   const webUrl = info?.webUrl?.trim();
+  // Stable identity for SeasonList's poster prop. As a fresh object literal
+  // on every Info render it defeated React.memo(SeasonList), so the whole
+  // episode tree re-rendered whenever the scroll scrim toggled or an ad/meta
+  // query landed.
+  const seasonPoster = useMemo(
+    () => ({
+      logo: displayLogo,
+      poster: posterImage,
+      background: backgroundImage,
+    }),
+    [displayLogo, posterImage, backgroundImage],
+  );
+
   const filteredLinkList = useMemo(() => {
     if (!info?.linkList) {
       return [];
@@ -396,11 +404,7 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                       refreshVersion={refreshVersion}
                       providerValue={providerValue}
                       LinkList={filteredLinkList}
-                      poster={{
-                        logo: displayLogo,
-                        poster: posterImage,
-                        background: backgroundImage,
-                      }}
+                      poster={seasonPoster}
                       type={info?.type || 'series'}
                       metaTitle={displayTitle}
                       imdbId={info?.imdbId}
@@ -432,7 +436,10 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
             }
             ListFooterComponent={<View style={{height: 110}} />}
             onScroll={handleScroll}
-            scrollEventThrottle={16}
+            // 16 = a JS scroll callback every frame (60/s). The only
+            // consumer flips one boolean at a 12px threshold, so 16x
+            // cheaper callbacks lose nothing.
+            scrollEventThrottle={64}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl

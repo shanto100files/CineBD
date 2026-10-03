@@ -17,8 +17,6 @@ export const useContentInfo = (link: string, providerValue: string) => {
   const query = useQuery({
     queryKey: ['contentInfo', link, providerValue],
     queryFn: async () => {
-      console.log('Fetching content info for:', link);
-
       const data = await providerManager.getMetaData({
         link,
         provider: providerValue,
@@ -67,7 +65,6 @@ export const useEnhancedMetadata = (
   const query = useQuery({
     queryKey: ['enhancedMeta', imdbId, type],
     queryFn: async () => {
-      console.log('Fetching enhanced metadata for:', imdbId);
       try {
         // Validate imdbId and type
         if (!imdbId || !type) {
