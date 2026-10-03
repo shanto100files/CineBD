@@ -1,4 +1,4 @@
-import {SafeAreaView, RefreshControl, View, Pressable, InteractionManager, ActivityIndicator, ToastAndroid} from 'react-native';
+import {SafeAreaView, RefreshControl, View, Pressable, InteractionManager, ActivityIndicator, ToastAndroid, FlatList} from 'react-native';
 import Slider from '../../components/Slider';
 import SponsoredBrowser from '../../components/SponsoredBrowser';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -27,7 +27,7 @@ import ProviderDrawer from '../../components/ProviderDrawer';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {HomeStackParamList} from '../../App';
 import {Drawer} from 'react-native-drawer-layout';
-import {GestureHandlerRootView, ScrollView} from 'react-native-gesture-handler';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {providerManager} from '../../lib/services/ProviderManager';
 import {extensionManager} from '../../lib/services/ExtensionManager';
 import {Catalog} from '../../lib/providers/types';
@@ -44,6 +44,16 @@ import WelcomePopup from '../../components/WelcomePopup';
 import {markHomeReady} from '../../lib/bootSignal';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'Home'>;
+
+/**
+ * One virtualized row of the home feed: a content slider, an interleaved ad
+ * slot, or a loading skeleton. The row carries its own element so the list
+ * renderer stays a trivial pass-through.
+ */
+interface HomeRow {
+  key: string;
+  node: React.ReactNode;
+}
 
 // 18+ profile mid-feed ad slots: one creative after every second content
 // slider, capped so low-RAM phones never carry too many ad WebViews at
@@ -283,26 +293,30 @@ const Home = (_props: Props) => {
   // Sections that have not landed yet. Rendered AFTER the real rows so a
   // slider that has loaded is never yanked back into a skeleton when the next
   // one arrives — the screen fills top-down instead of flipping wholesale.
-  const pendingSkeletons = useMemo(() => {
+  const pendingSkeletons = useMemo<HomeRow[]>(() => {
     if (!isFetching) {
-      return null;
+      return [];
     }
     const loaded = new Set(homeData.map(s => s.filter));
+    // Key by catalog filter, not position: each skeleton disappears as its
+    // real section lands, and index keys would remount every remaining one.
     return skeletonCatalog
       .filter(item => !loaded.has(item.filter))
-      .map((item, index) => (
-        <Slider
-          isLoading={true}
-          key={`loading-${item.filter}-${index}`}
-          title={item.title}
-          posts={[]}
-          filter={item.filter}
-        />
-      ));
+      .map(item => ({
+        key: `loading-${item.filter}`,
+        node: (
+          <Slider
+            isLoading={true}
+            title={item.title}
+            posts={[]}
+            filter={item.filter}
+          />
+        ),
+      }));
   }, [isFetching, homeData, skeletonCatalog]);
 
   const preferredLang = settingsStorage.getPreferredLanguage();
-  const contentSliders = useMemo(() => {
+  const contentSliderRows = useMemo<HomeRow[]>(() => {
     // Key by content identity, not index. Index keys remounted ENTIRE rows
     // whenever the array reshuffled: the warm cache paints the full list,
     // then a refetch's partial publishes collapse it back down and rebuild
@@ -310,31 +324,35 @@ const Home = (_props: Props) => {
     // re-requested mid-load. Only a genuinely duplicated identity falls back
     // to the index.
     const seen = new Set<string>();
-    return homeData
+    const rows: HomeRow[] = [];
+    homeData
       .filter(item => item.Posts && item.Posts.length > 0)
-      .map((item, index) => {
+      .forEach((item, index) => {
         let posts = item.Posts;
         if (preferredLang && preferredLang !== 'All') {
           const lower = preferredLang.toLowerCase();
           const filtered = posts.filter((p: any) => p.title && p.title.toLowerCase().includes(lower));
           if (filtered.length > 0) posts = filtered;
         }
-        if (posts.length === 0) return null;
+        if (posts.length === 0) return;
         const base = `content-${item.provider || provider?.value}-${item.filter}-${item.title}`;
         const key = seen.has(base) ? `${base}-${index}` : base;
         seen.add(base);
-        return (
-          <Slider
-            isLoading={false}
-            key={key}
-            title={item.title}
-            posts={posts}
-            filter={item.filter}
-            providerValue={item.provider}
-          />
-        );
-      })
-      .filter(Boolean);
+        rows.push({
+          key,
+          node: (
+            <Slider
+              isLoading={false}
+              key={key}
+              title={item.title}
+              posts={posts}
+              filter={item.filter}
+              providerValue={item.provider}
+            />
+          ),
+        });
+      });
+    return rows;
   }, [homeData, preferredLang, provider?.value]);
 
   // Memoized error message - only show if there is no cached data and an error occurred
@@ -358,6 +376,222 @@ const Home = (_props: Props) => {
       </View>
     );
   }, [error, isLoading, homeData.length]);
+
+  // Interleave the 18+ mid-feed slots between content rows, then append the
+  // loading skeletons — all as entries of the SAME list so none of them cost
+  // an eagerly-mounted subtree.
+  const homeRows = useMemo<HomeRow[]>(() => {
+    const rows: HomeRow[] = [...contentSliderRows];
+    contentSliderRows.forEach((slider, index) => {
+      if (
+        showMidAds &&
+        (index + 1) % MID_AD_EVERY === 0 &&
+        Math.floor(index / MID_AD_EVERY) < MAX_MID_ADS
+      ) {
+        rows.push({
+          key: `${slider.key}:midad`,
+          node: (
+            <View style={{marginHorizontal: 14, marginBottom: 16}}>
+              <AppText
+                role="labelSmallEmphasized"
+                style={{
+                  color: colors.onSurfaceVariant,
+                  marginBottom: 4,
+                  marginLeft: 4,
+                  opacity: 0.8,
+                }}>
+                ১৮+ প্রোফাইল বিজ্ঞাপন
+              </AppText>
+              <View
+                style={{
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  height: MID_AD_HEIGHT,
+                }}>
+                <AdBox
+                  content={adultAd}
+                  height={MID_AD_HEIGHT}
+                  clickable
+                  onSelectTarget={handleAdTarget}
+                />
+              </View>
+            </View>
+          ),
+        });
+      }
+    });
+    for (const skeleton of pendingSkeletons) {
+      rows.push(skeleton);
+    }
+    return rows;
+  }, [
+    contentSliderRows,
+    pendingSkeletons,
+    showMidAds,
+    adultAd,
+    colors,
+    handleAdTarget,
+  ]);
+
+  const renderHomeRow = useCallback(
+    ({item}: {item: HomeRow}) => (
+      <View className="relative z-20">{item.node}</View>
+    ),
+    [],
+  );
+
+  // Hoisted so an unrelated state flip (drawer, scrim, focus) does not rebuild
+  // the header/footer subtrees; FlatList bails out when the element reference
+  // it was handed is unchanged.
+  const homeHeader = useMemo(
+    () => (
+      <>
+        <View>
+          <HeroOptimized
+            isDrawerOpen={isDrawerOpen}
+            onOpenDrawer={handleOpenDrawer}
+            disableDrawer={disableDrawer}
+          />
+
+          {/* Overlap strip floating over the hero's bottom edge */}
+          <View style={{marginTop: -34, marginHorizontal: 14, zIndex: 30}}>
+            <HeroStrip
+              posts={heroPool}
+              activeLink={hero?.link || ''}
+              onSelect={item => setHero(item as any)}
+            />
+          </View>
+        </View>
+
+        <ContinueWatching />
+
+        <FriendsActivityRow />
+
+        {isLoading && provider?.value ? (
+          <View
+            style={{
+              marginHorizontal: 14,
+              marginTop: 8,
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              backgroundColor: colors.surfaceContainer,
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <AppText
+              style={{
+                color: colors.onSurfaceVariant,
+                fontSize: 12.5,
+                marginLeft: 10,
+                flex: 1,
+              }}>
+              {activeProfile()?.name
+                ? `${activeProfile()?.name} প্রোফাইল • ${provider.display_name || provider.value} থেকে লোড হচ্ছে...`
+                : `${provider.display_name || provider.value} থেকে লোড হচ্ছে...`}
+            </AppText>
+          </View>
+        ) : null}
+
+        {!isPremium && homeAds.enabled && homeAds.top && isScreenFocused ? (
+          <View style={{marginHorizontal: 14, marginTop: 8}}>
+            <AppText
+              role="labelSmallEmphasized"
+              style={{color: colors.onSurfaceVariant, marginBottom: 4, marginLeft: 4, opacity: 0.8}}>
+              এড এটিকে এড়িয়ে চলুন
+            </AppText>
+            <View style={{borderRadius: 12, overflow: 'hidden', height: 80}}>
+              <AdBox content={homeAds.top} height={80} />
+            </View>
+          </View>
+        ) : null}
+      </>
+    ),
+    [
+      isDrawerOpen,
+      handleOpenDrawer,
+      disableDrawer,
+      heroPool,
+      hero,
+      setHero,
+      isLoading,
+      provider,
+      activeProfile,
+      colors,
+      isPremium,
+      homeAds,
+      isScreenFocused,
+    ],
+  );
+
+  const homeFooter = useMemo(
+    () => (
+      <>
+        <View className="relative z-20 pb-8">{errorComponent}</View>
+
+        <View className="h-8" />
+
+        {!isPremium && homeAds.enabled && homeAds.bottom && isScreenFocused ? (
+          <View style={{marginHorizontal: 14, marginBottom: 16}}>
+            <AppText
+              role="labelSmallEmphasized"
+              style={{color: colors.onSurfaceVariant, marginBottom: 4, marginLeft: 4, opacity: 0.8}}>
+              এড এটিকে এড়িয়ে চলুন
+            </AppText>
+            <View style={{borderRadius: 12, overflow: 'hidden', height: 150}}>
+              <AdBox content={homeAds.bottom} height={150} />
+            </View>
+          </View>
+        ) : null}
+
+        {adultAd && isScreenFocused ? (
+          <View style={{marginHorizontal: 14, marginBottom: 16}}>
+            <AppText
+              role="labelSmallEmphasized"
+              style={{color: colors.onSurfaceVariant, marginBottom: 4, marginLeft: 4, opacity: 0.8}}>
+              ১৮+ প্রোফাইল বিজ্ঞাপন
+            </AppText>
+            <View style={{borderRadius: 12, overflow: 'hidden', height: 170}}>
+              <AdBox
+                content={adultAd}
+                height={170}
+                clickable
+                onSelectTarget={handleAdTarget}
+              />
+            </View>
+            {!isPremium && (
+              <Pressable
+                onPress={() => {
+                  try {
+                    navigationRef.dispatch(
+                      CommonActions.navigate('TabStack', {
+                        screen: 'SettingsStack',
+                        params: {screen: 'Premium'} as never,
+                      }),
+                    );
+                  } catch {}
+                }}
+                style={{marginTop: 8, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12}}>
+                <AppText style={{color: colors.primary, fontSize: 12, fontWeight: '700'}}>
+                  ⭐ প্রিমিয়াম নিন — বিজ্ঞাপনমুক্ত দেখুন
+                </AppText>
+              </Pressable>
+            )}
+          </View>
+        ) : null}
+      </>
+    ),
+    [
+      errorComponent,
+      isPremium,
+      homeAds,
+      isScreenFocused,
+      adultAd,
+      colors,
+      handleAdTarget,
+    ],
+  );
 
   const [autoInstalling, setAutoInstalling] = useState(false);
 
@@ -684,7 +918,12 @@ const Home = (_props: Props) => {
             }>
             <StatusBar style="light" />
 
-            <ScrollView
+            <FlatList
+              data={homeRows}
+              keyExtractor={item => item.key}
+              renderItem={renderHomeRow}
+              ListHeaderComponent={homeHeader}
+              ListFooterComponent={homeFooter}
               onScroll={handleScroll}
               // The handler only flips one boolean — there is no need to push
               // 60 events/sec across the bridge for it. 64ms still makes the
@@ -692,7 +931,13 @@ const Home = (_props: Props) => {
               // during a scroll gesture.
               scrollEventThrottle={64}
               showsVerticalScrollIndicator={false}
-              className="bg-m3-background"
+              // Window small on purpose: ~16 sliders x ~10 posters plus the ad
+              // WebViews mounted at once was the whole Home jank budget on
+              // low-RAM Android. A miss costs a cheap in-batch fill on scroll.
+              initialNumToRender={5}
+              maxToRenderPerBatch={3}
+              windowSize={5}
+              updateCellsBatchingPeriod={60}
               contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}
               refreshControl={
                 <RefreshControl
@@ -702,158 +947,8 @@ const Home = (_props: Props) => {
                   refreshing={manualRefreshing}
                   onRefresh={handleRefresh}
                 />
-              }>
-              <View>
-                <HeroOptimized
-                  isDrawerOpen={isDrawerOpen}
-                  onOpenDrawer={handleOpenDrawer}
-                  disableDrawer={disableDrawer}
-                />
-
-                {/* Overlap strip floating over the hero's bottom edge */}
-                <View style={{marginTop: -34, marginHorizontal: 14, zIndex: 30}}>
-                  <HeroStrip
-                    posts={heroPool}
-                    activeLink={hero?.link || ''}
-                    onSelect={item => setHero(item as any)}
-                  />
-                </View>
-              </View>
-
-              <ContinueWatching />
-
-              <FriendsActivityRow />
-
-              {isLoading && provider?.value ? (
-                <View
-                  style={{
-                    marginHorizontal: 14,
-                    marginTop: 8,
-                    paddingVertical: 10,
-                    paddingHorizontal: 14,
-                    borderRadius: 12,
-                    backgroundColor: colors.surfaceContainer,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                  }}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <AppText
-                    style={{
-                      color: colors.onSurfaceVariant,
-                      fontSize: 12.5,
-                      marginLeft: 10,
-                      flex: 1,
-                    }}>
-                    {activeProfile()?.name
-                      ? `${activeProfile()?.name} প্রোফাইল • ${provider.display_name || provider.value} থেকে লোড হচ্ছে...`
-                      : `${provider.display_name || provider.value} থেকে লোড হচ্ছে...`}
-                  </AppText>
-                </View>
-              ) : null}
-
-              {!isPremium && homeAds.enabled && homeAds.top && isScreenFocused ? (
-                <View style={{marginHorizontal: 14, marginTop: 8}}>
-                  <AppText
-                    role="labelSmallEmphasized"
-                    style={{color: colors.onSurfaceVariant, marginBottom: 4, marginLeft: 4, opacity: 0.8}}>
-                    এড এটিকে এড়িয়ে চলুন
-                  </AppText>
-                  <View style={{borderRadius: 12, overflow: 'hidden', height: 80}}>
-                    <AdBox content={homeAds.top} height={80} />
-                  </View>
-                </View>
-              ) : null}
-
-              <View className="relative z-20 pb-8">
-                {contentSliders.map((slider, index) => (
-                    <React.Fragment key={`section-${index}`}>
-                      {slider}
-                      {showMidAds &&
-                      (index + 1) % MID_AD_EVERY === 0 &&
-                      Math.floor(index / MID_AD_EVERY) < MAX_MID_ADS ? (
-                        <View style={{marginHorizontal: 14, marginBottom: 16}}>
-                          <AppText
-                            role="labelSmallEmphasized"
-                            style={{
-                              color: colors.onSurfaceVariant,
-                              marginBottom: 4,
-                              marginLeft: 4,
-                              opacity: 0.8,
-                            }}>
-                            ১৮+ প্রোফাইল বিজ্ঞাপন
-                          </AppText>
-                          <View
-                            style={{
-                              borderRadius: 12,
-                              overflow: 'hidden',
-                              height: MID_AD_HEIGHT,
-                            }}>
-                            <AdBox
-                              content={adultAd}
-                              height={MID_AD_HEIGHT}
-                              clickable
-                              onSelectTarget={handleAdTarget}
-                            />
-                          </View>
-                        </View>
-                      ) : null}
-                    </React.Fragment>
-                  ))}
-                {pendingSkeletons}
-                {errorComponent}
-              </View>
-
-              <View className="h-8" />
-
-              {!isPremium && homeAds.enabled && homeAds.bottom && isScreenFocused ? (
-                <View style={{marginHorizontal: 14, marginBottom: 16}}>
-                  <AppText
-                    role="labelSmallEmphasized"
-                    style={{color: colors.onSurfaceVariant, marginBottom: 4, marginLeft: 4, opacity: 0.8}}>
-                    এড এটিকে এড়িয়ে চলুন
-                  </AppText>
-                  <View style={{borderRadius: 12, overflow: 'hidden', height: 150}}>
-                    <AdBox content={homeAds.bottom} height={150} />
-                  </View>
-                </View>
-              ) : null}
-
-              {adultAd && isScreenFocused ? (
-                <View style={{marginHorizontal: 14, marginBottom: 16}}>
-                  <AppText
-                    role="labelSmallEmphasized"
-                    style={{color: colors.onSurfaceVariant, marginBottom: 4, marginLeft: 4, opacity: 0.8}}>
-                    ১৮+ প্রোফাইল বিজ্ঞাপন
-                  </AppText>
-                  <View style={{borderRadius: 12, overflow: 'hidden', height: 170}}>
-                    <AdBox
-                      content={adultAd}
-                      height={170}
-                      clickable
-                      onSelectTarget={handleAdTarget}
-                    />
-                  </View>
-                  {!isPremium && (
-                    <Pressable
-                      onPress={() => {
-                        try {
-                          navigationRef.dispatch(
-                            CommonActions.navigate('TabStack', {
-                              screen: 'SettingsStack',
-                              params: {screen: 'Premium'} as never,
-                            }),
-                          );
-                        } catch {}
-                      }}
-                      style={{marginTop: 8, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12}}>
-                      <AppText style={{color: colors.primary, fontSize: 12, fontWeight: '700'}}>
-                        ⭐ প্রিমিয়াম নিন — বিজ্ঞাপনমুক্ত দেখুন
-                      </AppText>
-                    </Pressable>
-                  )}
-                </View>
-              ) : null}
-            </ScrollView>
+              }
+            />
           </Drawer>
         </SafeAreaView>
         <SponsoredBrowser url={adTarget} onClose={() => setAdTarget(null)} />
