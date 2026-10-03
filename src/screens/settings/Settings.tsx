@@ -72,24 +72,43 @@ const Settings = ({navigation}: Props) => {
   const [tvAdultSaving, setTvAdultSaving] = useState(false);
   // Set while the 18+ PIN setup/unlock screen is open; resolved on focus-return.
   const pendingAdultEnable = useRef(false);
+  // Disabling needs the SAME challenge as enabling. The row's own description
+  // promises "পিন সেট আছে — 18+ চালু/বন্ধ করতে পিন লাগবে", but the disable
+  // branch used to write straight to storage, so anyone who picked the phone
+  // up could turn 18+ off (and back on, via the now-open gate) unprompted.
+  const pendingAdultDisable = useRef(false);
   // Unlock timestamp captured BEFORE the lock screen opened: on focus return,
   // the unlock counts only if the timestamp advanced (i.e. a successful fresh
   // authentication happened). A cancelled prompt keeps the old timestamp and
   // does NOT enable 18+ — even if the 15-min session was still fresh.
   const unlockedAtBeforePrompt = useRef(0);
   useEffect(() => {
-    if (!isFocused || !pendingAdultEnable.current) return;
+    if (!isFocused) return;
+    if (!pendingAdultEnable.current && !pendingAdultDisable.current) return;
+    const wasEnable = pendingAdultEnable.current;
     pendingAdultEnable.current = false;
+    pendingAdultDisable.current = false;
     const {isAdultLockOpen, markUnlocked, getUnlockedAt} = require('../../lib/adultLock');
     const unlockedNow = isAdultLockOpen() && getUnlockedAt() > unlockedAtBeforePrompt.current;
     if (unlockedNow) {
       // Re-stamp so the 15-min session window starts from the focus return.
       markUnlocked();
-      settingsStorage.setAdultEnabled(true);
-      setAdultEnabled(true);
-      ToastAndroid.show('18+ content enabled', ToastAndroid.SHORT);
+      if (wasEnable) {
+        settingsStorage.setAdultEnabled(true);
+        setAdultEnabled(true);
+        ToastAndroid.show('18+ content enabled', ToastAndroid.SHORT);
+      } else {
+        settingsStorage.setAdultEnabled(false);
+        setAdultEnabled(false);
+        ToastAndroid.show('18+ content hidden', ToastAndroid.SHORT);
+      }
     } else {
-      ToastAndroid.show('18+ চালু হয়নি — পিন/ফিঙ্গারপ্রিন্ট দিয়ে আনলক করুন', ToastAndroid.LONG);
+      ToastAndroid.show(
+        wasEnable
+          ? '18+ চালু হয়নি — পিন/ফিঙ্গারপ্রিন্ট দিয়ে আনলক করুন'
+          : '18+ বন্ধ হয়নি — পিন/ফিঙ্গারপ্রিন্ট দিয়ে আনলক করুন',
+        ToastAndroid.LONG,
+      );
     }
   }, [isFocused]);
 
@@ -699,6 +718,18 @@ const Settings = ({navigation}: Props) => {
               divider={false}
               onPress={() => {
                 if (adultEnabled) {
+                  // Mirror the enable path: a PIN without a live session must
+                  // be presented before the gate can be dropped. A session
+                  // that is still fresh counts as proven (same 15-min TTL the
+                  // enable branch honours), so toggling back and forth right
+                  // after an unlock does not nag.
+                  const {isAdultPinSet, isAdultLockOpen, getUnlockedAt} = require('../../lib/adultLock');
+                  if (isAdultPinSet() && !isAdultLockOpen()) {
+                    unlockedAtBeforePrompt.current = getUnlockedAt();
+                    pendingAdultDisable.current = true;
+                    require('../../App').openAdultLock({mode: 'unlock'});
+                    return;
+                  }
                   settingsStorage.setAdultEnabled(false);
                   setAdultEnabled(false);
                   ToastAndroid.show('18+ content hidden', ToastAndroid.SHORT);

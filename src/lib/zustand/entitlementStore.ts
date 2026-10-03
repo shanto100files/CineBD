@@ -199,13 +199,27 @@ export const useEntitlementStore = create<EntitlementState>((set, get) => ({
       }
     } catch {}
     if (admin) return candidates;
+    // Profile-aware 18+ gate, mirroring gatedInstalled(). applyTo() is the
+    // gate that decides which providers the home pipeline may FETCH, so it
+    // must be able to drop adult entries too — the age gate used to be
+    // enforced only on the *installed* list, and any caller passing its own
+    // candidates bypassed it.
+    try {
+      if (!isAdultAllowedForActiveProfile()) {
+        candidates = candidates.filter(p => !(p as any).is_adult);
+      }
+    } catch {}
+    // NO "empty result -> hand back everything" fallback. Both branches below
+    // used to invert into fail-OPEN: a restricted account whose allow-list
+    // matched nothing installed (and an open-catalog account whose only
+    // candidates were `selected`) silently received the whole catalog. The
+    // candidates already come from gatedInstalled(), so a non-empty result is
+    // the normal case; an empty one now means "nothing granted", correctly.
     if (allowed === null) {
       // Anonymous or open-catalog account: only self-selectable providers.
-      const open = candidates.filter(p => p.access_mode !== 'selected');
-      return open.length > 0 ? open : candidates;
+      return candidates.filter(p => p.access_mode !== 'selected');
     }
-    const filtered = candidates.filter(p => allowed.includes(p.value));
-    return filtered.length > 0 ? filtered : candidates;
+    return candidates.filter(p => allowed.includes(p.value));
   },
 }));
 

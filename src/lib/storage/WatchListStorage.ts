@@ -81,6 +81,20 @@ export class WatchListStorage {
   }
 
   /**
+   * Replace the whole list in one shot (optionally in a profile scope).
+   *
+   * Exists for shared-folder sync: it used to write `WatchListKeys.WATCH_LIST`
+   * directly through `mainStorage`, i.e. the LEGACY scopeless bucket, which is
+   * neither the key this class reads for an active profile nor the one the
+   * store persists to. Anything that installs remote items must go through the
+   * same scope the rest of the watchlist stack uses.
+   */
+  setWatchList(list: WatchListItem[], scope?: string): WatchListItem[] {
+    this.writeKey(this.keyFor(scope), list);
+    return list;
+  }
+
+  /**
    * Clear all items from the watchlist (optionally in a profile scope).
    */
   clearWatchList(scope?: string): WatchListItem[] {

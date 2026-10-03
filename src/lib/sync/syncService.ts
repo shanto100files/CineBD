@@ -1,7 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import {settingsStorage} from '../storage';
 import {
-  WatchListKeys,
   watchListStorage,
   type WatchListItem,
 } from '../storage/WatchListStorage';
@@ -15,7 +14,10 @@ import {
 import useContinueWatchingStore, {
   type ContinueWatchingItem,
 } from '../zustand/continueWatchingStore';
-import useWatchListStore from '../zustand/watchListStore';
+import useWatchListStore, {
+  activeWatchScope,
+  reloadWatchListForProfile,
+} from '../zustand/watchListStore';
 import {getSafEntryName, isSafDownloadLocation} from '../downloadLocation';
 import {
   getTombstoneKey,
@@ -39,6 +41,56 @@ const DEVICE_ID_KEY = 'vega-sync-device-id';
 const REVISION_KEY = 'vega-sync-revision';
 const TOMBSTONES_KEY = 'vega-sync-tombstones';
 const HISTORY_KEY = 'vega-sync-history';
+
+/**
+ * Profile scope for everything in this service that is NOT downloads.
+ *
+ * Downloads are account/device-level, but the watchlist and the continue-
+ * watching history are per-profile (`watchlist:pf:<id>`, `cw:pf:<id>`). This
+ * service used to read/write them through scopeless keys, so the shared
+ * folder kept feeding one profile's rows into another's.
+ */
+const activeScope = (): string => {
+  try {
+    return activeWatchScope();
+  } catch {
+    return '';
+  }
+};
+
+/**
+ * Bucket for the sync-history blob — per profile, mirroring the other stores.
+ *
+ * It was a single global key, so `applyRemoteHistory` (and every `setState`
+ * the persist middleware flushes) stamped ALL profiles' rows into whichever
+ * profile happened to be active, permanently.
+ *
+ * The legacy global blob is claimed ONCE: the first active profile copies it
+ * into its own bucket and the global key is deleted, so existing users keep
+ * their data without every profile created afterwards inheriting the same
+ * snapshot forever.
+ */
+const historyKeyFor = (scope: string): string =>
+  scope ? `${HISTORY_KEY}:pf:${scope}` : HISTORY_KEY;
+
+let legacyHistoryMigrated = false;
+const getHistoryKey = (): string => {
+  const scope = activeScope();
+  if (scope && !legacyHistoryMigrated) {
+    legacyHistoryMigrated = true;
+    const key = historyKeyFor(scope);
+    if (!mainStorage.contains(key)) {
+      const legacy = mainStorage.getString(HISTORY_KEY);
+      if (legacy) {
+        mainStorage.setString(key, legacy);
+        mainStorage.delete(HISTORY_KEY);
+      }
+    }
+    return key;
+  }
+  return historyKeyFor(scope);
+};
+
 const PUBLISH_DELAY_MS = 1000;
 
 let initialized = false;
@@ -153,7 +205,7 @@ const toSyncedHistory = (item: ContinueWatchingItem): SyncedHistory => ({
 });
 
 const getLocalHistory = (): Record<string, SyncedHistory> =>
-  mainStorage.getObject<Record<string, SyncedHistory>>(HISTORY_KEY) || {};
+  mainStorage.getObject<Record<string, SyncedHistory>>(getHistoryKey()) || {};
 
 const saveLocalHistory = (history: Record<string, SyncedHistory>) => {
   const limited = Object.fromEntries(
@@ -161,7 +213,7 @@ const saveLocalHistory = (history: Record<string, SyncedHistory>) => {
       .sort(([, a], [, b]) => b.updatedAt - a.updatedAt)
       .slice(0, MAX_SYNC_HISTORY_ITEMS),
   );
-  mainStorage.setObject(HISTORY_KEY, limited);
+  mainStorage.setObject(getHistoryKey(), limited);
   return limited;
 };
 
@@ -187,7 +239,7 @@ const buildManifest = (): VegaSyncManifest => {
   );
   const watchlist = Object.fromEntries(
     watchListStorage
-      .getWatchList()
+      .getWatchList(activeScope())
       .map(item => [item.link, toSyncedWatchListItem(item)]),
   );
   const history = mergeContinueWatchingIntoHistory(
@@ -403,8 +455,13 @@ const applyRemoteWatchList = (
   const items = Object.values(watchlist).sort(
     (a, b) => a.updatedAt - b.updatedAt,
   );
-  mainStorage.setArray(WatchListKeys.WATCH_LIST, items);
-  useWatchListStore.setState({watchList: items});
+  // Scope-consistent write + reload. This used to poke the LEGACY scopeless
+  // key through mainStorage and then overwrite the store's state, so the
+  // active profile's real bucket (`watchlist:pf:<id>`) got replaced by a list
+  // assembled from a *different* bucket — an empty local bucket (default
+  // profile uses the scoped key) meant every local save was wiped here.
+  watchListStorage.setWatchList(items, activeScope());
+  reloadWatchListForProfile();
 };
 
 const applyTombstones = (tombstones: Record<string, SyncTombstone>) => {
@@ -469,7 +526,7 @@ const runSharedFolderSync = async (): Promise<void> => {
   }
   previousDownloads = useDownloadsStore.getState().downloads;
   previousHistory = useContinueWatchingStore.getState().items;
-  previousWatchList = watchListStorage.getWatchList();
+  previousWatchList = watchListStorage.getWatchList(activeScope());
   await publishSyncManifest();
 };
 
@@ -485,10 +542,16 @@ export const syncFromSharedFolder = (): Promise<void> => {
 export const initializeSyncService = async (): Promise<void> => {
   if (!initialized) {
     initialized = true;
+    // The two list stores are profile-scoped, so a profile switch presents as
+    // "every id vanished" to the tombstone diff below. Track the scope each
+    // subscription last saw and re-baseline across a switch instead of
+    // tombstoning the previous profile's rows into the shared manifest.
+    let historyScope = activeScope();
+    let watchScope = activeScope();
     previousDownloads = useDownloadsStore.getState().downloads;
     previousHistory = useContinueWatchingStore.getState().items;
     mergeContinueWatchingIntoHistory(previousHistory);
-    previousWatchList = watchListStorage.getWatchList();
+    previousWatchList = watchListStorage.getWatchList(watchScope);
     useDownloadsStore.subscribe(state => {
       if (applyingRemoteState) {
         previousDownloads = state.downloads;
@@ -507,11 +570,19 @@ export const initializeSyncService = async (): Promise<void> => {
       schedulePublish();
     });
     useContinueWatchingStore.subscribe(state => {
+      const scope = activeScope();
+      const scopeChanged = scope !== historyScope;
+      historyScope = scope;
       if (applyingRemoteState) {
         previousHistory = state.items;
         return;
       }
       mergeContinueWatchingIntoHistory(state.items);
+      if (scopeChanged) {
+        previousHistory = state.items;
+        schedulePublish();
+        return;
+      }
       const currentContentIds = new Set(state.items.map(item => item.id));
       const previousContentIds = new Set(previousHistory.map(item => item.id));
       const trimmedAtCapacity =
@@ -534,8 +605,19 @@ export const initializeSyncService = async (): Promise<void> => {
       schedulePublish();
     });
     useWatchListStore.subscribe(state => {
+      const scope = activeScope();
+      const scopeChanged = scope !== watchScope;
+      watchScope = scope;
       if (applyingRemoteState) {
-        previousWatchList = watchListStorage.getWatchList();
+        previousWatchList = watchListStorage.getWatchList(scope);
+        return;
+      }
+      if (scopeChanged) {
+        // previousWatchList is the OTHER profile's list: those items are not
+        // deletions, and tombstoning them would erase them for good on the
+        // next publish.
+        previousWatchList = watchListStorage.getWatchList(scope);
+        schedulePublish();
         return;
       }
       const currentLinks = new Set(state.watchList.map(item => item.link));
@@ -544,7 +626,7 @@ export const initializeSyncService = async (): Promise<void> => {
           addTombstone('watchlist', item.link);
         }
       }
-      previousWatchList = watchListStorage.getWatchList();
+      previousWatchList = watchListStorage.getWatchList(scope);
       schedulePublish();
     });
   }

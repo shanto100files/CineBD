@@ -95,6 +95,24 @@ export class ProviderManager {
       console.warn('Adult gate check failed:', error);
       return false;
     }
+    // Entitlement gate, enforcing the exact rule applyTo() applies when the
+    // home list is built. It lives here as well so that a provider arriving
+    // from anywhere else (route param, deep link, stale cache, hand-built
+    // list) still cannot run module code the account was never granted.
+    // Unknown entitlement (allowed === null) stays permissive, which is the
+    // same "not hydrated yet" behaviour gatedInstalled() has.
+    try {
+      const {useEntitlementStore} = require('../zustand/entitlementStore');
+      const {useAuthStore} = require('../zustand/authStore');
+      const {allowed, isAdmin} = useEntitlementStore.getState();
+      const admin = isAdmin || !!useAuthStore.getState()?.user?.is_admin;
+      if (!admin && allowed !== null && !allowed.includes(providerValue)) {
+        return false;
+      }
+    } catch (error) {
+      console.warn('Entitlement gate check failed:', error);
+      return false;
+    }
     return true;
   }
 

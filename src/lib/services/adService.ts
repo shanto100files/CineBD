@@ -2,6 +2,7 @@ import {useState, useEffect, useCallback, useMemo} from 'react';
 import axios from 'axios';
 import {useProfileStore} from '../zustand/profileStore';
 import {settingsStorage} from '../storage';
+import {profileCanShowAdult} from '../adultLock';
 
 const API_BASE = 'https://cinepix.top/api/app';
 
@@ -45,14 +46,13 @@ export function useAdultAds() {
   return useMemo(() => {
     let adultProfile = false;
     try {
-      const profile = activeProfile();
-      if (profile?.kind === 'family') {
-        adultProfile = false;
-      } else if (profile?.providers) {
-        adultProfile = profile.providers.length > 0;
-      } else {
-        adultProfile = adultEnabled;
-      }
+      // Reuse the lock layer's own predicate. This used to re-implement "is
+      // this profile adult" as `providers.length > 0`, so ANY curated
+      // (non-family) profile counted as adult and got the direct-link adult
+      // creative — exactly the heuristic adultLock.ts documents as wrong.
+      // profileCanShowAdult instead checks whether the set really lists an
+      // `is_adult` provider, and falls back to the device toggle.
+      adultProfile = profileCanShowAdult(activeProfile(), adultEnabled);
     } catch {
       adultProfile = adultEnabled;
     }

@@ -20,6 +20,7 @@ import {
   clearAdultLock,
   getUnlockedAt,
   hasBiometricHardware,
+  isAdultLockOpen,
   isAdultPinSet,
   isBiometricEnabled,
   markUnlocked,
@@ -85,6 +86,37 @@ export default function AdultLockScreen() {
   // retry hint instead of looking dead.
   const [bioFailed, setBioFailed] = useState(false);
 
+  // SECURITY: the management panel (change PIN / remove lock) must sit behind
+  // a LIVE unlock session. It used to open on `isAdultPinSet()` alone, so a
+  // child could walk into Settings → "18+ লক" and change or delete the PIN
+  // without ever being challenged. `justUnlocked` records an authentication
+  // that happened in place on this screen: isAdultLockOpen() is a plain
+  // getter, so without a state mirror React would not re-render to reveal the
+  // panel after finishUnlock() — and finishUnlock no longer navigates away
+  // for this mode (see below).
+  const [justUnlocked, setJustUnlocked] = useState(false);
+  const panelOpen =
+    startMode === 'settings' && pinSet && (isAdultLockOpen() || justUnlocked);
+  // The fingerprint button belongs on every authentication surface — unlock
+  // and the (locked) settings panel alike, not unlock alone.
+  const showBiometric =
+    (startMode === 'unlock' || startMode === 'settings') && pinSet;
+
+  // The 15-minute TTL is only evaluated when this screen renders, so an idle
+  // session would leave the management controls usable long after it expired.
+  // Tick twice a minute and collapse the panel back to the PIN pad.
+  useEffect(() => {
+    if (startMode !== 'settings') {
+      return;
+    }
+    const id = setInterval(() => {
+      if (!isAdultLockOpen()) {
+        setJustUnlocked(false);
+      }
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [startMode]);
+
   // Set while a programmatic navigation from finishUnlock is in flight; the
   // blur handler must not treat that navigation as "user walked away" (it
   // used to clear the fresh unlock, which re-locked Settings instantly).
@@ -130,6 +162,14 @@ export default function AdultLockScreen() {
     // Stamp AFTER setActive: switching profiles clears the unlock session
     // by design, and this fresh unlock must survive its own deferred switch.
     markUnlocked();
+    // Settings mode authenticates IN PLACE: reveal the management panel right
+    // here instead of popping back to the row the user just tapped (which
+    // would make every visit a two-tap round trip).
+    if (startMode === 'settings' && targetId === undefined) {
+      setPin('');
+      setJustUnlocked(true);
+      return;
+    }
     // Only the profile-switch unlock resets to Home. The PLAIN unlock (no
     // switchProfile) is the "enable 18+" flow started from Settings/Home:
     // those callers wait for focus-return with pendingAdultEnable to flip
@@ -229,10 +269,18 @@ export default function AdultLockScreen() {
     setPin('');
     setBusy(false);
     setBioFailed(false);
+    setJustUnlocked(false);
     setStage('enter');
     setFirstPin('');
     hasBiometricHardware().then(setBioAvailable);
-    if (startMode === 'unlock' && pinSet && isBiometricEnabled() && getUnlockedAt() === 0) {
+    // Settings mode is the same authentication as unlock (it just resolves
+    // into the panel instead of goBack), so it gets the biometric prompt too.
+    if (
+      (startMode === 'unlock' || startMode === 'settings') &&
+      pinSet &&
+      isBiometricEnabled() &&
+      getUnlockedAt() === 0
+    ) {
       (async () => {
         await tryBiometric();
       })();
@@ -243,6 +291,15 @@ export default function AdultLockScreen() {
   const submitPin = useCallback(
     async (entered: string) => {
       if (startMode === 'setup') {
+        // Fail closed: enrolling a PIN over an EXISTING one must never happen
+        // without a live unlock session. mode:'setup' is also what the
+        // change-PIN row pushes, so a stale route or a bypassed settings
+        // panel can never silently replace the PIN.
+        if (isAdultPinSet() && !isAdultLockOpen()) {
+          ToastAndroid.show('পুরনো পিন দিয়ে আগে আনলক করুন', ToastAndroid.LONG);
+          setPin('');
+          return;
+        }
         if (stage === 'enter') {
           if (!/^\d{4,8}$/.test(entered)) {
             ToastAndroid.show(`${ADULT_PIN_MIN}-${ADULT_PIN_MAX} ডিজিটের পিন দিন`, ToastAndroid.SHORT);
@@ -304,6 +361,13 @@ export default function AdultLockScreen() {
   const pressBackspace = () => setPin(p => p.slice(0, -1));
 
   const removeLock = () => {
+    // Destructive action: re-check the session at press time rather than
+    // trusting the render-time gate (the panel can outlive a short TTL).
+    if (!isAdultLockOpen()) {
+      ToastAndroid.show('পিন দিয়ে আগে আনলক করুন', ToastAndroid.LONG);
+      setJustUnlocked(false);
+      return;
+    }
     showAppDialog({
       title: '18+ লক সরাবেন?',
       message: 'পিন মুছে যাবে এবং 18+ শুধু এজ-গেট দিয়ে নিয়ন্ত্রিত হবে।',
@@ -323,17 +387,21 @@ export default function AdultLockScreen() {
     });
   };
 
-  const title =
-    startMode === 'setup'
+  // When the settings panel is still locked the screen IS an unlock prompt,
+  // so it must not advertise itself as the management page.
+  const title = panelOpen
+    ? '18+ লক সেটিংস'
+    : startMode === 'setup'
       ? stage === 'enter'
         ? '18+ পিন সেট করুন'
         : 'পিন আবার দিন'
-      : startMode === 'settings'
-        ? '18+ লক সেটিংস'
-        : '18+ আনলক করুন';
+      : '18+ আনলক করুন';
 
   // ---------------- settings mode ----------------
-  if (startMode === 'settings' && pinSet) {
+  // panelOpen, not `startMode === 'settings' && pinSet`: without the session
+  // check the panel (and its change-PIN / remove-lock rows) was reachable
+  // with no authentication at all.
+  if (panelOpen) {
     return (
       <ScrollView style={{flex: 1, backgroundColor: colors.background}} contentContainerStyle={{padding: 20}}>
         <AppText role="headlineSmallEmphasized" style={{color: colors.onSurface, marginBottom: 14}}>
@@ -489,7 +557,7 @@ export default function AdultLockScreen() {
 
       {/* Fingerprint as a real button. It used to be a bare 40px glyph with a
           label under it — nothing signalled "tap me". */}
-      {startMode === 'unlock' && pinSet && bioOn && bioAvailable && (
+      {showBiometric && bioOn && bioAvailable && (
         <View style={{alignItems: 'center', marginTop: 2}}>
           <Pressable
             disabled={busy}
@@ -518,7 +586,7 @@ export default function AdultLockScreen() {
           </AppText>
         </View>
       )}
-      {startMode === 'unlock' && pinSet && bioOn && !bioAvailable && (
+      {showBiometric && bioOn && !bioAvailable && (
         <AppText
           style={{
             color: colors.onSurfaceVariant,
