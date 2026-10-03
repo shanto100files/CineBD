@@ -104,9 +104,41 @@ async function checkKillSwitch(): Promise<{blocked: boolean; shutdown?: boolean;
 export async function initializeApp(
   onProgress: (p: InitProgress) => void,
 ): Promise<{forceUpdate?: boolean; blocked?: boolean; reason?: string}> {
+  // Splash progress must never jump backwards. With the engine warm-up now
+  // overlapping the security checks, either side can reach a milestone first.
+  let furthestProgress = 0;
+  const report = (p: InitProgress) => {
+    if (p.progress < furthestProgress) {
+      return;
+    }
+    furthestProgress = p.progress;
+    onProgress(p);
+  };
+
   try {
-    onProgress({progress: 5, status: 'Verifying session...'});
-    onProgress({progress: 15, status: 'Checking for updates...'});
+    report({progress: 5, status: 'Verifying session...'});
+    report({progress: 15, status: 'Checking for updates...'});
+
+    // Warm the provider engine CONCURRENTLY with the kill-switch/force-update
+    // checks. They used to run strictly in series, so every cold start paid
+    // for two network round-trips AND the manifest + auto-install one after
+    // another — all of it landing on the splash screen.
+    const engine = (async () => {
+      report({progress: 30, status: 'Initializing engine...'});
+      // Cache-aware, NOT forced. The old `fetchManifest(undefined, true)`
+      // re-downloaded the whole manifest on EVERY launch, ignoring the 24h
+      // cache this very function then re-checks in initialize(). A warm cache
+      // now answers without touching the network; expiry and auth changes are
+      // still honoured by initialize().
+      try {
+        await withTimeout(extensionManager.fetchManifest(), 10000);
+      } catch {}
+      report({progress: 60, status: 'Loading providers...'});
+      try {
+        await withTimeout(extensionManager.initialize(), 10000);
+      } catch {}
+    })().catch(() => {});
+
     const [check, forceUpdateNeeded] = await Promise.all([
       checkKillSwitch(),
       checkForceUpdateOnly(),
@@ -123,15 +155,8 @@ export async function initializeApp(
     }
 
     // Normal Initialization
-    onProgress({progress: 30, status: 'Initializing engine...'});
-    try {
-      await withTimeout(extensionManager.fetchManifest(undefined, true), 10000);
-    } catch {}
-
-    onProgress({progress: 60, status: 'Loading providers...'});
-    try {
-      await withTimeout(extensionManager.initialize(), 10000);
-    } catch {}
+    await engine;
+    report({progress: 85, status: 'Loading providers...'});
 
     // 18+ gating: hide adult providers unless the age gate was passed.
     // PROFILE-AWARE: a family profile always blocks adult content.
@@ -166,7 +191,7 @@ export async function initializeApp(
       });
     }
 
-    onProgress({progress: 100, status: 'Ready!'});
+    report({progress: 100, status: 'Ready!'});
     return { forceUpdate: false };
   } catch (err: any) {
     console.error('Init critical failure:', err);
@@ -176,10 +201,16 @@ export async function initializeApp(
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error('timeout')), ms),
-    ),
-  ]);
+  // Clear the timer when whichever side wins settles: racing an un-cleared
+  // timeout leaves a pending 10s timer (and a later rejection nobody needs)
+  // behind on every single cold start.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timeout')), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  });
 }

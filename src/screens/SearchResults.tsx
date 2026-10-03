@@ -1,4 +1,5 @@
-import {SafeAreaView, View, ScrollView, Pressable, useWindowDimensions} from 'react-native';
+import {SafeAreaView, View, Pressable, useWindowDimensions} from 'react-native';
+import {FlashList} from '@shopify/flash-list';
 import MediaPosterCard from '../components/MediaPosterCard';
 import React, {useEffect, useState, useRef, useCallback, useMemo} from 'react';
 import {NativeStackScreenProps, NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -34,7 +35,11 @@ type Props = NativeStackScreenProps<SearchStackParamList, 'SearchResults'>;
 
 const CACHE_KEY_PREFIX = 'search_cache_';
 const CACHE_TTL = 5 * 60 * 1000;
-const CONCURRENCY = 2;
+// Matches the bounded concurrency Home rows use (4). At 2, wall-clock search
+// time was double what it needed to be across the provider set.
+const CONCURRENCY = 4;
+const GRID_COLUMNS = 3;
+const GRID_GAP = 12;
 
 // Cache is keyed per active profile so switching profiles never serves
 // another profile's result set.
@@ -120,14 +125,24 @@ const NSFW_REGEX = /\b(porn|xxx|sex|nude|naked|erotic|adult|18\+|uncensored|hent
 
 function filterPosts(posts: Post[], query: string): Post[] {
   const q = query.toLowerCase().trim();
+  if (!q) return posts;
   const words = q.split(/\s+/).filter(Boolean);
+  // Score only against words that CAN score. The denominator used to be every
+  // word while only words of 3+ chars were ever counted as a hit, so a short
+  // token ("4k", "hd", "3d", "ki") pushed the 60% threshold past the highest
+  // achievable score — e.g. "hd movie" needed 2 hits but only "movie" could
+  // ever match, blanking the whole result list for that query.
+  const scorable = words.filter(w => w.length > 2);
   return posts.filter(p => {
-    if (!q) return true;
     const title = (p.title || '').toLowerCase();
-    const fullMatch = title.includes(q);
-    if (fullMatch) return true;
-    const wordMatches = words.filter(w => w.length > 2 && title.includes(w)).length;
-    return wordMatches >= Math.ceil(words.length * 0.6);
+    if (title.includes(q)) return true;
+    if (scorable.length === 0) {
+      // Nothing long enough to score — fall back to any-token matching so a
+      // query like "4k" still returns results instead of nothing.
+      return words.some(w => title.includes(w));
+    }
+    const matched = scorable.filter(w => title.includes(w)).length;
+    return matched >= Math.max(1, Math.ceil(scorable.length * 0.6));
   });
 }
 
@@ -422,7 +437,15 @@ const SearchResults = ({route}: Props): React.ReactElement => {
       }
     };
 
-    run();
+    // Not awaited: the effect returns the abort cleanup synchronously. A
+    // rejection here would otherwise be an unhandled promise rejection AND
+    // leave the spinner up forever, since setLoading(false) lives inside run().
+    run().catch(err => {
+      console.warn('SearchResults: search failed', err);
+      if (!signal.aborted) {
+        setLoading(false);
+      }
+    });
 
     return () => {
       if (abortController.current) {
@@ -453,20 +476,27 @@ const SearchResults = ({route}: Props): React.ReactElement => {
 
   const totalVisible = filteredPosts.length;
 
-  const renderGrid = (posts: Post[]) => (
-    <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 12}}>
-      {posts.map((item, index) => (
-        <MediaPosterCard
-          key={keyExtractor(item, index)}
-          title={item.title}
-          poster={item.image}
-          width={cardWidth}
-          badge={getPostBadge(item)}
-          seasonBadge={getSeasonBadge(item)}
-          durationBadge={item.duration}
-          onPress={() => handleItemPress(item)}
-        />
-      ))}
+  // 3-column poster grid. This used to map EVERY result into a wrapping View
+  // inside a ScrollView, so a few hundred hits mounted hundreds of poster
+  // components (and fired their image requests) at once. FlashList recycles
+  // them, so only the visible rows are alive.
+  const renderGridItem = ({item, index}: {item: Post; index: number}) => (
+    <View
+      style={{
+        // Same geometry as the old `gap: 12` wrap: 16px container padding plus
+        // these gutters leaves exactly cardWidth per column.
+        paddingRight: index % GRID_COLUMNS !== GRID_COLUMNS - 1 ? GRID_GAP : 0,
+        paddingBottom: GRID_GAP,
+      }}>
+      <MediaPosterCard
+        title={item.title}
+        poster={item.image}
+        width={cardWidth}
+        badge={getPostBadge(item)}
+        seasonBadge={getSeasonBadge(item)}
+        durationBadge={item.duration}
+        onPress={() => handleItemPress(item)}
+      />
     </View>
   );
 
@@ -554,6 +584,39 @@ const SearchResults = ({route}: Props): React.ReactElement => {
       </View>
     ) : null;
 
+  const listFooter = !loading && filteredPosts.length > 0 ? (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Load more results from all providers"
+      onPress={loadDeeper}
+      disabled={deepLoading}
+      style={{
+        alignSelf: 'center',
+        marginTop: 16,
+        marginBottom: 8,
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        borderRadius: 999,
+        backgroundColor: colors.surfaceContainerHighest,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+      }}>
+      {deepLoading ? (
+        <LoadingIndicator size={16} />
+      ) : (
+        <MaterialCommunityIcons
+          name="plus-circle-outline"
+          size={16}
+          color={colors.onSurfaceVariant}
+        />
+      )}
+      <AppText style={{color: colors.onSurfaceVariant, fontWeight: '600', fontSize: 13}}>
+        {deepLoading ? 'Loading...' : 'Load more from providers'}
+      </AppText>
+    </Pressable>
+  ) : null;
+
   return (
     <SafeAreaView className="h-full w-full bg-m3-background">
       <View className="mt-6 px-4">
@@ -588,14 +651,26 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         <View className="flex-1 items-center justify-center">
           <LoadingIndicator size={40} />
         </View>
-      ) : loading && allPosts.length > 0 ? (
-        <ScrollView
-          contentContainerStyle={{paddingHorizontal: 16, paddingTop: 8, paddingBottom: FLOATING_TAB_BAR_RESERVE}}
-          showsVerticalScrollIndicator={false}>
-          {baseFiltered.length > 0 ? renderFilterHeader() : null}
-          {renderGrid(filteredPosts)}
-        </ScrollView>
-      ) : totalVisible === 0 ? (
+      ) : (loading && allPosts.length > 0) || totalVisible > 0 ? (
+        <View style={{flex: 1}}>
+          <FlashList
+            data={filteredPosts}
+            numColumns={GRID_COLUMNS}
+            keyExtractor={keyExtractor}
+            renderItem={renderGridItem}
+            ListHeaderComponent={
+              baseFiltered.length > 0 ? renderFilterHeader() : null
+            }
+            ListFooterComponent={listFooter}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: 8,
+              paddingBottom: FLOATING_TAB_BAR_RESERVE,
+            }}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      ) : (
         <View className="flex-1 items-center justify-center px-8">
           <OfflineFriendlyState onRetry={() => setSearchEpoch(e => e + 1)} />
           {!isOffline ? (
@@ -604,44 +679,6 @@ const SearchResults = ({route}: Props): React.ReactElement => {
             </AppText>
           ) : null}
         </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={{paddingHorizontal: 16, paddingTop: 8, paddingBottom: FLOATING_TAB_BAR_RESERVE}}
-          showsVerticalScrollIndicator={false}>
-          {baseFiltered.length > 0 ? renderFilterHeader() : null}
-          {renderGrid(filteredPosts)}
-          {!loading && filteredPosts.length > 0 ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Load more results from all providers"
-              onPress={loadDeeper}
-              disabled={deepLoading}
-              style={{
-                alignSelf: 'center',
-                marginTop: 16,
-                paddingHorizontal: 24,
-                paddingVertical: 10,
-                borderRadius: 999,
-                backgroundColor: colors.surfaceContainerHighest,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-              }}>
-              {deepLoading ? (
-                <LoadingIndicator size={16} />
-              ) : (
-                <MaterialCommunityIcons
-                  name="plus-circle-outline"
-                  size={16}
-                  color={colors.onSurfaceVariant}
-                />
-              )}
-              <AppText style={{color: colors.onSurfaceVariant, fontWeight: '600', fontSize: 13}}>
-                {deepLoading ? 'Loading...' : 'Load more from providers'}
-              </AppText>
-            </Pressable>
-          ) : null}
-        </ScrollView>
       )}
     </SafeAreaView>
   );

@@ -852,6 +852,11 @@ const App = () => {
     const config = settingsStorage.getDownloadLocationConfig();
     if (config) return;
     let cancelled = false;
+    // Tracked at effect scope: `setup` used to `return () => clearTimeout(...)`
+    // from inside an async function, so the returned cleanup was discarded and
+    // the 1.5s timer kept running past unmount/re-run — firing
+    // setShowDownloadSetup(true) on a stale closure.
+    let dialogTimer: ReturnType<typeof setTimeout> | undefined;
     const setup = async () => {
       try {
         if (await hasAllFilesAccess()) {
@@ -868,14 +873,20 @@ const App = () => {
         }
       } catch {}
       if (!cancelled) {
-        const timer = setTimeout(() => setShowDownloadSetup(true), 1500);
-        return () => clearTimeout(timer);
+        dialogTimer = setTimeout(() => {
+          if (!cancelled) {
+            setShowDownloadSetup(true);
+          }
+        }, 1500);
       }
     };
     const timer = setTimeout(setup, 800);
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      if (dialogTimer) {
+        clearTimeout(dialogTimer);
+      }
     };
   }, [appReady]);
 

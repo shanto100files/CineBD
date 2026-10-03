@@ -65,6 +65,50 @@ export enum ExtensionKeys {
 }
 
 /**
+ * Parsed-MMKV memos for the two arrays on the fetch hot path.
+ *
+ * `PROVIDER_MODULES` stores the FULL JavaScript source of every installed
+ * plugin (hundreds of KB to MBs) and `INSTALLED_PROVIDERS` the whole provider
+ * list. Both used to be JSON-parsed from MMKV on every single read, and
+ * `ProviderManager.getModule()` reads them once PER provider call
+ * (catalog/posts/meta/stream/episodes), so one home refresh reparsed that
+ * blob dozens of times on the main thread.
+ *
+ * Both keys are only ever written through `setArray`/`delete` below, so an
+ * invalidating memo is always in sync with storage. Reads stay defensive:
+ * `getInstalledProviders()` hands out a copy so a caller sorting in place
+ * cannot poison the memo.
+ */
+let installedProvidersMemo: ProviderExtension[] | null = null;
+let providerModulesMemo: ProviderModule[] | null = null;
+
+const readInstalledProviders = (): ProviderExtension[] => {
+  if (!installedProvidersMemo) {
+    installedProvidersMemo =
+      mainStorage.getArray<ProviderExtension>(
+        ExtensionKeys.INSTALLED_PROVIDERS,
+      ) || [];
+  }
+  return installedProvidersMemo;
+};
+
+const readProviderModules = (): ProviderModule[] => {
+  if (!providerModulesMemo) {
+    providerModulesMemo =
+      mainStorage.getArray<ProviderModule>(ExtensionKeys.PROVIDER_MODULES) || [];
+  }
+  return providerModulesMemo;
+};
+
+const invalidateInstalledProviders = () => {
+  installedProvidersMemo = null;
+};
+
+const invalidateProviderModules = () => {
+  providerModulesMemo = null;
+};
+
+/**
  * Extension storage manager
  */
 export class ExtensionStorage {
@@ -211,11 +255,8 @@ export class ExtensionStorage {
    * Get installed providers
    */
   getInstalledProviders(): ProviderExtension[] {
-    return (
-      mainStorage.getArray<ProviderExtension>(
-        ExtensionKeys.INSTALLED_PROVIDERS,
-      ) || []
-    );
+    // Copy, not the memo: callers filter/sort in place and must not poison it.
+    return readInstalledProviders().slice();
   }
 
   /**
@@ -223,6 +264,7 @@ export class ExtensionStorage {
    */
   setInstalledProviders(providers: ProviderExtension[]): void {
     mainStorage.setArray(ExtensionKeys.INSTALLED_PROVIDERS, providers);
+    invalidateInstalledProviders();
   }
 
   /**
@@ -316,10 +358,9 @@ export class ExtensionStorage {
     providerValue: string,
     sourceAuthor?: string,
   ): ProviderModule | undefined {
-    const allModules =
-      mainStorage.getArray<ProviderModule>(ExtensionKeys.PROVIDER_MODULES) ||
-      [];
-    const providerMatches = allModules.filter(m => m.value === providerValue);
+    const providerMatches = readProviderModules().filter(
+      m => m.value === providerValue,
+    );
 
     if (providerMatches.length === 0) {
       return undefined;
@@ -363,9 +404,8 @@ export class ExtensionStorage {
    * Cache provider modules
    */
   cacheProviderModules(modules: ProviderModule): void {
-    const allModules =
-      mainStorage.getArray<ProviderModule>(ExtensionKeys.PROVIDER_MODULES) ||
-      [];
+    // Copy — the memo array is shared and must never be mutated in place.
+    const allModules = readProviderModules().slice();
 
     const existingIndex = allModules.findIndex(
       m =>
@@ -380,20 +420,20 @@ export class ExtensionStorage {
     }
 
     mainStorage.setArray(ExtensionKeys.PROVIDER_MODULES, allModules);
+    invalidateProviderModules();
   }
 
   /**
    * Remove provider modules from cache
    */
   removeProviderModules(providerValue: string, sourceAuthor?: string): void {
-    const allModules =
-      mainStorage.getArray<ProviderModule>(ExtensionKeys.PROVIDER_MODULES) ||
-      [];
+    const allModules = readProviderModules().slice();
 
     const filtered = allModules.filter(
       m => !this.isModuleMatch(m, providerValue, sourceAuthor),
     );
     mainStorage.setArray(ExtensionKeys.PROVIDER_MODULES, filtered);
+    invalidateProviderModules();
   }
 
   /**
@@ -471,6 +511,8 @@ export class ExtensionStorage {
     mainStorage.delete(ExtensionKeys.INSTALLED_PROVIDERS);
     mainStorage.delete(ExtensionKeys.AVAILABLE_PROVIDERS);
     mainStorage.delete(ExtensionKeys.PROVIDER_MODULES);
+    invalidateInstalledProviders();
+    invalidateProviderModules();
     mainStorage.delete(ExtensionKeys.MANIFEST_CACHE);
     mainStorage.delete(ExtensionKeys.LAST_MANIFEST_FETCH);
 
