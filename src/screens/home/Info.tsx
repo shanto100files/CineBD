@@ -5,7 +5,7 @@ import {
 } from '@react-navigation/native-stack';
 import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {FlatList, RefreshControl, View} from 'react-native';
+import {RefreshControl, ScrollView, View} from 'react-native';
 import {trackContent} from '../../lib/services/analyticsService';
 import {useAppAds} from '../../lib/services/adService';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
@@ -325,131 +325,187 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
     );
   }
 
+  /**
+   * The page chrome moves into SeasonList's list header/footer so the screen
+   * has exactly ONE scroller (see SeasonListProps). Each block is memoized on
+   * element identity: SeasonList re-renders on every search/sort/sticky-menu
+   * change, and an unchanged `listHeader` reference lets React bail out of the
+   * whole overview subtree instead of rebuilding it each time.
+   */
+  const listContentStyle = useMemo(
+    () => ({paddingBottom: FLOATING_TAB_BAR_RESERVE}),
+    [],
+  );
+
+  const refreshControlElement = useMemo(
+    () => (
+      <RefreshControl
+        colors={[detailColors.primary]}
+        progressBackgroundColor={detailColors.surfaceContainer}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+      />
+    ),
+    [detailColors, refreshing, handleRefresh],
+  );
+
+  const pageHeader = useMemo(
+    () => (
+      <>
+        <ContentOverview
+          backgroundImage={backgroundImage}
+          genres={meta?.genres}
+          inLibrary={inLibrary}
+          isLoading={isLoading && !info}
+          logo={displayLogo}
+          onBack={navigation.goBack}
+          onOpenStory={
+            info?.tmdbId || info?.imdbId
+              ? () => setStoryVisible(true)
+              : undefined
+          }
+          onOpenWeb={
+            appAds.enabled && appAds.web_url
+              ? () =>
+                  navigation.navigate('Webview', {
+                    link: appAds.web_url,
+                  })
+              : undefined
+          }
+          onSearchTitle={searchTitle}
+          onToggleLibrary={toggleLibrary}
+          onShare={() => setShareVisible(true)}
+          onToggleSynopsis={() => setReadMore(value => !value)}
+          providerName={contentProviderName}
+          rating={meta?.imdbRating || info?.rating}
+          readMore={readMore}
+          runtime={meta?.runtime}
+          synopsis={synopsis}
+          synopsisLoading={isSynopsisLoading}
+          tags={info?.tags}
+          title={displayTitle}
+          trailerUrl={info?.trailerUrl?.trim()}
+          year={meta?.year}
+        />
+        {!isPremium && appAds.enabled && appAds.top && isScreenFocused ? (
+          <View style={{marginHorizontal: 18, marginTop: 16}}>
+            <AppText
+              style={{
+                color: detailColors.onSurfaceVariant,
+                fontSize: 11,
+                fontWeight: '600',
+                letterSpacing: 0.3,
+                marginBottom: 4,
+                marginLeft: 4,
+                opacity: 0.75,
+              }}>
+              এড এটিকে এড়িয়ে চলুন
+            </AppText>
+              <View style={{borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
+                <AdBox content={appAds.top} minHeight={100} />
+              </View>
+          </View>
+        ) : null}
+      </>
+    ),
+    [
+      backgroundImage,
+      meta,
+      inLibrary,
+      isLoading,
+      info,
+      displayLogo,
+      navigation,
+      appAds,
+      searchTitle,
+      toggleLibrary,
+      contentProviderName,
+      synopsis,
+      isSynopsisLoading,
+      readMore,
+      setReadMore,
+      setShareVisible,
+      setStoryVisible,
+      isPremium,
+      isScreenFocused,
+      detailColors,
+    ],
+  );
+
+  const pageFooter = useMemo(
+    () => (
+      <>
+        {!isPremium && appAds.enabled && appAds.bottom && isScreenFocused ? (
+          <View style={{marginHorizontal: 18, marginBottom: 16, marginTop: 16}}>
+            <AppText
+              style={{
+                color: detailColors.onSurfaceVariant,
+                fontSize: 11,
+                fontWeight: '600',
+                letterSpacing: 0.3,
+                marginBottom: 4,
+                marginLeft: 4,
+                opacity: 0.75,
+              }}>
+              এড এটিকে এড়িয়ে চলুন
+            </AppText>
+            <View style={{borderRadius: 12, overflow: 'hidden', minHeight: 100}}>                        <AdBox content={appAds.bottom} minHeight={100} />
+            </View>
+          </View>
+        ) : null}
+        <View style={{height: 110}} />
+      </>
+    ),
+    [isPremium, appAds, isScreenFocused, detailColors],
+  );
+
   return (
     <QueryErrorBoundary>
       <M3PaletteContext.Provider value={detailColors}>
         <View style={{backgroundColor: detailColors.background, flex: 1}}>
           <StatusBarScrim visible={statusBarScrimVisible} />
           <StatusBar style="light" />
-          <FlatList
-            data={[]}
-            keyExtractor={(_, index) => String(index)}
-            renderItem={() => null}
-            contentContainerStyle={{paddingBottom: FLOATING_TAB_BAR_RESERVE}}
-            ListHeaderComponent={
-              <>
-                <ContentOverview
-                  backgroundImage={backgroundImage}
-                  genres={meta?.genres}
-                  inLibrary={inLibrary}
-                  isLoading={isLoading && !info}
-                  logo={displayLogo}
-                  onBack={navigation.goBack}
-                  onOpenStory={
-                    info?.tmdbId || info?.imdbId
-                      ? () => setStoryVisible(true)
-                      : undefined
-                  }
-                  onOpenWeb={
-                    appAds.enabled && appAds.web_url
-                      ? () =>
-                          navigation.navigate('Webview', {
-                            link: appAds.web_url,
-                          })
-                      : undefined
-                  }
-                  onSearchTitle={searchTitle}
-                  onToggleLibrary={toggleLibrary}
-                  onShare={() => setShareVisible(true)}
-                  onToggleSynopsis={() => setReadMore(value => !value)}
-                  providerName={contentProviderName}
-                  rating={meta?.imdbRating || info?.rating}
-                  readMore={readMore}
-                  runtime={meta?.runtime}
-                  synopsis={synopsis}
-                  synopsisLoading={isSynopsisLoading}
-                  tags={info?.tags}
-                  title={displayTitle}
-                  trailerUrl={info?.trailerUrl?.trim()}
-                  year={meta?.year}
-                />
-                {!isPremium && appAds.enabled && appAds.top && isScreenFocused ? (
-                  <View style={{marginHorizontal: 18, marginTop: 16}}>
-                    <AppText
-                      style={{
-                        color: detailColors.onSurfaceVariant,
-                        fontSize: 11,
-                        fontWeight: '600',
-                        letterSpacing: 0.3,
-                        marginBottom: 4,
-                        marginLeft: 4,
-                        opacity: 0.75,
-                      }}>
-                      এড এটিকে এড়িয়ে চলুন
-                    </AppText>
-                      <View style={{borderRadius: 12, overflow: 'hidden', minHeight: 100}}>
-                        <AdBox content={appAds.top} minHeight={100} />
-                      </View>
-                  </View>
-                ) : null}
-                <View style={{paddingHorizontal: 18, paddingTop: 24}}>
-                  {isLoading && !info ? (
-                    <View style={{gap: 12}}>
-                      <SkeletonLoader show height={28} width={120} />
-                      <SkeletonLoader show height={72} width="100%" />
-                    </View>
-                  ) : (
-                    <SeasonList
-                      refreshing={refreshing}
-                      refreshVersion={refreshVersion}
-                      providerValue={providerValue}
-                      LinkList={filteredLinkList}
-                      poster={seasonPoster}
-                      type={info?.type || 'series'}
-                      metaTitle={displayTitle}
-                      imdbId={info?.imdbId}
-                      synopsis={synopsis}
-                      routeParams={route.params}
-                      quickDownload={info?.quickDownload}
-                    />
-                  )}
+          {isLoading && !info ? (
+            <ScrollView
+              style={{flex: 1}}
+              contentContainerStyle={listContentStyle}
+              onScroll={handleScroll}
+              // 16 = a JS scroll callback every frame (60/s). The only
+              // consumer flips one boolean at a 12px threshold, so 16x
+              // cheaper callbacks lose nothing.
+              scrollEventThrottle={64}
+              showsVerticalScrollIndicator={false}
+              refreshControl={refreshControlElement}>
+              {pageHeader}
+              <View style={{paddingHorizontal: 18, paddingTop: 24}}>
+                <View style={{gap: 12}}>
+                  <SkeletonLoader show height={28} width={120} />
+                  <SkeletonLoader show height={72} width="100%" />
                 </View>
-                {!isPremium && appAds.enabled && appAds.bottom && isScreenFocused ? (
-                  <View style={{marginHorizontal: 18, marginBottom: 16, marginTop: 16}}>
-                    <AppText
-                      style={{
-                        color: detailColors.onSurfaceVariant,
-                        fontSize: 11,
-                        fontWeight: '600',
-                        letterSpacing: 0.3,
-                        marginBottom: 4,
-                        marginLeft: 4,
-                        opacity: 0.75,
-                      }}>
-                      এড এটিকে এড়িয়ে চলুন
-                    </AppText>
-                    <View style={{borderRadius: 12, overflow: 'hidden', minHeight: 100}}>                        <AdBox content={appAds.bottom} minHeight={100} />
-                    </View>
-                  </View>
-                ) : null}
-              </>
-            }
-            ListFooterComponent={<View style={{height: 110}} />}
-            onScroll={handleScroll}
-            // 16 = a JS scroll callback every frame (60/s). The only
-            // consumer flips one boolean at a 12px threshold, so 16x
-            // cheaper callbacks lose nothing.
-            scrollEventThrottle={64}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                colors={[detailColors.primary]}
-                progressBackgroundColor={detailColors.surfaceContainer}
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-              />
-            }
-          />
+              </View>
+              {pageFooter}
+            </ScrollView>
+          ) : (
+            <SeasonList
+              refreshing={refreshing}
+              refreshVersion={refreshVersion}
+              providerValue={providerValue}
+              LinkList={filteredLinkList}
+              poster={seasonPoster}
+              type={info?.type || 'series'}
+              metaTitle={displayTitle}
+              imdbId={info?.imdbId}
+              synopsis={synopsis}
+              routeParams={route.params}
+              quickDownload={info?.quickDownload}
+              listHeader={pageHeader}
+              listFooter={pageFooter}
+              onScroll={handleScroll}
+              scrollEventThrottle={64}
+              refreshControl={refreshControlElement}
+              contentContainerStyle={listContentStyle}
+            />
+          )}
           <InfoStoryModal
             fallbackBackdrop={backgroundImage}
             fallbackOverview={synopsis}

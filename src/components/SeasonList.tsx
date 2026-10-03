@@ -13,6 +13,9 @@ import {
   ActivityIndicator,
   ScrollView,
   TextInput,
+  type StyleProp,
+  type ViewStyle,
+  type RefreshControlProps,
 } from 'react-native';
 import {Image} from 'expo-image';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -179,7 +182,33 @@ interface SeasonListProps {
   synopsis?: string;
   refreshVersion?: number;
   quickDownload?: boolean;
+  /**
+   * Info renders its own page chrome (ContentOverview, ad slots) through this
+   * list's header so the screen has exactly ONE scroller. SeasonList used to
+   * sit inside an empty FlatList's header, which gave its episode lists an
+   * UNBOUNDED height — no window setting can prune against an unbounded
+   * viewport, so every row mounted at once and the detail screen hung on open
+   * for long seasons. SeasonList is now the page list instead.
+   */
+  listHeader?: React.ReactNode;
+  listFooter?: React.ReactNode;
+  /** Scroll plumbing forwarded to the list, which is now the page scroller. */
+  onScroll?: (event: any) => void;
+  scrollEventThrottle?: number;
+  refreshControl?: React.ReactElement<RefreshControlProps>;
+  contentContainerStyle?: StyleProp<ViewStyle>;
 }
+
+/**
+ * A row of the single virtualized episode list: an episode, a direct link, or
+ * a fixed-height gap. `index` is the row's position WITHIN its own source
+ * array, because `renderEpisodeItem`/`renderDirectLinkItem` feed it straight
+ * into `getOriginalLinkIndex` and `playHandler`.
+ */
+type SeasonRow =
+  | {kind: 'episode'; key: string; index: number; item: EpisodeLink}
+  | {kind: 'direct'; key: string; index: number; item: any}
+  | {kind: 'gap'; key: string; height: number};
 
 interface PlayHandlerProps {
   linkIndex: number;
@@ -244,6 +273,12 @@ const SeasonList: React.FC<SeasonListProps> = ({
   synopsis,
   refreshVersion,
   quickDownload,
+  listHeader,
+  listFooter,
+  onScroll,
+  scrollEventThrottle,
+  refreshControl,
+  contentContainerStyle,
 }) => {
   const colors = useM3Colors();
   const primary = colors.primary;
@@ -1260,8 +1295,101 @@ const SeasonList: React.FC<SeasonListProps> = ({
     );
   }
 
+  /**
+   * Episodes and direct links flattened into ONE virtualized list. They used
+   * to be two nested FlatLists inside an unbounded header, where no window
+   * setting could prune anything — every row mounted at once.
+   */
+  const listRows = useMemo<SeasonRow[]>(() => {
+    const rows: SeasonRow[] = filteredAndSortedEpisodes.map(
+      (item, index) => ({
+        kind: 'episode' as const,
+        key: `episode-${item.link}-${index}`,
+        index,
+        item,
+      }),
+    );
+    if (filteredAndSortedDirectLinks.length > 0) {
+      if (filteredAndSortedEpisodes.length > 0) {
+        // Stands in for the old `w-full mt-2` wrapper between the two lists.
+        rows.push({kind: 'gap', key: 'direct-gap', height: 8});
+      }
+      filteredAndSortedDirectLinks.forEach((item: any, index: number) => {
+        rows.push({
+          kind: 'direct',
+          key: `direct-${item?.link}-${index}`,
+          index,
+          item,
+        });
+      });
+    }
+    return rows;
+  }, [filteredAndSortedEpisodes, filteredAndSortedDirectLinks]);
+
+  const renderListRow = useCallback(
+    ({item: row}: {item: SeasonRow}) => {
+      if (row.kind === 'gap') {
+        return <View style={{height: row.height}} />;
+      }
+      const inner =
+        row.kind === 'episode'
+          ? renderEpisodeItem({item: row.item, index: row.index})
+          : renderDirectLinkItem({item: row.item, index: row.index});
+      // Info's header used to sit inside a `paddingHorizontal: 18` container;
+      // as list rows they carry that inset themselves.
+      return <View style={{paddingHorizontal: 18}}>{inner}</View>;
+    },
+    [renderEpisodeItem, renderDirectLinkItem],
+  );
+
+  const noContent =
+    filteredAndSortedEpisodes.length === 0 &&
+    filteredAndSortedDirectLinks.length === 0 &&
+    LinkList?.length === 0;
+
   return (
-    <View>
+    <View style={{flex: 1}}>
+      <FlatList
+        style={{flex: 1}}
+        data={listRows}
+        keyExtractor={row => row.key}
+        renderItem={renderListRow}
+        // This IS the page's scroller now, so it gets the viewport it needs to
+        // actually prune rows. Under the old nested-in-a-header layout none of
+        // these settings could do anything: the parent header had no height.
+        initialNumToRender={6}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        // Deliberately OFF even though the old nested lists set it. Against an
+        // unbounded viewport it was a no-op, so it has never actually run on
+        // this screen; flipping it on now would start detaching the header's
+        // native views mid-scroll, which has a long history of blanking
+        // content on Android. windowSize/initialNumToRender already bound the
+        // mount count.
+        removeClippedSubviews={false}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={scrollEventThrottle}
+        refreshControl={refreshControl}
+        contentContainerStyle={contentContainerStyle}
+        ListFooterComponent={
+          <>
+            {noContent ? (
+              <View style={{paddingHorizontal: 18}}>
+                <Text
+                  className="min-h-20 text-lg font-semibold"
+                  style={{color: colors.onSurfaceVariant}}>
+                  No stream found
+                </Text>
+              </View>
+            ) : null}
+            {listFooter}
+          </>
+        }
+        ListHeaderComponent={
+          <>
+            {listHeader}
+            <View style={{paddingHorizontal: 18, paddingTop: 24}}>
       {/* Season Tabs - Dropdown */}
       {autoGroupedSeasons ? (
         <>
@@ -1421,53 +1549,12 @@ const SeasonList: React.FC<SeasonListProps> = ({
           </View>
         );
       })()}
-
-      {/* Episode/Direct Links List */}
-      <View className="w-full mt-3">
-        {/* Episodes List */}
-        {filteredAndSortedEpisodes.length > 0 && (
-          <FlatList
-            data={filteredAndSortedEpisodes}
-            keyExtractor={(item, index) => `episode-${item.link}-${index}`}
-            renderItem={renderEpisodeItem}
-            // Info nests this list inside an empty FlatList's header, so it
-            // gets an UNBOUNDED height: windowSize/removeClippedSubviews
-            // cannot prune anything and every row eventually mounts. Keeping
-            // the first paint small at least stops the screen-open burst —
-            // the rest arrives in batches instead of all at once.
-            initialNumToRender={6}
-            maxToRenderPerBatch={8}
-            windowSize={5}
-            removeClippedSubviews={true}
-          />
-        )}
-
-        {/* Direct Links List */}
-        {filteredAndSortedDirectLinks.length > 0 && (
-          <View className="w-full mt-2">
-            <FlatList
-              data={filteredAndSortedDirectLinks}
-              keyExtractor={(item, index) => `direct-${item.link}-${index}`}
-              renderItem={renderDirectLinkItem}
-              initialNumToRender={6}
-              maxToRenderPerBatch={8}
-              windowSize={5}
-              removeClippedSubviews={true}
-            />
-          </View>
-        )}
-
-        {/* No Content Available */}
-        {filteredAndSortedEpisodes.length === 0 &&
-          filteredAndSortedDirectLinks.length === 0 &&
-          LinkList?.length === 0 && (
-            <Text
-              className="min-h-20 text-lg font-semibold"
-              style={{color: colors.onSurfaceVariant}}>
-              No stream found
-            </Text>
-          )}
-      </View>
+            </View>
+            {/* Stands in for the old `w-full mt-3` wrapper above the lists. */}
+            <View style={{height: 12}} />
+          </>
+        }
+      />
 
       {/* VLC Loading Indicator */}
       {vlcLoading && (
